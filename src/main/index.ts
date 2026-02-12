@@ -1,10 +1,13 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, protocol } from 'electron'
 import { join } from 'path'
+import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getDatabase, closeDatabase } from './db/connection'
 import { EngineManager } from './engine/engine-manager'
 import { TimelineService } from './timeline/timeline-service'
+import { QueueManager } from './queue/queue-manager'
+import { FileManager } from './files/file-manager'
 import { IPC_CHANNELS } from './ipc/channels'
 import { applyActiveProfileUserDataPath } from './profiles'
 import { registerLibraryHandlers } from './ipc/handlers/library'
@@ -13,10 +16,28 @@ import { registerEngineHandlers } from './ipc/handlers/engine'
 import { registerQueueHandlers } from './ipc/handlers/queue'
 import { registerTimelineHandlers } from './ipc/handlers/timeline'
 import { registerSettingsHandlers } from './ipc/handlers/settings'
+import { registerWindowHandlers } from './ipc/handlers/window'
 import { getSetting } from './db/repositories/settings'
+
+// Allow the renderer to load library files via a safe custom protocol.
+// This avoids `file://` restrictions when running the renderer from http:// (dev server).
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'distillery',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true
+    }
+  }
+])
 
 let mainWindow: BrowserWindow | null = null
 let engineManager: EngineManager | null = null
+let queueManager: QueueManager | null = null
+let fileManager: FileManager | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -27,11 +48,8 @@ function createWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#141414',
-      symbolColor: '#adadad',
-      height: 36
-    },
+    // NOTE: We intentionally do NOT use native Windows caption buttons.
+    // We render custom window controls in the renderer so they match app chrome.
     autoHideMenuBar: true,
     backgroundColor: '#1f1f1f',
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -42,6 +60,14 @@ function createWindow(): void {
       sandbox: false,
       webSecurity: true
     }
+  })
+
+  // Forward maximize state so the renderer can swap maximize/restore icons.
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.WINDOW_MAXIMIZED_CHANGED, true)
+  })
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.WINDOW_MAXIMIZED_CHANGED, false)
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -74,6 +100,21 @@ function setupEngineEventForwarding(engine: EngineManager): void {
   })
 }
 
+function setupQueueEventForwarding(queue: QueueManager): void {
+  queue.on('updated', () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.QUEUE_UPDATED, queue.getItems())
+  })
+
+  queue.on('result', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_RESULT, event)
+    mainWindow?.webContents.send(IPC_CHANNELS.QUEUE_UPDATED, queue.getItems())
+  })
+
+  queue.on('libraryUpdated', () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+  })
+}
+
 // =============================================================================
 // App Lifecycle
 // =============================================================================
@@ -99,18 +140,71 @@ app.whenReady().then(async () => {
   timelineService.initialize()
   console.log('[Main] Timeline service initialized')
 
+  // Initialize file manager (library root)
+  const libraryRoot = getSetting(db, 'library_root')
+  fileManager = new FileManager(libraryRoot)
+  console.log(`[Main] File manager initialized (library_root: ${libraryRoot})`)
+
+  // Register distillery:// protocol for loading library files in the renderer.
+  // URL format: distillery://library/<relative-path>
+  protocol.registerFileProtocol('distillery', (request, callback) => {
+    if (!fileManager) {
+      callback({ error: -6 })
+      return
+    }
+
+    try {
+      const url = new URL(request.url)
+      if (url.hostname !== 'library') {
+        callback({ error: -6 })
+        return
+      }
+
+      const raw = decodeURIComponent(url.pathname.replace(/^\//, ''))
+      const rel = raw.replace(/\//g, path.sep)
+      const abs = fileManager.resolve(rel)
+
+      const root = path.resolve(fileManager.getLibraryRoot())
+      const resolved = path.resolve(abs)
+      const rootNorm = process.platform === 'win32' ? root.toLowerCase() : root
+      const resolvedNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
+
+      if (!resolvedNorm.startsWith(rootNorm + path.sep) && resolvedNorm !== rootNorm) {
+        callback({ error: -10 })
+        return
+      }
+
+      callback({ path: resolved })
+    } catch {
+      callback({ error: -6 })
+    }
+  })
+
   // Initialize engine manager
   const enginePath = getSetting(db, 'engine_path')
   engineManager = new EngineManager(enginePath || '')
   console.log('[Main] Engine manager created')
 
+  // Initialize queue manager
+  queueManager = new QueueManager(db, engineManager, fileManager)
+  console.log('[Main] Queue manager created')
+
   // Register all IPC handlers
-  registerLibraryHandlers()
-  registerGenerationHandlers()
+  registerLibraryHandlers(fileManager, () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+  })
+  registerGenerationHandlers(queueManager)
   registerEngineHandlers(engineManager)
   registerQueueHandlers()
   registerTimelineHandlers()
-  registerSettingsHandlers()
+  registerSettingsHandlers({
+    engineManager,
+    fileManager,
+    onLibraryRootChanged: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
+  })
+  registerWindowHandlers(() => mainWindow)
   console.log('[Main] IPC handlers registered')
 
   // Create window
@@ -119,6 +213,10 @@ app.whenReady().then(async () => {
   // Forward engine events to renderer
   if (engineManager) {
     setupEngineEventForwarding(engineManager)
+  }
+
+  if (queueManager) {
+    setupQueueEventForwarding(queueManager)
   }
 
   // Start engine if path is configured

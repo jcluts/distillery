@@ -46,12 +46,19 @@ export const IPC_CHANNELS = {
   APP_SHOW_ITEM_IN_FOLDER: 'app:showItemInFolder',
   APP_GET_HARDWARE_PROFILE: 'app:getHardwareProfile',
 
+  // Window controls (renderer -> main)
+  APP_WINDOW_MINIMIZE: 'app:windowMinimize',
+  APP_WINDOW_TOGGLE_MAXIMIZE: 'app:windowToggleMaximize',
+  APP_WINDOW_CLOSE: 'app:windowClose',
+  APP_WINDOW_IS_MAXIMIZED: 'app:windowIsMaximized',
+
   // Events (main -> renderer)
   ENGINE_STATUS_CHANGED: 'engine:status',
   ENGINE_PROGRESS: 'engine:progress',
   ENGINE_RESULT: 'engine:result',
   QUEUE_UPDATED: 'queue:updated',
-  LIBRARY_UPDATED: 'library:updated'
+  LIBRARY_UPDATED: 'library:updated',
+  WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

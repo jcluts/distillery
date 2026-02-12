@@ -3,6 +3,17 @@ import { IPC_CHANNELS } from '../channels'
 import { getDatabase } from '../../db/connection'
 import * as generationRepo from '../../db/repositories/generations'
 import * as generationInputRepo from '../../db/repositories/generation-inputs'
+import * as mediaRepo from '../../db/repositories/media'
+
+function toLibraryUrl(relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '')
+  const encoded = normalized
+    .split('/')
+    .filter(Boolean)
+    .map((seg) => encodeURIComponent(seg))
+    .join('/')
+  return `distillery://library/${encoded}`
+}
 
 export function registerTimelineHandlers(): void {
   const db = getDatabase()
@@ -31,38 +42,56 @@ export function registerTimelineHandlers(): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.TIMELINE_GET_THUMBNAIL, (_event, _genId: string) => {
-    // TODO: Implement timeline thumbnail retrieval
-    return null
+    const media = mediaRepo.getMediaByGenerationId(db, _genId)
+    if (!media?.thumb_path) return null
+    return toLibraryUrl(media.thumb_path)
   })
 
   ipcMain.handle(
     IPC_CHANNELS.TIMELINE_GET_THUMBNAILS_BATCH,
     (_event, _genIds: string[]) => {
-      // TODO: Implement batch timeline thumbnail retrieval
-      return {}
+      const result: Record<string, string> = {}
+      for (const genId of _genIds) {
+        const media = mediaRepo.getMediaByGenerationId(db, genId)
+        if (media?.thumb_path) {
+          result[genId] = toLibraryUrl(media.thumb_path)
+        }
+      }
+      return result
     }
   )
 
   ipcMain.handle(
     IPC_CHANNELS.TIMELINE_GET_INPUT_THUMBNAIL,
     (_event, _inputId: string) => {
-      // TODO: Implement input thumbnail retrieval
-      return null
+      const input = generationInputRepo.getGenerationInputById(db, _inputId)
+      if (!input) return null
+      return toLibraryUrl(input.thumb_path)
     }
   )
 
   ipcMain.handle(
     IPC_CHANNELS.TIMELINE_GET_INPUT_THUMBNAILS_BATCH,
     (_event, _inputIds: string[]) => {
-      // TODO: Implement batch input thumbnail retrieval
-      return {}
+      const result: Record<string, string> = {}
+      for (const inputId of _inputIds) {
+        const input = generationInputRepo.getGenerationInputById(db, inputId)
+        if (input) {
+          result[inputId] = toLibraryUrl(input.thumb_path)
+        }
+      }
+      return result
     }
   )
 
   ipcMain.handle(
     IPC_CHANNELS.TIMELINE_GET_GENERATION_INPUTS,
     (_event, genId: string) => {
-      return generationInputRepo.getGenerationInputs(db, genId)
+      const inputs = generationInputRepo.getGenerationInputs(db, genId)
+      return inputs.map((i) => ({
+        ...i,
+        thumb_path: toLibraryUrl(i.thumb_path)
+      }))
     }
   )
 }

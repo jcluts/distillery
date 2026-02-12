@@ -246,7 +246,7 @@ export interface DistilleryAPI {
   updateMedia(id: string, updates: MediaUpdate): Promise<void>
   deleteMedia(ids: string[]): Promise<void>
   importMedia(filePaths: string[]): Promise<MediaRecord[]>
-  getThumbnail(id: string): Promise<string>
+  getThumbnail(id: string): Promise<string | null>
   getThumbnailsBatch(ids: string[]): Promise<Record<string, string>>
 
   // Generation
@@ -283,6 +283,12 @@ export interface DistilleryAPI {
   showSaveDialog(options: Electron.SaveDialogOptions): Promise<string | null>
   showItemInFolder(path: string): Promise<void>
   getHardwareProfile(): Promise<HardwareProfile>
+
+  // Window controls
+  windowMinimize(): Promise<void>
+  windowToggleMaximize(): Promise<void>
+  windowClose(): Promise<void>
+  windowIsMaximized(): Promise<boolean>
 
   // Events
   on(channel: string, callback: (...args: unknown[]) => void): () => void

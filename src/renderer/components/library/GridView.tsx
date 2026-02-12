@@ -4,14 +4,12 @@ import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
 import { cn } from '@/lib/utils'
 
-function PlaceholderThumb({ label }: { label: string }): React.JSX.Element {
-  return (
-    <div className="relative h-full w-full overflow-hidden rounded-md border bg-muted">
-      <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-        {label}
-      </div>
-    </div>
-  )
+function extractDroppedFilePaths(e: React.DragEvent): string[] {
+  const files = Array.from(e.dataTransfer.files ?? [])
+  const paths = files
+    .map((f) => (f as any).path as string | undefined)
+    .filter((p): p is string => typeof p === 'string' && p.length > 0)
+  return paths
 }
 
 export function GridView(): React.JSX.Element {
@@ -28,8 +26,21 @@ export function GridView(): React.JSX.Element {
     [thumbnailSize]
   )
 
+  const onDropImport = React.useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    const filePaths = extractDroppedFilePaths(e)
+    if (filePaths.length === 0) return
+
+    await window.api.importMedia(filePaths)
+    // main process emits library:updated which triggers a refresh
+  }, [])
+
   return (
-    <div className="h-full overflow-auto bg-muted/20 p-3">
+    <div
+      className="h-full overflow-auto bg-muted/20 p-3"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={onDropImport}
+    >
       <div className="grid gap-3" style={gridStyle}>
         {items.map((m, index) => {
           const selected = m.id === focusedId
@@ -46,8 +57,27 @@ export function GridView(): React.JSX.Element {
                 selectSingle(m.id)
                 setViewMode('loupe')
               }}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/x-distillery-media-id', m.id)
+                e.dataTransfer.setData('text/plain', m.id)
+              }}
             >
-              <PlaceholderThumb label={String(index + 1)} />
+              <div className="relative h-full w-full overflow-hidden rounded-md border bg-muted">
+                {m.thumb_path ? (
+                  <img
+                    src={m.thumb_path}
+                    alt={m.file_name}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    loading="lazy"
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                    {String(index + 1)}
+                  </div>
+                )}
+              </div>
               <div className="mt-1 truncate text-left text-xs text-muted-foreground">
                 {m.file_name}
               </div>

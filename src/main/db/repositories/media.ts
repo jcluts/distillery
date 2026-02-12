@@ -76,6 +76,22 @@ export function getMediaById(
 }
 
 /**
+ * Get the most recent output media record for a generation.
+ *
+ * MVP assumes a generation produces at least one output media item.
+ */
+export function getMediaByGenerationId(
+  db: Database.Database,
+  generationId: string
+): MediaRecord | null {
+  return (
+    (db
+      .prepare('SELECT * FROM media WHERE generation_id = ? ORDER BY created_at DESC LIMIT 1')
+      .get(generationId) as MediaRecord) ?? null
+  )
+}
+
+/**
  * Insert a new media record.
  */
 export function insertMedia(db: Database.Database, media: MediaRecord): void {

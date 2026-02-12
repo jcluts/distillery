@@ -2,51 +2,53 @@ import * as React from 'react'
 
 import type { MediaRecord } from '@/types'
 
-function drawPlaceholder(
+async function loadImage(url: string): Promise<HTMLImageElement> {
+  const img = new Image()
+  img.src = url
+  await img.decode()
+  return img
+}
+
+function draw(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
+  img: HTMLImageElement | null,
   media: MediaRecord | null
 ): void {
   ctx.clearRect(0, 0, width, height)
-
-  ctx.fillStyle = 'rgba(255,255,255,0.03)'
+  ctx.fillStyle = 'rgba(0,0,0,0)'
   ctx.fillRect(0, 0, width, height)
 
-  // Frame
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)'
-  ctx.lineWidth = 2
-  ctx.strokeRect(16, 16, width - 32, height - 32)
-
-  // Title
-  ctx.fillStyle = 'rgba(255,255,255,0.7)'
-  ctx.font = '14px Inter, ui-sans-serif, system-ui, sans-serif'
-  const title = media ? media.file_name : 'No selection'
-  ctx.fillText(title, 28, 44)
-
-  // Metadata
-  ctx.fillStyle = 'rgba(255,255,255,0.45)'
-  ctx.font = '12px Inter, ui-sans-serif, system-ui, sans-serif'
-  if (media?.width && media?.height) {
-    ctx.fillText(`${media.width} × ${media.height}`, 28, 64)
-  }
-  if (media?.origin) {
-    ctx.fillText(`Origin: ${media.origin}`, 28, 84)
+  if (!img || !media) {
+    // Simple empty state
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'
+    ctx.fillRect(0, 0, width, height)
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
+    ctx.font = '13px Inter, ui-sans-serif, system-ui, sans-serif'
+    ctx.fillText(media ? media.file_name : 'No selection', 20, 34)
+    return
   }
 
-  // Center mark
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)'
-  ctx.beginPath()
-  ctx.moveTo(width / 2 - 16, height / 2)
-  ctx.lineTo(width / 2 + 16, height / 2)
-  ctx.moveTo(width / 2, height / 2 - 16)
-  ctx.lineTo(width / 2, height / 2 + 16)
-  ctx.stroke()
+  const iw = img.naturalWidth || img.width
+  const ih = img.naturalHeight || img.height
+  if (!iw || !ih) return
+
+  const scale = Math.min(width / iw, height / ih)
+  const dw = iw * scale
+  const dh = ih * scale
+  const dx = (width - dw) / 2
+  const dy = (height - dh) / 2
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, dx, dy, dw, dh)
 }
 
 export function CanvasViewer({ media }: { media: MediaRecord | null }): React.JSX.Element {
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null)
+  const imageRef = React.useRef<HTMLImageElement | null>(null)
 
   React.useEffect(() => {
     const container = containerRef.current
@@ -64,7 +66,7 @@ export function CanvasViewer({ media }: { media: MediaRecord | null }): React.JS
       canvas.style.width = `${rect.width}px`
       canvas.style.height = `${rect.height}px`
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      drawPlaceholder(ctx, rect.width, rect.height, media)
+      draw(ctx, rect.width, rect.height, imageRef.current, media)
     })
 
     ro.observe(container)
@@ -72,14 +74,41 @@ export function CanvasViewer({ media }: { media: MediaRecord | null }): React.JS
   }, [media])
 
   React.useEffect(() => {
-    const container = containerRef.current
-    const canvas = canvasRef.current
-    if (!container || !canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const rect = container.getBoundingClientRect()
-    drawPlaceholder(ctx, rect.width, rect.height, media)
-  }, [media])
+    let cancelled = false
+
+    const run = async (): Promise<void> => {
+      const container = containerRef.current
+      const canvas = canvasRef.current
+      if (!container || !canvas) return
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      if (!media?.file_path) {
+        imageRef.current = null
+        const rect = container.getBoundingClientRect()
+        draw(ctx, rect.width, rect.height, null, media)
+        return
+      }
+
+      try {
+        const img = await loadImage(media.file_path)
+        if (cancelled) return
+        imageRef.current = img
+        const rect = container.getBoundingClientRect()
+        draw(ctx, rect.width, rect.height, img, media)
+      } catch {
+        if (cancelled) return
+        imageRef.current = null
+        const rect = container.getBoundingClientRect()
+        draw(ctx, rect.width, rect.height, null, media)
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [media?.file_path])
 
   return (
     <div ref={containerRef} className="h-full w-full">

@@ -7,16 +7,6 @@ import { useLibraryStore } from '@/stores/library-store'
 import { CanvasViewer } from '@/components/library/canvas/CanvasViewer'
 import { cn } from '@/lib/utils'
 
-function PlaceholderThumb({ label }: { label: string }): React.JSX.Element {
-  return (
-    <div className="relative size-[86px] overflow-hidden rounded-md border bg-muted">
-      <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-        {label}
-      </div>
-    </div>
-  )
-}
-
 export function LoupeView(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
@@ -66,8 +56,27 @@ export function LoupeView(): React.JSX.Element {
                     isActive && 'ring-2 ring-ring'
                   )}
                   onClick={() => selectSingle(m.id)}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/x-distillery-media-id', m.id)
+                    e.dataTransfer.setData('text/plain', m.id)
+                  }}
                 >
-                  <PlaceholderThumb label={String(idx + 1)} />
+                  <div className="relative size-[86px] overflow-hidden rounded-md border bg-muted">
+                    {m.thumb_path ? (
+                      <img
+                        src={m.thumb_path}
+                        alt={m.file_name}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                        {String(idx + 1)}
+                      </div>
+                    )}
+                  </div>
                 </button>
               )
             })}

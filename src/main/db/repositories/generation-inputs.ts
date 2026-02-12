@@ -34,6 +34,20 @@ export function getGenerationInputs(
 }
 
 /**
+ * Get a single generation input by ID.
+ */
+export function getGenerationInputById(
+  db: Database.Database,
+  id: string
+): GenerationInput | null {
+  return (
+    (db
+      .prepare('SELECT * FROM generation_inputs WHERE id = ?')
+      .get(id) as GenerationInput) ?? null
+  )
+}
+
+/**
  * Delete all inputs for a generation.
  */
 export function deleteGenerationInputs(
