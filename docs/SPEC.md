@@ -164,7 +164,7 @@ distillery/
       components/
         ui/                    # shadcn/ui components (auto-generated)
         layout/                # Application shell
-          AppLayout.tsx        # Three-panel layout with Resizable
+          AppLayout.tsx        # Three-panel layout with fixed-width side panels
           StatusBar.tsx        # Bottom bar: engine status, queue count
         left-panel/            # Left sidebar (tabbed)
           LeftPanel.tsx        # Icon tab bar + panel content switcher
@@ -247,7 +247,7 @@ distillery/
 
 ### 4.1 Application Layout
 
-The application uses a single-window layout based on patterns proven in V1. Three resizable zones with persistent icon tab bars on each edge:
+The application uses a single-window layout based on patterns proven in V1. Three zones with persistent icon tab bars on each edge. **Panel widths are fixed (not user-resizable)** to simplify implementation/testing and to allow forms designed to a known width.
 
 ```
 +--------------------------------------------------------------+
@@ -271,24 +271,37 @@ I = Import tab
 S = (future: Sketch)
 ```
 
-**Layout implementation:** shadcn `Resizable` component (`ResizablePanelGroup` + `ResizablePanel` + `ResizableHandle`) for the three-panel split. Replaces V1's custom SplitPane and all associated CSS.
+**Layout implementation:** A simple fixed-width layout (CSS grid or flex) with two constants controlling the expanded sidebar widths.
+
+**Panel width constants (single source of truth):**
+- `LEFT_PANEL_WIDTH_PX = 340`
+- `RIGHT_PANEL_WIDTH_PX = 280`
+
+These constants should be defined in one place (e.g., a layout constants module) and used by the layout + sidebars so adjusting widths is a one-line change.
 
 **Title Bar:** Custom frameless window title bar with platform-appropriate window controls (minimize, maximize, close). Drag region for window movement.
 
-**Left Panel (~320px, collapsible):** Icon tab bar on the left edge (always visible, ~48px). Panel content area shows the active tab. Tabs: Generation, Timeline, Import. Collapsing hides the content area but keeps the icon strip.
+**Left Panel (340px, collapsible):** Fixed width when expanded. Icon tab bar on the left edge is always visible (~48px) and included in the 340px width. Panel content area shows the active tab. Tabs: Generation, Timeline, Import. Collapsing hides the content area but keeps the icon strip.
 
 **Library View (center, flexible):** The dominant area. Switches between grid view and loupe view. Takes all remaining horizontal space. Filter bar sits at the top.
 
-**Right Panel (~280px, collapsible):** Icon tab bar on the right edge (always visible, ~48px). Panel content shows the active tab. MVP tabs: Media Info, Generation Info. Future tabs appear here as features are added (Adjust, Brush, Remove, Transform, Collections).
+**Right Panel (280px, collapsible):** Fixed width when expanded. Icon tab bar on the right edge is always visible (~48px) and included in the 280px width. Panel content shows the active tab. MVP tabs: Media Info, Generation Info. Future tabs appear here as features are added (Adjust, Brush, Remove, Transform, Collections).
 
 **Status Bar (bottom, ~28px):** Thin persistent bar showing engine status, active generation progress, and queue depth.
 
 ### 4.2 Left Panel
 
-The left panel uses shadcn `Sidebar` with the option to collapse to icons for the tab bar.
+The left and right panel use the Shadcn Sidebar component, following the "collapsible nested sidebar" block/example for Shadcn's SideBar component.
+
+- Demo/block:
+https://ui.shadcn.com/blocks/sidebar#sidebar-09
+- That demo code has been copied here:
+C:\Users\jason\distillery\docs\collapsible_nested_sidebar
+
 - Docs: 
 * https://ui.shadcn.com/docs/components/radix/sidebar
 * https://ui.shadcn.com/docs/components/radix/sidebar.md
+
 
 
 #### Tab: Generation Panel
@@ -376,8 +389,7 @@ Simple interface for importing images from disk.
 
 | Element | Component |
 |---------|-----------|
-| Tab bar icons | `ToggleGroup` or custom icon buttons with `Tooltip` |
-| Panel header | Custom styled label + `Separator` |
+| Panel | `Sidebar` |
 | Prompt input | `Textarea` |
 | Resolution select | `Select` |
 | Aspect ratio | `ToggleGroup` + `Toggle` |
@@ -483,6 +495,18 @@ Full-size image viewing for browsing and culling. Lightroom-inspired workflow.
 
 The right panel mirrors the left panel's tab pattern: a vertical icon tab bar on the right edge, with the panel content expanding to the left when a tab is active.
 
+The left and right panel use the Shadcn Sidebar component, following the "collapsible nested sidebar" block/example for Shadcn's SideBar component.
+
+- Demo/block:
+https://ui.shadcn.com/blocks/sidebar#sidebar-09
+- That demo code has been copied here:
+C:\Users\jason\distillery\docs\collapsible_nested_sidebar
+
+- Docs: 
+* https://ui.shadcn.com/docs/components/radix/sidebar
+* https://ui.shadcn.com/docs/components/radix/sidebar.md
+
+
 #### Tab: Media Info
 
 Displays file-level metadata for the currently selected or viewed media item.
@@ -538,7 +562,7 @@ This is the proven V1 pattern: the right panel is where all "inspection and mani
 
 | Element | Component |
 |---------|-----------|
-| Tab bar icons | `ToggleGroup` or custom icon buttons with `Tooltip` |
+| Panel | `Sidebar` |
 | Section headers | Styled label + `Separator` |
 | Star rating | Custom (5 clickable star icons) |
 | Status toggle | `ToggleGroup` |
@@ -647,8 +671,7 @@ Minimum window dimensions: 960x600.
 - Right panel: collapsible via icon tab click or `Ctrl/Cmd + I`. Remembers state.
 - Library grid: fluid, columns adjust automatically.
 - Loupe: fluid, image scales to fit available space.
-- shadcn `Resizable` panels with `minSize`/`maxSize` constraints prevent panels from being dragged to unusable sizes.
-- Panel states (open/closed, active tab, sizes) persisted to `app_settings` and restored on launch.
+- Panel states (open/closed, active tab) persisted to `app_settings` and restored on launch.
 
 ### 4.11 Where Future Features Live in the UI
 
@@ -1269,7 +1292,7 @@ Finalize this document.
 - Install core dependencies: Zustand, @tanstack/react-virtual, sharp, lucide-react.
 
 ### Phase 3: UI Prototype
-- Build three-panel layout with shadcn `Resizable`.
+- Build three-panel layout with fixed-width side panels (no resizers).
 - Build left panel with icon tab bar and Generation/Timeline/Import tabs.
 - Build right panel with icon tab bar and Info/Generation Info tabs.
 - Build Grid view with mock data (placeholder thumbnails).
@@ -1281,7 +1304,7 @@ Finalize this document.
 - Validate layout, navigation flow, keyboard shortcuts.
 - All UI is non-functional (mock data only).
 
-**Phase 3 note (shadcn/ui):** prefer composing the UI from shadcn primitives (Button, Select, ToggleGroup, ScrollArea, etc.) and keep any custom components thin wrappers. Add components via the shadcn CLI (e.g., `npx shadcn@latest add resizable scroll-area`) so their structure matches the upstream docs.
+**Phase 3 note (shadcn/ui):** prefer composing the UI from shadcn primitives (Button, Select, ToggleGroup, ScrollArea, etc.) and keep any custom components thin wrappers. Add components via the shadcn CLI (e.g., `npx shadcn@latest add sidebar scroll-area`) so their structure matches the upstream docs.
 
 ### Phase 4: Wire Up
 - Connect generation panel to EngineManager via IPC. User can generate an image.
@@ -1327,7 +1350,6 @@ Components from the shadcn/ui library used in Distillery MVP:
 | `Skeleton` | Loading states (Phase 5 polish) |
 | `Input` | Search filter, settings text fields |
 | `Progress` | Generation progress bar (status bar + generation panel) |
-| `Resizable` | Three-panel layout (left, center, right) |
 | `ScrollArea` | Film strip, right panel content, timeline list, prompt display |
 | `Select` | Resolution picker, sort order, filter dropdowns |
 | `Separator` | Section dividers in panels |

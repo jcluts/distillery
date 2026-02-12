@@ -2,6 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../simple-ai-client"
 		}
 	],
 	"settings": {}
