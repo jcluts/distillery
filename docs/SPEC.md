@@ -55,21 +55,6 @@ Distillery is a desktop application for local AI image generation and media mana
 
 Dark mode only for MVP. The cyan theme accent provides a professional, photography-tool aesthetic that differentiates from the warm/orange tones of most creative tools and the blue tones of developer tools.
 
-The V1 app's CSS custom property palette maps directly to shadcn's variable system:
-
-| V1 Variable | shadcn Equivalent | Value |
-|-------------|-------------------|-------|
-| `--primary` | `--primary` | `hsl(175, 55%, 55%)` (cyan) |
-| `--bg` | `--background` | `hsl(175, 0%, 12%)` |
-| `--bg-card` | `--card` | `hsl(175, 0%, 8%)` |
-| `--bg-input` | `--input` | `hsl(175, 0%, 3%)` |
-| `--bg-elevated` | `--popover` | `hsl(175, 0%, 18%)` |
-| `--text` | `--foreground` | `hsl(175, 0%, 68%)` |
-| `--text-muted` | `--muted-foreground` | `hsl(175, 0%, 58%)` |
-| `--border` | `--border` | `hsl(175, 0%, 2%)` |
-
-These values should be set in the Tailwind CSS theme layer to override shadcn defaults while preserving the V1's proven dark aesthetic.
-
 ---
 
 ## 3. Architecture
