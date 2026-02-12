@@ -106,6 +106,24 @@ export interface GenerationParams {
   ref_image_paths?: string[]
 }
 
+export interface CanonicalGenerationParams {
+  prompt: string
+  width: number
+  height: number
+  seed?: number
+  steps?: number
+  guidance?: number
+  sampling_method?: string
+  ref_image_ids?: string[]
+  ref_image_paths?: string[]
+  [key: string]: unknown
+}
+
+export interface GenerationSubmitInput {
+  endpointKey: string
+  params: CanonicalGenerationParams
+}
+
 export interface BaseModel {
   id: string
   name: string
@@ -123,6 +141,122 @@ export interface QueueItem {
   created_at: string
   started_at: string | null
   completed_at: string | null
+}
+
+export interface WorkItem {
+  id: string
+  task_type: string
+  status: QueueStatus
+  priority: number
+  payload_json: string
+  correlation_id: string | null
+  owner_module: string
+  error_message: string | null
+  attempt_count: number
+  max_attempts: number
+  created_at: string
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface EnqueueWorkInput {
+  task_type: string
+  priority?: number
+  payload_json: string
+  correlation_id?: string
+  owner_module: string
+  max_attempts?: number
+}
+
+export interface WorkFilter {
+  status?: QueueStatus
+  task_type?: string
+  owner_module?: string
+}
+
+export interface WorkTaskResult {
+  success: boolean
+  error?: string
+}
+
+export interface GenerationOutputArtifact {
+  providerPath: string
+  mimeType?: string
+}
+
+export interface GenerationExecutionResult {
+  generationId: string
+  success: boolean
+  outputs?: GenerationOutputArtifact[]
+  metrics?: {
+    seed?: number
+    totalTimeMs?: number
+    promptCacheHit?: boolean
+    refLatentCacheHit?: boolean
+  }
+  error?: string
+  externalJobId?: string
+}
+
+export interface GenerationProgressEvent {
+  generationId: string
+  providerId: string
+  phase: string
+  step?: number
+  totalSteps?: number
+  message?: string
+}
+
+export interface CanonicalRequestSchema {
+  properties: Record<string, CanonicalSchemaProperty>
+  required?: string[]
+  order?: string[]
+}
+
+export interface CanonicalSchemaProperty {
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'array'
+  title?: string
+  description?: string
+  default?: unknown
+  minimum?: number
+  maximum?: number
+  step?: number
+  enum?: Array<string | number>
+  items?: { type: string; minItems?: number; maxItems?: number }
+  ui?: {
+    component?: string
+    placeholder?: string
+    hidden?: boolean
+    transformMap?: Record<string, unknown>
+  }
+}
+
+export interface CanonicalUiSchema {
+  groups?: Array<{ id: string; label: string; order?: number }>
+  controls?: Record<string, { group?: string; order?: number; graphical?: boolean }>
+}
+
+export interface CanonicalEndpointDef {
+  endpointKey: string
+  providerId: string
+  providerModelId: string
+  canonicalModelId?: string
+  displayName: string
+  modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+  outputType: 'image' | 'video'
+  executionMode: 'queued-local' | 'remote-async'
+  requestSchema: CanonicalRequestSchema
+  uiSchema?: CanonicalUiSchema
+}
+
+export interface GenerationExecutionRequest {
+  generationId: string
+  endpoint: CanonicalEndpointDef
+  params: CanonicalGenerationParams
+  outputPath?: string
+  preparedInputs?: {
+    refImages: string[]
+  }
 }
 
 // Engine types

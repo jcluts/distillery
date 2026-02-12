@@ -1,12 +1,10 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../channels'
-import { getDatabase } from '../../db/connection'
-import * as queueRepo from '../../db/repositories/queue'
+import type { WorkQueueManager } from '../../queue/work-queue-manager'
+import { mapWorkItemsToQueueItems } from '../../queue/work-queue-view'
 
-export function registerQueueHandlers(): void {
-  const db = getDatabase()
-
+export function registerQueueHandlers(workQueueManager: WorkQueueManager): void {
   ipcMain.handle(IPC_CHANNELS.QUEUE_GET, () => {
-    return queueRepo.getQueueItems(db)
+    return mapWorkItemsToQueueItems(workQueueManager.getItems())
   })
 }

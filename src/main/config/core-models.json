@@ -1,0 +1,18 @@
+{
+  "models": [
+    {
+      "canonicalModelId": "flux2-klein-4b",
+      "displayName": "FLUX.2 Klein 4B",
+      "providers": {
+        "local": "flux2-klein"
+      }
+    },
+    {
+      "canonicalModelId": "flux2-klein-9b",
+      "displayName": "FLUX.2 Klein 9B",
+      "providers": {
+        "local": "flux2-klein"
+      }
+    }
+  ]
+}

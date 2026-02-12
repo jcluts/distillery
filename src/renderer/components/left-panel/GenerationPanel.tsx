@@ -85,7 +85,7 @@ export function GenerationPanel(): React.JSX.Element {
   const dims = computeDimensions(resolution, ratio.width, ratio.height)
 
   const params = buildParams()
-  const generateDisabled = !engineReady || !params.prompt.trim()
+  const generateDisabled = !engineReady || !params.params.prompt.trim()
   const visibleQueueItems = React.useMemo(
     () => queueItems.filter((q) => q.status === 'pending' || q.status === 'processing'),
     [queueItems]
@@ -249,7 +249,7 @@ export function GenerationPanel(): React.JSX.Element {
           disabled={generateDisabled}
           onClick={async () => {
             const built = buildParams()
-            if (!built.prompt.trim()) return
+            if (!built.params.prompt.trim()) return
             const genId = await window.api.submitGeneration(built)
             try {
               const gen = await window.api.timeline.get(genId)

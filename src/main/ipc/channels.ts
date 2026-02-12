@@ -16,6 +16,8 @@ export const IPC_CHANNELS = {
   // Generation
   GENERATION_SUBMIT: 'generation:submit',
   GENERATION_CANCEL: 'generation:cancel',
+  GENERATION_LIST_ENDPOINTS: 'generation:listEndpoints',
+  GENERATION_GET_ENDPOINT_SCHEMA: 'generation:getEndpointSchema',
 
   // Engine
   ENGINE_GET_STATUS: 'engine:getStatus',
@@ -56,6 +58,8 @@ export const IPC_CHANNELS = {
   ENGINE_STATUS_CHANGED: 'engine:status',
   ENGINE_PROGRESS: 'engine:progress',
   ENGINE_RESULT: 'engine:result',
+  GENERATION_PROGRESS: 'generation:progress',
+  GENERATION_RESULT: 'generation:result',
   QUEUE_UPDATED: 'queue:updated',
   LIBRARY_UPDATED: 'library:updated',
   WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged'

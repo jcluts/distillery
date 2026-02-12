@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import * as generationRepo from '../db/repositories/generations'
-import * as queueRepo from '../db/repositories/queue'
+import * as workQueueRepo from '../db/repositories/work-queue'
 
 // =============================================================================
 // Timeline Service
@@ -20,7 +20,7 @@ export class TimelineService {
    */
   initialize(): void {
     generationRepo.markInterruptedGenerations(this.db)
-    queueRepo.markInterruptedQueueItems(this.db)
+    workQueueRepo.markInterruptedWorkItems(this.db)
     console.log('[TimelineService] Marked interrupted jobs as failed')
   }
 

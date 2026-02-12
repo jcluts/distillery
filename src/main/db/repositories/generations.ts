@@ -118,7 +118,7 @@ export function markGenerationStarted(db: Database.Database, id: string): void {
 export function removeGeneration(db: Database.Database, id: string): void {
   db.transaction(() => {
     db.prepare('DELETE FROM generation_inputs WHERE generation_id = ?').run(id)
-    db.prepare('DELETE FROM queue WHERE generation_id = ?').run(id)
+    db.prepare('DELETE FROM work_queue WHERE correlation_id = ?').run(id)
     db.prepare('DELETE FROM generations WHERE id = ?').run(id)
   })()
 }

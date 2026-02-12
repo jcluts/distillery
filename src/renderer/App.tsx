@@ -8,8 +8,8 @@ import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
 import { useQueueStore } from './stores/queue-store'
 import type {
-  EngineProgressEvent,
-  EngineResultEvent,
+  GenerationProgressEvent,
+  GenerationResultEvent,
   EngineStatus,
   QueueItem
 } from './types'
@@ -146,22 +146,22 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [buildLibraryQuery, setMediaPage])
 
-  // Engine progress -> status bar / queue progress
+  // Generation progress -> status bar / queue progress
   useEffect(() => {
-    const unsubscribe = window.api.on('engine:progress', (payload: unknown) => {
-      const evt = payload as EngineProgressEvent
-      if (!evt?.jobId) return
-      if (activeJobId !== evt.jobId) startTimer(evt.jobId)
-      setActiveProgress(evt.jobId, evt.phase, evt.step, evt.totalSteps)
+    const unsubscribe = window.api.on('generation:progress', (payload: unknown) => {
+      const evt = payload as GenerationProgressEvent
+      if (!evt?.generationId) return
+      if (activeJobId !== evt.generationId) startTimer(evt.generationId)
+      setActiveProgress(evt.generationId, evt.phase, evt.step, evt.totalSteps)
     })
     return unsubscribe
   }, [activeJobId, setActiveProgress, startTimer])
 
-  // Engine result -> refresh queue + library + timeline
+  // Generation result -> refresh queue + library + timeline
   useEffect(() => {
-    const unsubscribe = window.api.on('engine:result', (payload: unknown) => {
-      const evt = payload as EngineResultEvent
-      if (!evt?.jobId) return
+    const unsubscribe = window.api.on('generation:result', (payload: unknown) => {
+      const evt = payload as GenerationResultEvent
+      if (!evt?.generationId) return
       void loadQueue()
       void loadMedia()
       void loadTimeline()

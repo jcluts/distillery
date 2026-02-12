@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GenerationRecord, GenerationParams } from '../types'
+import type { GenerationRecord, GenerationSubmitInput } from '../types'
 import { GENERATION_DEFAULTS, ASPECT_RATIOS, type AspectRatioLabel } from '../lib/constants'
 
 // =============================================================================
@@ -48,7 +48,7 @@ interface GenerationState {
   setDetailGenerationId: (id: string | null) => void
 
   // Build params for submission
-  buildParams: () => GenerationParams
+  buildParams: () => GenerationSubmitInput
 }
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
@@ -121,7 +121,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setDetailGenerationId: (id) => set({ detailGenerationId: id }),
 
   // Build generation params
-  buildParams: (): GenerationParams => {
+  buildParams: (): GenerationSubmitInput => {
     const state = get()
     const ratio = ASPECT_RATIOS.find(
       (r) => r.label === state.aspectRatio
@@ -139,14 +139,17 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
 
     return {
-      prompt: state.prompt,
-      width,
-      height,
-      steps: state.steps,
-      guidance: state.guidance,
-      sampling_method: state.samplingMethod,
-      ref_image_ids: state.refImageIds.length > 0 ? state.refImageIds : undefined,
-      ref_image_paths: state.refImagePaths.length > 0 ? state.refImagePaths : undefined
+      endpointKey: 'local.flux2-klein.image',
+      params: {
+        prompt: state.prompt,
+        width,
+        height,
+        steps: state.steps,
+        guidance: state.guidance,
+        sampling_method: state.samplingMethod,
+        ref_image_ids: state.refImageIds.length > 0 ? state.refImageIds : undefined,
+        ref_image_paths: state.refImagePaths.length > 0 ? state.refImagePaths : undefined
+      }
     }
   }
 }))
