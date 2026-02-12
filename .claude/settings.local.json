@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebSearch",
+      "WebFetch(domain:blog.mohitnagaraj.in)",
+      "Bash(dir:*)",
+      "Bash(cd:*)"
+    ]
+  }
+}
