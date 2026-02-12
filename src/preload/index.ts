@@ -71,6 +71,12 @@ const api: DistilleryAPI = {
     ipcRenderer.invoke(CH.APP_SHOW_ITEM_IN_FOLDER, path),
   getHardwareProfile: () => ipcRenderer.invoke(CH.APP_GET_HARDWARE_PROFILE),
 
+  // Window controls
+  windowMinimize: () => ipcRenderer.invoke(CH.APP_WINDOW_MINIMIZE),
+  windowToggleMaximize: () => ipcRenderer.invoke(CH.APP_WINDOW_TOGGLE_MAXIMIZE),
+  windowClose: () => ipcRenderer.invoke(CH.APP_WINDOW_CLOSE),
+  windowIsMaximized: () => ipcRenderer.invoke(CH.APP_WINDOW_IS_MAXIMIZED),
+
   // Event subscriptions (returns unsubscribe function)
   on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
     type EventChannel =
@@ -79,13 +85,15 @@ const api: DistilleryAPI = {
       | typeof CH.ENGINE_RESULT
       | typeof CH.QUEUE_UPDATED
       | typeof CH.LIBRARY_UPDATED
+      | typeof CH.WINDOW_MAXIMIZED_CHANGED
 
     const validChannels = new Set<EventChannel>([
       CH.ENGINE_STATUS_CHANGED,
       CH.ENGINE_PROGRESS,
       CH.ENGINE_RESULT,
       CH.QUEUE_UPDATED,
-      CH.LIBRARY_UPDATED
+      CH.LIBRARY_UPDATED,
+      CH.WINDOW_MAXIMIZED_CHANGED
     ])
 
     if (!validChannels.has(channel as EventChannel)) {

@@ -1,36 +1,98 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+
+import { AppLayout } from '@/components/layout/AppLayout'
+import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
+import { SettingsModal } from '@/components/modals/SettingsModal'
 import { useEngineStore } from './stores/engine-store'
 import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
 import { useQueueStore } from './stores/queue-store'
-import type { EngineStatus } from './types'
-import { AppLayout } from '@/components/layout/AppLayout'
-import {
-  createMockEngineStatus,
-  createMockGenerations,
-  createMockMediaPage,
-  createMockQueueItems
-} from '@/lib/mock-data'
+import type {
+  EngineProgressEvent,
+  EngineResultEvent,
+  EngineStatus,
+  QueueItem
+} from './types'
 
 function App(): React.JSX.Element {
   const setEngineStatus = useEngineStore((s) => s.setStatus)
 
   const setMediaPage = useLibraryStore((s) => s.setItems)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
+  const focusedId = useLibraryStore((s) => s.focusedId)
+  const buildLibraryQuery = useLibraryStore((s) => s.buildQuery)
+  const setLibraryLoading = useLibraryStore((s) => s.setLoading)
+  const page = useLibraryStore((s) => s.page)
+  const pageSize = useLibraryStore((s) => s.pageSize)
+  const ratingFilter = useLibraryStore((s) => s.ratingFilter)
+  const statusFilter = useLibraryStore((s) => s.statusFilter)
+  const searchQuery = useLibraryStore((s) => s.searchQuery)
+  const sortField = useLibraryStore((s) => s.sortField)
+  const sortDirection = useLibraryStore((s) => s.sortDirection)
+
   const setGenerations = useGenerationStore((s) => s.setGenerations)
-  const setPrompt = useGenerationStore((s) => s.setPrompt)
-  const addRefImagePath = useGenerationStore((s) => s.addRefImagePath)
-  const clearRefImages = useGenerationStore((s) => s.clearRefImages)
 
   const setQueueItems = useQueueStore((s) => s.setItems)
   const startTimer = useQueueStore((s) => s.startTimer)
   const setActiveProgress = useQueueStore((s) => s.setActiveProgress)
+  const clearActiveProgress = useQueueStore((s) => s.clearActiveProgress)
+  const activeJobId = useQueueStore((s) => s.activeJobId)
+  const activePhase = useQueueStore((s) => s.activePhase)
+  const activeStep = useQueueStore((s) => s.activeStep)
+  const activeTotalSteps = useQueueStore((s) => s.activeTotalSteps)
+
+  const debounceRef = useRef<number | null>(null)
+
+  const syncActiveFromQueue = (items: QueueItem[]): void => {
+    const processing = items.find((q) => q.status === 'processing')
+    if (!processing) {
+      clearActiveProgress()
+      return
+    }
+
+    if (activeJobId !== processing.generation_id) {
+      startTimer(processing.generation_id)
+    }
+
+    if (!activePhase) {
+      setActiveProgress(processing.generation_id, 'Processing')
+    }
+  }
+
+  const loadMedia = async (): Promise<void> => {
+    setLibraryLoading(true)
+    try {
+      const mediaPage = await window.api.getMedia(buildLibraryQuery())
+      setMediaPage(mediaPage)
+      if (!focusedId && mediaPage.items[0]) selectSingle(mediaPage.items[0].id)
+    } catch {
+      // ignore for MVP wiring
+    } finally {
+      setLibraryLoading(false)
+    }
+  }
+
+  const loadTimeline = async (): Promise<void> => {
+    try {
+      const { generations } = await window.api.timeline.getAll()
+      setGenerations(generations)
+    } catch {
+      // ignore
+    }
+  }
+
+  const loadQueue = async (): Promise<void> => {
+    try {
+      const items = await window.api.getQueue()
+      setQueueItems(items)
+      syncActiveFromQueue(items)
+    } catch {
+      // ignore
+    }
+  }
 
   // Subscribe to engine status events
   useEffect(() => {
-    // Phase 3 prototype: provide a stable mock status immediately.
-    setEngineStatus(createMockEngineStatus())
-
     const unsubscribe = window.api.on('engine:status', (status: unknown) => {
       setEngineStatus(status as EngineStatus)
     })
@@ -40,50 +102,90 @@ function App(): React.JSX.Element {
 
   // Hydrate initial state
   useEffect(() => {
-    window.api.getEngineStatus().then(setEngineStatus).catch(() => {
-      setEngineStatus(createMockEngineStatus())
-    })
+    window.api.getEngineStatus().then(setEngineStatus).catch(() => {})
   }, [setEngineStatus])
 
-  // Phase 3 prototype: seed mock UI data (grid, timeline, queue/progress).
+  // Initial hydration (library, timeline, queue)
   useEffect(() => {
-    const mockPage = createMockMediaPage(96)
-    setMediaPage(mockPage)
-    if (mockPage.items[0]) selectSingle(mockPage.items[0].id)
+    void loadMedia()
+    void loadTimeline()
+    void loadQueue()
+  }, [])
 
-    const mockGenerations = createMockGenerations(24)
-    setGenerations(mockGenerations)
+  // Re-query library on filter changes.
+  useEffect(() => {
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
 
-    clearRefImages()
-    addRefImagePath('mock://ref-1')
-    addRefImagePath('mock://ref-2')
-    setPrompt('A cinematic portrait photo, rim lighting, shallow depth of field')
+    debounceRef.current = window.setTimeout(() => {
+      void loadMedia()
+    }, 150)
 
-    const mockQueue = createMockQueueItems()
-    setQueueItems(mockQueue)
-    startTimer(mockQueue[0]!.id)
-    setActiveProgress(mockQueue[0]!.id, 'Sampling', 2, 4)
-  }, [
-    addRefImagePath,
-    clearRefImages,
-    selectSingle,
-    setActiveProgress,
-    setGenerations,
-    setMediaPage,
-    setPrompt,
-    setQueueItems,
-    startTimer
-  ])
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    }
+  }, [page, pageSize, ratingFilter, statusFilter, searchQuery, sortField, sortDirection])
 
-  // Keep mock elapsed time ticking for the status bar.
+  // Queue updates
+  useEffect(() => {
+    const unsubscribe = window.api.on('queue:updated', (payload: unknown) => {
+      const items = (payload as QueueItem[]) ?? []
+      setQueueItems(items)
+      syncActiveFromQueue(items)
+    })
+    return unsubscribe
+  }, [activeJobId, activePhase, clearActiveProgress, setActiveProgress, setQueueItems, startTimer])
+
+  // Library updates (imports/new generations)
+  useEffect(() => {
+    const unsubscribe = window.api.on('library:updated', () => {
+      void loadMedia()
+    })
+    return unsubscribe
+  }, [buildLibraryQuery, setMediaPage])
+
+  // Engine progress -> status bar / queue progress
+  useEffect(() => {
+    const unsubscribe = window.api.on('engine:progress', (payload: unknown) => {
+      const evt = payload as EngineProgressEvent
+      if (!evt?.jobId) return
+      if (activeJobId !== evt.jobId) startTimer(evt.jobId)
+      setActiveProgress(evt.jobId, evt.phase, evt.step, evt.totalSteps)
+    })
+    return unsubscribe
+  }, [activeJobId, setActiveProgress, startTimer])
+
+  // Engine result -> refresh queue + library + timeline
+  useEffect(() => {
+    const unsubscribe = window.api.on('engine:result', (payload: unknown) => {
+      const evt = payload as EngineResultEvent
+      if (!evt?.jobId) return
+      void loadQueue()
+      void loadMedia()
+      void loadTimeline()
+    })
+    return unsubscribe
+  }, [])
+
+  // Keep elapsed time ticking while active
   useEffect(() => {
     const id = window.setInterval(() => {
-      setActiveProgress('mock-queue-0001', 'Sampling', 2, 4)
+      if (activeJobId && activePhase) {
+        setActiveProgress(activeJobId, activePhase, activeStep ?? undefined, activeTotalSteps ?? undefined)
+      }
     }, 250)
     return () => window.clearInterval(id)
-  }, [setActiveProgress])
+  }, [activeJobId, activePhase, activeStep, activeTotalSteps, setActiveProgress])
 
-  return <AppLayout />
+  return (
+    <>
+      <AppLayout />
+      <GenerationDetailModal />
+      <SettingsModal />
+    </>
+  )
 }
 
 export default App

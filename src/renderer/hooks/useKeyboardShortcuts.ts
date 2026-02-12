@@ -66,7 +66,10 @@ export function useKeyboardShortcuts(): void {
       if (modKey && e.key === 'Enter') {
         e.preventDefault()
         setLeftPanelTab('generation')
-        void buildParams() // no-op; validates wiring
+        const params = buildParams()
+        if (params.prompt.trim()) {
+          void window.api.submitGeneration(params)
+        }
         return
       }
 
@@ -135,18 +138,22 @@ export function useKeyboardShortcuts(): void {
       const digit = Number(e.key)
       if (digit >= 1 && digit <= 5) {
         updateItem(focusedId, { rating: digit })
+        void window.api.updateMedia(focusedId, { rating: digit })
         return
       }
       if (e.key.toLowerCase() === 'p') {
         updateItem(focusedId, { status: 'selected' })
+        void window.api.updateMedia(focusedId, { status: 'selected' })
         return
       }
       if (e.key.toLowerCase() === 'x') {
         updateItem(focusedId, { status: 'rejected' })
+        void window.api.updateMedia(focusedId, { status: 'rejected' })
         return
       }
       if (e.key.toLowerCase() === 'u') {
         updateItem(focusedId, { status: null })
+        void window.api.updateMedia(focusedId, { status: null })
         return
       }
     }

@@ -1,9 +1,13 @@
 import Database from 'better-sqlite3'
+import os from 'os'
+import path from 'path'
 import type { AppSettings, SettingsKey } from '../../types'
+
+const DEFAULT_LIBRARY_ROOT = path.join(os.homedir(), 'Distillery', 'Library')
 
 // Default settings values
 const DEFAULTS: AppSettings = {
-  library_root: '',
+  library_root: DEFAULT_LIBRARY_ROOT,
   engine_path: '',
   diffusion_model_path: '',
   vae_path: '',

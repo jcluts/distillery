@@ -1,20 +1,17 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../channels'
 import type { GenerationParams } from '../../types'
+import type { QueueManager } from '../../queue/queue-manager'
 
-export function registerGenerationHandlers(): void {
+export function registerGenerationHandlers(queueManager: QueueManager): void {
   ipcMain.handle(
     IPC_CHANNELS.GENERATION_SUBMIT,
-    async (_event, _params: GenerationParams) => {
-      // TODO: Wire up to QueueManager
-      // 1. Create generation record
-      // 2. Create queue record
-      // 3. Trigger queue processing
-      return 'placeholder-job-id'
+    async (_event, params: GenerationParams) => {
+      return queueManager.submit(params)
     }
   )
 
-  ipcMain.handle(IPC_CHANNELS.GENERATION_CANCEL, async (_event, _jobId: string) => {
-    // TODO: Wire up to QueueManager
+  ipcMain.handle(IPC_CHANNELS.GENERATION_CANCEL, async (_event, jobId: string) => {
+    queueManager.cancel(jobId)
   })
 }

@@ -21,6 +21,9 @@ interface GenerationState {
   // Timeline
   generations: GenerationRecord[]
 
+  // UI
+  detailGenerationId: string | null
+
   // Actions - Form
   setPrompt: (prompt: string) => void
   addRefImage: (id: string) => void
@@ -42,6 +45,8 @@ interface GenerationState {
   removeGeneration: (id: string) => void
   clearCompleted: () => void
 
+  setDetailGenerationId: (id: string | null) => void
+
   // Build params for submission
   buildParams: () => GenerationParams
 }
@@ -59,6 +64,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   // Timeline
   generations: [],
+
+  detailGenerationId: null,
 
   // Form actions
   setPrompt: (prompt) => set({ prompt }),
@@ -110,6 +117,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     set((s) => ({
       generations: s.generations.filter((g) => g.status !== 'completed')
     })),
+
+  setDetailGenerationId: (id) => set({ detailGenerationId: id }),
 
   // Build generation params
   buildParams: (): GenerationParams => {

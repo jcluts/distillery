@@ -143,7 +143,15 @@ export class EngineProtocol extends EventEmitter {
       this.pendingRequests.delete(response.id)
 
       if (response.type === 'error') {
-        pending.reject(new Error(response.error ?? 'Unknown engine error'))
+        const dataMessage =
+          (response.data?.message as string | undefined) ??
+          (response.data?.error as string | undefined)
+        const rootMessage = (response as any)?.message as string | undefined
+        pending.reject(
+          new Error(
+            response.error ?? dataMessage ?? rootMessage ?? 'Unknown engine error'
+          )
+        )
       } else {
         pending.resolve(response)
       }

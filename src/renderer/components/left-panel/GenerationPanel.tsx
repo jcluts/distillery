@@ -14,6 +14,7 @@ import { useEngineStore } from '@/stores/engine-store'
 import { useQueueStore } from '@/stores/queue-store'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
+import { useLibraryStore } from '@/stores/library-store'
 
 function PanelHeader({ title }: { title: string }): React.JSX.Element {
   return (
@@ -26,13 +27,29 @@ function PanelHeader({ title }: { title: string }): React.JSX.Element {
   )
 }
 
-function MockThumb({ label }: { label: string }): React.JSX.Element {
+function extractDroppedFilePaths(e: React.DragEvent): string[] {
+  const files = Array.from(e.dataTransfer.files ?? [])
+  return files
+    .map((f) => (f as any).path as string | undefined)
+    .filter((p): p is string => typeof p === 'string' && p.length > 0)
+}
+
+function RefThumb({ src, label }: { src: string | null; label: string }): React.JSX.Element {
   return (
     <div className="relative overflow-hidden rounded-md border bg-muted">
       <div className="aspect-square w-16" />
-      <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
-        {label}
-      </div>
+      {src ? (
+        <img
+          src={src}
+          alt={label}
+          className="absolute inset-0 h-full w-full object-cover"
+          draggable={false}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
+          {label}
+        </div>
+      )}
     </div>
   )
 }
@@ -40,6 +57,9 @@ function MockThumb({ label }: { label: string }): React.JSX.Element {
 export function GenerationPanel(): React.JSX.Element {
   const prompt = useGenerationStore((s) => s.prompt)
   const setPrompt = useGenerationStore((s) => s.setPrompt)
+  const refImageIds = useGenerationStore((s) => s.refImageIds)
+  const addRefImage = useGenerationStore((s) => s.addRefImage)
+  const removeRefImage = useGenerationStore((s) => s.removeRefImage)
   const refImagePaths = useGenerationStore((s) => s.refImagePaths)
   const removeRefImagePath = useGenerationStore((s) => s.removeRefImagePath)
   const resolution = useGenerationStore((s) => s.resolution)
@@ -47,21 +67,31 @@ export function GenerationPanel(): React.JSX.Element {
   const aspectRatio = useGenerationStore((s) => s.aspectRatio)
   const setAspectRatio = useGenerationStore((s) => s.setAspectRatio)
   const buildParams = useGenerationStore((s) => s.buildParams)
+  const addGeneration = useGenerationStore((s) => s.addGeneration)
+
+  const libraryItems = useLibraryStore((s) => s.items)
 
   const engineState = useEngineStore((s) => s.state)
-  const engineReady = engineState === 'ready' || engineState === 'idle'
+  const engineReady = engineState === 'ready'
 
   const queueItems = useQueueStore((s) => s.items)
   const activePhase = useQueueStore((s) => s.activePhase)
   const activeStep = useQueueStore((s) => s.activeStep)
   const activeTotalSteps = useQueueStore((s) => s.activeTotalSteps)
 
+  const generations = useGenerationStore((s) => s.generations)
+
   const ratio = ASPECT_RATIOS.find((r) => r.label === aspectRatio) ?? ASPECT_RATIOS[0]
   const dims = computeDimensions(resolution, ratio.width, ratio.height)
 
   const params = buildParams()
   const generateDisabled = !engineReady || !params.prompt.trim()
-  const showQueue = (queueItems?.length ?? 0) > 0 || !!activePhase
+  const visibleQueueItems = React.useMemo(
+    () => queueItems.filter((q) => q.status === 'pending' || q.status === 'processing'),
+    [queueItems]
+  )
+
+  const showQueue = (visibleQueueItems?.length ?? 0) > 0 || !!activePhase
 
   const progressValue =
     activeStep != null && activeTotalSteps != null && activeTotalSteps > 0
@@ -89,24 +119,76 @@ export function GenerationPanel(): React.JSX.Element {
           <div
             className={cn(
               'rounded-md border border-dashed bg-background p-3',
-              refImagePaths.length === 0 ? 'text-muted-foreground' : ''
+              refImagePaths.length === 0 && refImageIds.length === 0 ? 'text-muted-foreground' : ''
             )}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={async (e) => {
+              e.preventDefault()
+              const mediaId = e.dataTransfer.getData('application/x-distillery-media-id')
+              if (mediaId) {
+                addRefImage(mediaId)
+                return
+              }
+
+              const filePaths = extractDroppedFilePaths(e)
+              if (filePaths.length > 0) {
+                const imported = await window.api.importMedia(filePaths)
+                for (const m of imported) addRefImage(m.id)
+              }
+            }}
+            onClick={async () => {
+              const paths = await window.api.showOpenDialog({
+                title: 'Choose reference images',
+                properties: ['openFile', 'multiSelections'],
+                filters: [
+                  { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff'] }
+                ]
+              })
+              if (!paths) return
+              const imported = await window.api.importMedia(paths)
+              for (const m of imported) addRefImage(m.id)
+            }}
           >
-            {refImagePaths.length === 0 ? (
+            {refImagePaths.length === 0 && refImageIds.length === 0 ? (
               <div className="text-sm">
-                Drag images here, or click to browse (mock)
+                Drag images here, or click to browse
               </div>
             ) : (
               <div className="flex items-center gap-2 overflow-x-auto">
+                {refImageIds.map((id, idx) => {
+                  const media = libraryItems.find((m) => m.id === id) ?? null
+                  return (
+                    <div key={id} className="relative">
+                      <RefThumb src={media?.thumb_path ?? null} label={`Ref ${idx + 1}`} />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="secondary"
+                        className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeRefImage(id)
+                        }}
+                        aria-label="Remove reference"
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </div>
+                  )
+                })}
+
                 {refImagePaths.map((p, idx) => (
                   <div key={p} className="relative">
-                    <MockThumb label={`Ref ${idx + 1}`} />
+                    <RefThumb src={null} label={`Ext ${idx + 1}`} />
                     <Button
                       type="button"
                       size="icon"
                       variant="secondary"
                       className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
-                      onClick={() => removeRefImagePath(p)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeRefImagePath(p)
+                      }}
                       aria-label="Remove reference"
                     >
                       <X className="size-3" />
@@ -161,7 +243,22 @@ export function GenerationPanel(): React.JSX.Element {
           </ToggleGroup>
         </div>
 
-        <Button type="button" className="w-full" disabled={generateDisabled}>
+        <Button
+          type="button"
+          className="w-full"
+          disabled={generateDisabled}
+          onClick={async () => {
+            const built = buildParams()
+            if (!built.prompt.trim()) return
+            const genId = await window.api.submitGeneration(built)
+            try {
+              const gen = await window.api.timeline.get(genId)
+              if (gen) addGeneration(gen)
+            } catch {
+              // ignore
+            }
+          }}
+        >
           Generate
         </Button>
 
@@ -181,17 +278,27 @@ export function GenerationPanel(): React.JSX.Element {
               </div>
             ) : null}
             <div className="mt-2 space-y-1">
-              {queueItems.slice(0, 3).map((q) => (
+              {visibleQueueItems.slice(0, 3).map((q) => (
                 <div
                   key={q.id}
                   className="flex items-center justify-between text-xs"
                 >
                   <span className="truncate text-muted-foreground">
-                    {q.generation_id}
+                    {generations.find((g) => g.id === q.generation_id)?.prompt ?? q.generation_id}
                   </span>
-                  <Badge variant="outline" className="ml-2">
-                    {q.status}
-                  </Badge>
+                  <div className="ml-2 flex items-center gap-2">
+                    <Badge variant="outline">{q.status}</Badge>
+                    {q.status === 'pending' ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => window.api.cancelGeneration(q.generation_id)}
+                      >
+                        Cancel
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

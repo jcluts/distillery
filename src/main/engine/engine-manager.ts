@@ -33,12 +33,14 @@ export class EngineManager extends EventEmitter {
 
     // Forward progress events
     this.protocol.on('progress', (response: EngineResponse) => {
+      const data = response.data ?? (response as any)
       const progressEvent: EngineProgressEvent = {
         jobId: response.id,
-        phase: (response.data?.phase as string) ?? 'unknown',
-        step: response.data?.step as number | undefined,
-        totalSteps: response.data?.total_steps as number | undefined,
-        message: response.data?.message as string | undefined
+        phase: (data?.phase as string) ?? 'unknown',
+        step: data?.step as number | undefined,
+        totalSteps: (data?.total_steps as number | undefined) ??
+          (data?.totalSteps as number | undefined),
+        message: data?.message as string | undefined
       }
       this.emit('progress', progressEvent)
     })
@@ -221,15 +223,50 @@ export class EngineManager extends EventEmitter {
       // Generation can take a while, use a generous timeout (10 minutes)
       const response = await this.protocol.sendCommand(command, 600_000)
 
+      const data = response.data ?? (response as any)
+
+      // cn-engine returns `type: "result"` with `data.success` and `data.output`.
+      const success =
+        response.type === 'ok'
+          ? true
+          : response.type === 'result'
+            ? Boolean((data as any)?.success)
+            : false
+
+      const outputPath =
+        ((data as any)?.output_path as string | undefined) ??
+        ((data as any)?.output as string | undefined)
+
+      const seed =
+        ((data as any)?.seed as number | undefined) ??
+        ((data as any)?.used_seed as number | undefined)
+
+      const totalTimeMs =
+        ((data as any)?.total_time_ms as number | undefined) ??
+        ((data as any)?.totalTimeMs as number | undefined)
+
+      const promptCacheHit =
+        ((data as any)?.prompt_cache_hit as boolean | undefined) ??
+        ((data as any)?.promptCacheHit as boolean | undefined)
+
+      const refLatentCacheHit =
+        ((data as any)?.ref_latent_cache_hit as boolean | undefined) ??
+        ((data as any)?.refLatentCacheHit as boolean | undefined)
+
+      const errorMessage =
+        (response.error as string | undefined) ??
+        ((data as any)?.message as string | undefined) ??
+        ((data as any)?.error as string | undefined)
+
       return {
         jobId: params.id,
-        success: response.type === 'ok',
-        outputPath: response.data?.output_path as string | undefined,
-        seed: response.data?.seed as number | undefined,
-        totalTimeMs: response.data?.total_time_ms as number | undefined,
-        promptCacheHit: response.data?.prompt_cache_hit as boolean | undefined,
-        refLatentCacheHit: response.data?.ref_latent_cache_hit as boolean | undefined,
-        error: response.error
+        success,
+        outputPath,
+        seed,
+        totalTimeMs,
+        promptCacheHit,
+        refLatentCacheHit,
+        error: success ? undefined : errorMessage
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)

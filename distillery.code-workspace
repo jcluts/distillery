@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../simple-ai-client"
+		},
+		{
+			"path": "../AppData/Roaming/distillery"
 		}
 	],
 	"settings": {}

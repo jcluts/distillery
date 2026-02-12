@@ -6,7 +6,9 @@ import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { useGenerationStore } from '@/stores/generation-store'
+import { useUIStore } from '@/stores/ui-store'
 import { cn } from '@/lib/utils'
+import type { GenerationInput } from '@/types'
 
 function PanelHeader({ title, right }: { title: string; right?: React.ReactNode }): React.JSX.Element {
   return (
@@ -28,9 +30,58 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'outline'
   return 'secondary'
 }
 
+function formatRelative(iso: string): string {
+  const t = new Date(iso).getTime()
+  const delta = Date.now() - t
+  if (!Number.isFinite(delta) || delta < 0) return 'Just now'
+  const sec = Math.floor(delta / 1000)
+  if (sec < 60) return `${sec}s ago`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.floor(hr / 24)
+  return `${day}d ago`
+}
+
 export function TimelinePanel(): React.JSX.Element {
   const generations = useGenerationStore((s) => s.generations)
-  const clearCompleted = useGenerationStore((s) => s.clearCompleted)
+  const setGenerations = useGenerationStore((s) => s.setGenerations)
+  const setDetailGenerationId = useGenerationStore((s) => s.setDetailGenerationId)
+  const openModal = useUIStore((s) => s.openModal)
+
+  const [thumbs, setThumbs] = React.useState<Record<string, string>>({})
+  const [inputsByGen, setInputsByGen] = React.useState<Record<string, GenerationInput[]>>({})
+
+  React.useEffect(() => {
+    const ids = generations.map((g) => g.id)
+    if (ids.length === 0) {
+      setThumbs({})
+      setInputsByGen({})
+      return
+    }
+
+    void window.api.timeline.getThumbnailsBatch(ids).then(setThumbs).catch(() => {})
+
+    // Load inputs (best-effort) for thumbnail strip
+    void (async () => {
+      const next: Record<string, GenerationInput[]> = {}
+      for (const id of ids.slice(0, 50)) {
+        try {
+          next[id] = await window.api.timeline.getGenerationInputs(id)
+        } catch {
+          next[id] = []
+        }
+      }
+      setInputsByGen(next)
+    })()
+  }, [generations])
+
+  const clearCompleted = React.useCallback(async () => {
+    await window.api.timeline.clearCompleted()
+    const { generations } = await window.api.timeline.getAll()
+    setGenerations(generations)
+  }, [setGenerations])
 
   const activeCount = generations.filter((g) => g.status === 'pending').length
 
@@ -57,6 +108,10 @@ export function TimelinePanel(): React.JSX.Element {
               <Card
                 key={g.id}
                 className="w-full cursor-default overflow-hidden p-3 hover:bg-accent/40"
+                onClick={() => {
+                  setDetailGenerationId(g.id)
+                  openModal('generation-detail')
+                }}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -73,6 +128,7 @@ export function TimelinePanel(): React.JSX.Element {
                     </div>
                     <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                       <span className="truncate">{g.model_file ?? 'Model'}</span>
+                      <span>{formatRelative(g.created_at)}</span>
                       {g.total_time_ms ? (
                         <span className="tabular-nums">{(g.total_time_ms / 1000).toFixed(1)}s</span>
                       ) : null}
@@ -84,8 +140,26 @@ export function TimelinePanel(): React.JSX.Element {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <div className="size-10 rounded-md border bg-muted" />
-                    <div className="size-10 rounded-md border bg-muted" />
+                    <div className="relative size-10 overflow-hidden rounded-md border bg-muted">
+                      {thumbs[g.id] ? (
+                        <img
+                          src={thumbs[g.id]}
+                          alt={`Output for #${g.number}`}
+                          className="absolute inset-0 h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="relative size-10 overflow-hidden rounded-md border bg-muted">
+                      {inputsByGen[g.id]?.[0]?.thumb_path ? (
+                        <img
+                          src={inputsByGen[g.id]![0]!.thumb_path}
+                          alt={`Input for #${g.number}`}
+                          className="absolute inset-0 h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </Card>

@@ -53,8 +53,24 @@ export function MediaInfoPanel(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
   const updateItem = useLibraryStore((s) => s.updateItem)
+  const buildQuery = useLibraryStore((s) => s.buildQuery)
+  const setItems = useLibraryStore((s) => s.setItems)
 
   const media = focusedId ? items.find((m) => m.id === focusedId) ?? null : null
+
+  const persistUpdate = React.useCallback(
+    async (id: string, updates: { rating?: number; status?: any }) => {
+      updateItem(id, updates as any)
+      try {
+        await window.api.updateMedia(id, updates as any)
+      } finally {
+        // Re-query to ensure filters stay consistent (e.g. item might drop out of view)
+        const page = await window.api.getMedia(buildQuery())
+        setItems(page)
+      }
+    },
+    [buildQuery, setItems, updateItem]
+  )
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -67,7 +83,7 @@ export function MediaInfoPanel(): React.JSX.Element {
             rating={media?.rating ?? 0}
             onChange={(r) => {
               if (!media) return
-              updateItem(media.id, { rating: r })
+              void persistUpdate(media.id, { rating: r })
             }}
           />
         </div>
@@ -79,8 +95,8 @@ export function MediaInfoPanel(): React.JSX.Element {
             value={media?.status ?? 'unmarked'}
             onValueChange={(v) => {
               if (!media || !v) return
-              if (v === 'unmarked') updateItem(media.id, { status: null })
-              else if (v === 'selected' || v === 'rejected') updateItem(media.id, { status: v as any })
+              if (v === 'unmarked') void persistUpdate(media.id, { status: null })
+              else if (v === 'selected' || v === 'rejected') void persistUpdate(media.id, { status: v as any })
             }}
           >
             <ToggleGroupItem value="selected" size="sm">Selected</ToggleGroupItem>
@@ -97,6 +113,12 @@ export function MediaInfoPanel(): React.JSX.Element {
             <div className="truncate">{media?.file_name ?? 'No selection'}</div>
             <div className="text-xs text-muted-foreground">
               {media?.width && media?.height ? `${media.width} × ${media.height}` : '—'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {media?.file_size ? `${(media.file_size / (1024 * 1024)).toFixed(1)} MB` : '—'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {media?.created_at ? new Date(media.created_at).toLocaleString() : '—'}
             </div>
             <div className="text-xs text-muted-foreground">
               {media?.origin ? (
