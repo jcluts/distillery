@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { Copy, Minus, Settings, Square, X } from 'lucide-react'
 
-import { TITLE_BAR_HEIGHT_PX } from '@/lib/layout'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useUIStore } from '@/stores/ui-store'
@@ -66,11 +65,10 @@ export function TitleBar(): React.JSX.Element {
   return (
     <div
       className={cn(
-        'flex items-center border-b border-sidebar-border bg-sidebar pl-3 text-sidebar-foreground'
+        'flex items-center border-b border-sidebar-border bg-sidebar pl-3 text-sidebar-foreground py-0.5'
       )}
       style={
         {
-          height: TITLE_BAR_HEIGHT_PX,
           WebkitAppRegion: 'drag'
         } as React.CSSProperties
       }

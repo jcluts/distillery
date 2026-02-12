@@ -4,7 +4,6 @@ import { Grid2X2, Image as ImageIcon } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { STATUS_BAR_HEIGHT_PX } from '@/lib/layout'
 import { THUMBNAIL_SIZE_MAX, THUMBNAIL_SIZE_MIN } from '@/lib/constants'
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
@@ -54,8 +53,7 @@ export function LibraryStatusBar(): React.JSX.Element {
 
   return (
     <div
-      className="flex shrink-0 items-center gap-3 border-t bg-background px-3 text-xs"
-      style={{ height: STATUS_BAR_HEIGHT_PX }}
+      className="flex shrink-0 items-center gap-3 border-t bg-background px-3 text-xs h-10"
     >
       {/* Left: image counter */}
       <span className="tabular-nums text-muted-foreground">{counterText} images</span>

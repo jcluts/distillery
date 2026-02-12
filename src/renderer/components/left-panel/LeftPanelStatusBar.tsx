@@ -2,7 +2,6 @@ import * as React from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { STATUS_BAR_HEIGHT_PX } from '@/lib/layout'
 import { useEngineStore } from '@/stores/engine-store'
 import { useQueueStore } from '@/stores/queue-store'
 import { cn } from '@/lib/utils'
@@ -58,8 +57,7 @@ export function LeftPanelStatusBar(): React.JSX.Element {
 
   return (
     <div
-      className="flex shrink-0 items-center gap-2 border-t bg-background px-3 text-xs"
-      style={{ height: STATUS_BAR_HEIGHT_PX }}
+      className="flex shrink-0 items-center gap-2 border-t bg-background px-3 text-xs h-10"
     >
       {/* Engine status */}
       <EngineDot state={engineState} />

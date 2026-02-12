@@ -64,15 +64,11 @@ export function RightPanel(): React.JSX.Element {
         className="flex-row-reverse border-l border-r-0 bg-sidebar text-sidebar-foreground"
         style={
           {
-            ['--sidebar-width' as any]: `${fullWidth}px`,
-            ['--sidebar-width-icon' as any]: `${PANEL_ICON_STRIP_WIDTH_PX}px`
+            ['--sidebar-width' as any]: `${fullWidth}px`
           } as React.CSSProperties
         }
       >
-        <div
-          className="flex shrink-0 flex-col items-center gap-1 border-l px-2 py-2"
-          style={{ width: PANEL_ICON_STRIP_WIDTH_PX }}
-        >
+        <div className="flex shrink-0 flex-col items-center gap-1 border-l px-1.5 py-1.5">
           <TabButton tab="info" icon={<Info />} label="Info" />
           <TabButton tab="generation-info" icon={<SlidersHorizontal />} label="Generation" />
         </div>
