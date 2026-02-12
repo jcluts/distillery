@@ -1,7 +1,8 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync } from 'fs'
+import { SQL_MIGRATIONS } from './migrations'
 
 let db: Database.Database | null = null
 
@@ -58,49 +59,24 @@ function runMigrations(database: Database.Database): void {
     )
   `)
 
-  const migrationsDir = join(__dirname, '../../src/main/db/migrations')
-  // Also try the packaged location
-  const altMigrationsDir = join(__dirname, '../db/migrations')
-
-  let migrationPath = migrationsDir
-  if (!existsSync(migrationPath)) {
-    migrationPath = altMigrationsDir
-  }
-  if (!existsSync(migrationPath)) {
-    // In development with electron-vite, migrations are alongside compiled output
-    // Try resolving from the project root
-    const devPath = join(process.cwd(), 'src/main/db/migrations')
-    if (existsSync(devPath)) {
-      migrationPath = devPath
-    } else {
-      console.warn('[DB] No migrations directory found, skipping migrations')
-      return
-    }
-  }
-
-  const files = readdirSync(migrationPath)
-    .filter((f) => f.endsWith('.sql'))
-    .sort()
-
   const applied = new Set(
-    database
-      .prepare('SELECT name FROM _migrations')
-      .all()
-      .map((row: { name: string }) => row.name)
+    (database.prepare('SELECT name FROM _migrations').all() as { name: string }[]).map(
+      (row) => row.name
+    )
   )
 
-  for (const file of files) {
-    if (applied.has(file)) continue
+  for (const migration of SQL_MIGRATIONS) {
+    if (applied.has(migration.name)) continue
 
-    const sql = readFileSync(join(migrationPath, file), 'utf-8')
-
-    console.log(`[DB] Applying migration: ${file}`)
+    console.log(`[DB] Applying migration: ${migration.name}`)
 
     database.transaction(() => {
-      database.exec(sql)
-      database.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file)
+      database.exec(migration.sql)
+      database
+        .prepare('INSERT INTO _migrations (name) VALUES (?)')
+        .run(migration.name)
     })()
 
-    console.log(`[DB] Migration applied: ${file}`)
+    console.log(`[DB] Migration applied: ${migration.name}`)
   }
 }

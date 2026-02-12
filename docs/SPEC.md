@@ -36,7 +36,7 @@ Distillery is a desktop application for local AI image generation and media mana
   "rsc": false,
   "tsx": true,
   "tailwind": {
-    "css": "src/renderer/src/assets/main.css",
+    "css": "src/renderer/assets/main.css",
     "baseColor": "neutral",
     "cssVariables": true
   },
