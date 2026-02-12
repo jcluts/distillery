@@ -15,6 +15,7 @@ import { useUIStore, type LeftPanelTab } from '@/stores/ui-store'
 import { GenerationPanel } from '@/components/left-panel/GenerationPanel'
 import { TimelinePanel } from '@/components/left-panel/TimelinePanel'
 import { ImportPanel } from '@/components/left-panel/ImportPanel'
+import { LeftPanelStatusBar } from '@/components/left-panel/LeftPanelStatusBar'
 
 function TabButton({
   tab,
@@ -81,10 +82,13 @@ export function LeftPanel(): React.JSX.Element {
         </div>
 
         {open ? (
-          <div className="min-w-0 flex-1 overflow-hidden">
-            {tab === 'generation' ? <GenerationPanel /> : null}
-            {tab === 'timeline' ? <TimelinePanel /> : null}
-            {tab === 'import' ? <ImportPanel /> : null}
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {tab === 'generation' ? <GenerationPanel /> : null}
+              {tab === 'timeline' ? <TimelinePanel /> : null}
+              {tab === 'import' ? <ImportPanel /> : null}
+            </div>
+            <LeftPanelStatusBar />
           </div>
         ) : null}
       </Sidebar>
