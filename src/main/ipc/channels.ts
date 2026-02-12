@@ -1,0 +1,57 @@
+// =============================================================================
+// IPC Channel Name Constants
+// Single source of truth for all IPC communication channel names.
+// =============================================================================
+
+export const IPC_CHANNELS = {
+  // Library
+  LIBRARY_GET_MEDIA: 'library:getMedia',
+  LIBRARY_GET_MEDIA_BY_ID: 'library:getMediaById',
+  LIBRARY_UPDATE_MEDIA: 'library:updateMedia',
+  LIBRARY_DELETE_MEDIA: 'library:deleteMedia',
+  LIBRARY_IMPORT_MEDIA: 'library:importMedia',
+  LIBRARY_GET_THUMBNAIL: 'library:getThumbnail',
+  LIBRARY_GET_THUMBNAILS_BATCH: 'library:getThumbnailsBatch',
+
+  // Generation
+  GENERATION_SUBMIT: 'generation:submit',
+  GENERATION_CANCEL: 'generation:cancel',
+
+  // Engine
+  ENGINE_GET_STATUS: 'engine:getStatus',
+  ENGINE_LOAD_MODEL: 'engine:loadModel',
+  ENGINE_UNLOAD_MODEL: 'engine:unloadModel',
+
+  // Queue
+  QUEUE_GET: 'queue:get',
+
+  // Timeline
+  TIMELINE_GET_ALL: 'timeline:getAll',
+  TIMELINE_GET: 'timeline:get',
+  TIMELINE_REMOVE: 'timeline:remove',
+  TIMELINE_CLEAR_COMPLETED: 'timeline:clearCompleted',
+  TIMELINE_GET_THUMBNAIL: 'timeline:getThumbnail',
+  TIMELINE_GET_THUMBNAILS_BATCH: 'timeline:getThumbnailsBatch',
+  TIMELINE_GET_INPUT_THUMBNAIL: 'timeline:getInputThumbnail',
+  TIMELINE_GET_INPUT_THUMBNAILS_BATCH: 'timeline:getInputThumbnailsBatch',
+  TIMELINE_GET_GENERATION_INPUTS: 'timeline:getGenerationInputs',
+
+  // Settings
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_SAVE: 'settings:save',
+
+  // App
+  APP_SHOW_OPEN_DIALOG: 'app:showOpenDialog',
+  APP_SHOW_SAVE_DIALOG: 'app:showSaveDialog',
+  APP_SHOW_ITEM_IN_FOLDER: 'app:showItemInFolder',
+  APP_GET_HARDWARE_PROFILE: 'app:getHardwareProfile',
+
+  // Events (main -> renderer)
+  ENGINE_STATUS_CHANGED: 'engine:status',
+  ENGINE_PROGRESS: 'engine:progress',
+  ENGINE_RESULT: 'engine:result',
+  QUEUE_UPDATED: 'queue:updated',
+  LIBRARY_UPDATED: 'library:updated'
+} as const
+
+export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
