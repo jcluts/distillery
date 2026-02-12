@@ -44,8 +44,12 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
     .get(...values) as { total: number }
 
   // Sort
-  const sortField = params.sort ?? 'created_at'
-  const sortDir = params.sortDirection ?? 'desc'
+  const allowedSortFields = new Set(['created_at', 'rating', 'file_name'] as const)
+  const sortField =
+    params.sort && allowedSortFields.has(params.sort)
+      ? params.sort
+      : 'created_at'
+  const sortDir = params.sortDirection === 'asc' ? 'asc' : 'desc'
   const orderBy = `ORDER BY ${sortField} ${sortDir}`
 
   // Fetch

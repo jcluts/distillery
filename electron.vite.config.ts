@@ -18,8 +18,8 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
-        '@': resolve('src/renderer/src'),
-        '@renderer': resolve('src/renderer/src')
+        '@': resolve('src/renderer'),
+        '@renderer': resolve('src/renderer')
       }
     },
     plugins: [react(), tailwindcss()]

@@ -1,50 +1,23 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { IPC_CHANNELS } from '../main/ipc/channels'
+import type {
+  DistilleryAPI,
+  GenerationParams,
+  MediaQuery,
+  MediaUpdate,
+  ModelLoadParams,
+  SettingsUpdate
+} from '../renderer/types'
 
-// IPC Channel constants - must match src/main/ipc/channels.ts
-const CH = {
-  LIBRARY_GET_MEDIA: 'library:getMedia',
-  LIBRARY_GET_MEDIA_BY_ID: 'library:getMediaById',
-  LIBRARY_UPDATE_MEDIA: 'library:updateMedia',
-  LIBRARY_DELETE_MEDIA: 'library:deleteMedia',
-  LIBRARY_IMPORT_MEDIA: 'library:importMedia',
-  LIBRARY_GET_THUMBNAIL: 'library:getThumbnail',
-  LIBRARY_GET_THUMBNAILS_BATCH: 'library:getThumbnailsBatch',
-  GENERATION_SUBMIT: 'generation:submit',
-  GENERATION_CANCEL: 'generation:cancel',
-  ENGINE_GET_STATUS: 'engine:getStatus',
-  ENGINE_LOAD_MODEL: 'engine:loadModel',
-  ENGINE_UNLOAD_MODEL: 'engine:unloadModel',
-  QUEUE_GET: 'queue:get',
-  TIMELINE_GET_ALL: 'timeline:getAll',
-  TIMELINE_GET: 'timeline:get',
-  TIMELINE_REMOVE: 'timeline:remove',
-  TIMELINE_CLEAR_COMPLETED: 'timeline:clearCompleted',
-  TIMELINE_GET_THUMBNAIL: 'timeline:getThumbnail',
-  TIMELINE_GET_THUMBNAILS_BATCH: 'timeline:getThumbnailsBatch',
-  TIMELINE_GET_INPUT_THUMBNAIL: 'timeline:getInputThumbnail',
-  TIMELINE_GET_INPUT_THUMBNAILS_BATCH: 'timeline:getInputThumbnailsBatch',
-  TIMELINE_GET_GENERATION_INPUTS: 'timeline:getGenerationInputs',
-  SETTINGS_GET: 'settings:get',
-  SETTINGS_SAVE: 'settings:save',
-  APP_SHOW_OPEN_DIALOG: 'app:showOpenDialog',
-  APP_SHOW_SAVE_DIALOG: 'app:showSaveDialog',
-  APP_SHOW_ITEM_IN_FOLDER: 'app:showItemInFolder',
-  APP_GET_HARDWARE_PROFILE: 'app:getHardwareProfile',
-  // Events
-  ENGINE_STATUS_CHANGED: 'engine:status',
-  ENGINE_PROGRESS: 'engine:progress',
-  ENGINE_RESULT: 'engine:result',
-  QUEUE_UPDATED: 'queue:updated',
-  LIBRARY_UPDATED: 'library:updated'
-} as const
+const CH = IPC_CHANNELS
 
 // Typed API for renderer
-const api = {
+const api: DistilleryAPI = {
   // Library
-  getMedia: (params: unknown) => ipcRenderer.invoke(CH.LIBRARY_GET_MEDIA, params),
+  getMedia: (params: MediaQuery) => ipcRenderer.invoke(CH.LIBRARY_GET_MEDIA, params),
   getMediaById: (id: string) => ipcRenderer.invoke(CH.LIBRARY_GET_MEDIA_BY_ID, id),
-  updateMedia: (id: string, updates: unknown) =>
+  updateMedia: (id: string, updates: MediaUpdate) =>
     ipcRenderer.invoke(CH.LIBRARY_UPDATE_MEDIA, id, updates),
   deleteMedia: (ids: string[]) => ipcRenderer.invoke(CH.LIBRARY_DELETE_MEDIA, ids),
   importMedia: (filePaths: string[]) =>
@@ -54,14 +27,14 @@ const api = {
     ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAILS_BATCH, ids),
 
   // Generation
-  submitGeneration: (params: unknown) =>
+  submitGeneration: (params: GenerationParams) =>
     ipcRenderer.invoke(CH.GENERATION_SUBMIT, params),
   cancelGeneration: (jobId: string) =>
     ipcRenderer.invoke(CH.GENERATION_CANCEL, jobId),
 
   // Engine
   getEngineStatus: () => ipcRenderer.invoke(CH.ENGINE_GET_STATUS),
-  loadModel: (params: unknown) => ipcRenderer.invoke(CH.ENGINE_LOAD_MODEL, params),
+  loadModel: (params: ModelLoadParams) => ipcRenderer.invoke(CH.ENGINE_LOAD_MODEL, params),
   unloadModel: () => ipcRenderer.invoke(CH.ENGINE_UNLOAD_MODEL),
 
   // Queue
@@ -87,12 +60,12 @@ const api = {
 
   // Settings
   getSettings: () => ipcRenderer.invoke(CH.SETTINGS_GET),
-  saveSettings: (updates: unknown) => ipcRenderer.invoke(CH.SETTINGS_SAVE, updates),
+  saveSettings: (updates: SettingsUpdate) => ipcRenderer.invoke(CH.SETTINGS_SAVE, updates),
 
   // App
-  showOpenDialog: (options: unknown) =>
+  showOpenDialog: (options: Electron.OpenDialogOptions) =>
     ipcRenderer.invoke(CH.APP_SHOW_OPEN_DIALOG, options),
-  showSaveDialog: (options: unknown) =>
+  showSaveDialog: (options: Electron.SaveDialogOptions) =>
     ipcRenderer.invoke(CH.APP_SHOW_SAVE_DIALOG, options),
   showItemInFolder: (path: string) =>
     ipcRenderer.invoke(CH.APP_SHOW_ITEM_IN_FOLDER, path),
@@ -100,15 +73,22 @@ const api = {
 
   // Event subscriptions (returns unsubscribe function)
   on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
-    const validChannels = [
+    type EventChannel =
+      | typeof CH.ENGINE_STATUS_CHANGED
+      | typeof CH.ENGINE_PROGRESS
+      | typeof CH.ENGINE_RESULT
+      | typeof CH.QUEUE_UPDATED
+      | typeof CH.LIBRARY_UPDATED
+
+    const validChannels = new Set<EventChannel>([
       CH.ENGINE_STATUS_CHANGED,
       CH.ENGINE_PROGRESS,
       CH.ENGINE_RESULT,
       CH.QUEUE_UPDATED,
       CH.LIBRARY_UPDATED
-    ]
+    ])
 
-    if (!validChannels.includes(channel as typeof validChannels[number])) {
+    if (!validChannels.has(channel as EventChannel)) {
       console.warn(`[preload] Unknown event channel: ${channel}`)
       return () => {}
     }

@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { DistilleryAPI } from '../renderer/src/types'
+import type { DistilleryAPI } from '../renderer/types'
 
 declare global {
   interface Window {

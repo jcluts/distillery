@@ -1,6 +1,11 @@
 import Database from 'better-sqlite3'
 import type { GenerationRecord } from '../../types'
 
+type GenerationRow = Omit<GenerationRecord, 'prompt_cache_hit' | 'ref_latent_cache_hit'> & {
+  prompt_cache_hit: number
+  ref_latent_cache_hit: number
+}
+
 /**
  * Insert a new generation record.
  */
@@ -33,9 +38,9 @@ export function getGenerationById(
   db: Database.Database,
   id: string
 ): GenerationRecord | null {
-  const row = db.prepare('SELECT * FROM generations WHERE id = ?').get(id) as
-    | (GenerationRecord & { prompt_cache_hit: number; ref_latent_cache_hit: number })
-    | undefined
+  const row = db
+    .prepare('SELECT * FROM generations WHERE id = ?')
+    .get(id) as GenerationRow | undefined
   if (!row) return null
   return {
     ...row,
@@ -50,10 +55,7 @@ export function getGenerationById(
 export function getAllGenerations(db: Database.Database): GenerationRecord[] {
   const rows = db
     .prepare('SELECT * FROM generations ORDER BY created_at DESC')
-    .all() as (GenerationRecord & {
-    prompt_cache_hit: number
-    ref_latent_cache_hit: number
-  })[]
+    .all() as GenerationRow[]
 
   return rows.map((row) => ({
     ...row,
