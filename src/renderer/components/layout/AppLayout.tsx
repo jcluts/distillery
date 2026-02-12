@@ -7,6 +7,7 @@ import { FilterBar } from '@/components/library/FilterBar'
 import { GridView } from '@/components/library/GridView'
 import { LoupeView } from '@/components/library/LoupeView'
 import { StatusBar } from '@/components/layout/StatusBar'
+import { TitleBar } from '@/components/layout/TitleBar'
 import { useUIStore } from '@/stores/ui-store'
 
 export function AppLayout(): React.JSX.Element {
@@ -15,6 +16,7 @@ export function AppLayout(): React.JSX.Element {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden">
+      <TitleBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <LeftPanel />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

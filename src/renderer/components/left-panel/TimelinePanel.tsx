@@ -52,11 +52,11 @@ export function TimelinePanel(): React.JSX.Element {
 
       <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 pt-4">
         <ScrollArea className="h-full">
-          <div className="space-y-3 pr-2">
+          <div className="space-y-3">
             {generations.map((g) => (
               <Card
                 key={g.id}
-                className="cursor-default p-3 hover:bg-accent/40"
+                className="w-full cursor-default overflow-hidden p-3 hover:bg-accent/40"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
