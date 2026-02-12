@@ -216,6 +216,8 @@ distillery/
 
 **Database in main process only.** The renderer never touches SQLite directly. All data access goes through IPC calls to main-process repository functions. This enforces a clean boundary, avoids native module issues in the renderer, and makes the data layer easy to test independently.
 
+**Profiles are isolated by userData.** Distillery supports multiple profiles. On startup, the main process reads a root-level `profiles.json` file and then sets Electron's `userData` path to `.../profiles/<activeProfile>/` before initializing the database or settings. This keeps each profile's SQLite DB and app settings isolated.
+
 **Canvas for image display.** Full-size images in loupe view render to an HTML `<canvas>` element. This is a deliberate architectural investment: when non-destructive WebGL adjustments are added later, the canvas is already the rendering surface. For the MVP, canvas simply draws the decoded image.
 
 **Virtualized grid.** The thumbnail grid must handle thousands of items. Use `@tanstack/react-virtual` for row virtualization. Thumbnails are pre-generated at a fixed size and stored on disk alongside originals.
