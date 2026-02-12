@@ -6,6 +6,7 @@ import { getDatabase, closeDatabase } from './db/connection'
 import { EngineManager } from './engine/engine-manager'
 import { TimelineService } from './timeline/timeline-service'
 import { IPC_CHANNELS } from './ipc/channels'
+import { applyActiveProfileUserDataPath } from './profiles'
 import { registerLibraryHandlers } from './ipc/handlers/library'
 import { registerGenerationHandlers } from './ipc/handlers/generation'
 import { registerEngineHandlers } from './ipc/handlers/engine'
@@ -79,6 +80,11 @@ function setupEngineEventForwarding(engine: EngineManager): void {
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.distillery')
+
+  const profileInfo = applyActiveProfileUserDataPath()
+  console.log(
+    `[Main] Active profile: ${profileInfo.activeProfile} (userData: ${profileInfo.profileUserDataPath})`
+  )
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
