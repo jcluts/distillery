@@ -40,6 +40,14 @@ export function FilterBar(): React.JSX.Element {
   const setSortDirection = useLibraryStore((s) => s.setSortDirection)
 
   const sortValue = getSortValue(sortField, sortDirection)
+  const statusValue =
+    statusFilter === 'all'
+      ? 'all'
+      : statusFilter === 'selected'
+        ? 'selected'
+        : statusFilter === 'rejected'
+          ? 'rejected'
+          : 'unmarked'
 
   return (
     <div className="flex items-center gap-3 border-b bg-background px-3 py-2">
@@ -61,18 +69,25 @@ export function FilterBar(): React.JSX.Element {
           </SelectContent>
         </Select>
 
-        <ToggleGroup
-          type="single"
-          value={statusFilter ?? 'unmarked'}
+        <Select
+          value={statusValue}
           onValueChange={(v) => {
-            if (v) setStatusFilter(v as any)
+            if (v === 'all') setStatusFilter('all')
+            else if (v === 'selected') setStatusFilter('selected')
+            else if (v === 'rejected') setStatusFilter('rejected')
+            else setStatusFilter('unmarked')
           }}
         >
-          <ToggleGroupItem value="all" size="sm">All</ToggleGroupItem>
-          <ToggleGroupItem value="selected" size="sm">Selected</ToggleGroupItem>
-          <ToggleGroupItem value="rejected" size="sm">Rejected</ToggleGroupItem>
-          <ToggleGroupItem value="unmarked" size="sm">Unmarked</ToggleGroupItem>
-        </ToggleGroup>
+          <SelectTrigger className="w-[132px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="selected">Selected</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="unmarked">Unmarked</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <Separator orientation="vertical" className="h-5" />
