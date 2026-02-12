@@ -78,9 +78,6 @@ export function GridView(): React.JSX.Element {
                   </div>
                 )}
               </div>
-              <div className="mt-1 truncate text-left text-xs text-muted-foreground">
-                {m.file_name}
-              </div>
             </button>
           )
         })}

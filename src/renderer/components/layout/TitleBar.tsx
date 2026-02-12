@@ -66,13 +66,12 @@ export function TitleBar(): React.JSX.Element {
   return (
     <div
       className={cn(
-        'flex items-center border-b border-sidebar-border bg-sidebar px-3 text-sidebar-foreground'
+        'flex items-center border-b border-sidebar-border bg-sidebar pl-3 text-sidebar-foreground'
       )}
       style={
         {
           height: TITLE_BAR_HEIGHT_PX,
-          WebkitAppRegion: 'drag',
-          paddingRight: 12
+          WebkitAppRegion: 'drag'
         } as React.CSSProperties
       }
       onDoubleClick={() => void window.api.windowToggleMaximize()}
