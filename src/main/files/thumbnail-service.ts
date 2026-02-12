@@ -12,6 +12,7 @@ import { existsSync } from 'fs'
 
 const THUMBNAIL_SIZE = 400
 const THUMBNAIL_QUALITY = 80
+export const REF_IMAGE_MAX_PIXELS = 1024 * 1024
 
 /**
  * Generate a square-cropped JPEG thumbnail.
@@ -53,30 +54,60 @@ export async function generateThumbnail(
  *
  * @param sourcePath - Path to the source image
  * @param outputPath - Path to write the downscaled image
- * @param maxPixels - Maximum total pixels (default 1,000,000 = 1MP)
+ * @param maxPixels - Maximum total pixels (default 1024*1024)
  */
 export async function downscaleToMaxPixels(
   sourcePath: string,
   outputPath: string,
-  maxPixels = 1_000_000
+  maxPixels = REF_IMAGE_MAX_PIXELS
 ): Promise<void> {
   const metadata = await sharp(sourcePath).metadata()
   const width = metadata.width ?? 0
   const height = metadata.height ?? 0
-  const pixels = width * height
 
-  if (pixels <= maxPixels) {
-    // Image is already small enough, just copy
-    await sharp(sourcePath).toFile(outputPath)
-    return
+  if (width <= 0 || height <= 0) {
+    throw new Error(`Invalid image dimensions for ${sourcePath}`)
   }
 
-  const scale = Math.sqrt(maxPixels / pixels)
-  const newWidth = Math.round(width * scale)
-  const newHeight = Math.round(height * scale)
+  const pixels = width * height
+
+  // Flux2 VAE ref-image encode path requires dimensions aligned to 16
+  // (VAE scale factor 8 plus Flux2 pack factor 2).
+  const ALIGN = 16
+  const alignDown = (value: number): number => {
+    if (value <= ALIGN) return ALIGN
+    return Math.max(ALIGN, Math.floor(value / ALIGN) * ALIGN)
+  }
+
+  const scale = pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1
+  const scaledWidth = Math.max(ALIGN, Math.round(width * scale))
+  const scaledHeight = Math.max(ALIGN, Math.round(height * scale))
+
+  const targetWidth = alignDown(scaledWidth)
+  const targetHeight = alignDown(scaledHeight)
+
+  if (targetWidth !== width || targetHeight !== height) {
+    const reasons: string[] = []
+    if (scale < 1) {
+      reasons.push(`pixel budget ${maxPixels}`)
+    }
+    if (targetWidth !== scaledWidth || targetHeight !== scaledHeight) {
+      reasons.push(`alignment ${ALIGN}`)
+    }
+
+    console.info(
+      `[ThumbnailService] Resized reference image ${width}x${height} -> ${targetWidth}x${targetHeight} (${reasons.join(', ')}) source=${sourcePath}`
+    )
+  }
 
   await sharp(sourcePath)
-    .resize(newWidth, newHeight, { fit: 'inside' })
+    .rotate()
+    .resize(targetWidth, targetHeight, {
+      fit: 'cover',
+      position: 'centre'
+    })
+    .removeAlpha()
+    .toColourspace('srgb')
     .png()
     .toFile(outputPath)
 }

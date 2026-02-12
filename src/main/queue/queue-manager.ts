@@ -12,7 +12,11 @@ import * as generationRepo from '../db/repositories/generations'
 import * as generationInputRepo from '../db/repositories/generation-inputs'
 import * as mediaRepo from '../db/repositories/media'
 import * as queueRepo from '../db/repositories/queue'
-import { downscaleToMaxPixels, generateThumbnail } from '../files/thumbnail-service'
+import {
+  downscaleToMaxPixels,
+  generateThumbnail,
+  REF_IMAGE_MAX_PIXELS
+} from '../files/thumbnail-service'
 import type {
   GenerationParams,
   GenerationRecord,
@@ -396,7 +400,7 @@ export class QueueManager extends EventEmitter {
   private async createRefCacheFile(sourceAbsPath: string): Promise<string> {
     const filename = `${uuidv4()}.png`
     const outputAbs = path.join(this.fileManager.getRefCacheDir(), filename)
-    await downscaleToMaxPixels(sourceAbsPath, outputAbs, 1_000_000)
+    await downscaleToMaxPixels(sourceAbsPath, outputAbs, REF_IMAGE_MAX_PIXELS)
     return outputAbs
   }
 
