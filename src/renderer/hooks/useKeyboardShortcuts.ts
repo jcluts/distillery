@@ -48,12 +48,6 @@ export function useKeyboardShortcuts(): void {
         return
       }
 
-      if (modKey && e.key.toLowerCase() === 'i') {
-        e.preventDefault()
-        toggleRightPanel()
-        return
-      }
-
       // Focus prompt
       if (modKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()

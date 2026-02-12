@@ -262,8 +262,8 @@ The application uses a single-window layout based on patterns proven in V1. Thre
 |  |   |       |           |                           Panel |  |
 |  |   |       |           |                          Content|  |
 +--+---+-------+-----------+----------------------------+---+--+
-|  Status Bar                                                   |
-+--------------------------------------------------------------+
+| Left Status   | Library Status Bar                   |        |
++---------------+--------------------------------------+--------+
 
 G = Generation tab    i = Info tab
 T = Timeline tab      G = Generation info tab
@@ -281,13 +281,15 @@ These constants should be defined in one place (e.g., a layout constants module)
 
 **Title Bar:** Custom frameless window title bar with platform-appropriate window controls (minimize, maximize, close). Drag region for window movement.
 
-**Left Panel (340px, collapsible):** Fixed width when expanded. Icon tab bar on the left edge is always visible (~48px) and included in the 340px width. Panel content area shows the active tab. Tabs: Generation, Timeline, Import. Collapsing hides the content area but keeps the icon strip.
+**Left Panel (340px, collapsible):** Fixed width when expanded. Icon tab bar on the left edge is always visible (~48px) and included in the 340px width. Panel content area shows the active tab. Tabs: Generation, Timeline, Import. Collapsing hides the content area but keeps the icon strip. Has its own status bar at the bottom showing engine status, generation progress, and queue depth.
 
-**Library View (center, flexible):** The dominant area. Switches between grid view and loupe view. Takes all remaining horizontal space. Filter bar sits at the top.
+**Library View (center, flexible):** The dominant area. Switches between grid view and loupe view. Takes all remaining horizontal space. Filter bar sits at the top; library status bar sits at the bottom.
 
 **Right Panel (280px, collapsible):** Fixed width when expanded. Icon tab bar on the right edge is always visible (~48px) and included in the 280px width. Panel content shows the active tab. MVP tabs: Media Info, Generation Info. Future tabs appear here as features are added (Adjust, Brush, Remove, Transform, Collections).
 
-**Status Bar (bottom, ~28px):** Thin persistent bar showing engine status, active generation progress, and queue depth.
+**Status Bars (~32px each):** Instead of a single global status bar spanning the full window width, each pane has its own contextual status bar:
+- **Left panel status bar:** Engine status indicator (colored dot + label), active generation progress (progress bar + step counter + elapsed time), queue depth badge.
+- **Library status bar:** Image count, sort dropdown, thumbnail size slider (grid mode only), view mode toggle (grid/loupe). In loupe mode, shows "3 / 42 images" style counter.
 
 ### 4.2 Left Panel
 
@@ -409,8 +411,8 @@ The default view. A responsive grid of image thumbnails.
 
 #### Behavior
 
-- Thumbnails are square-cropped for uniform grid appearance.
-- Grid columns adjust based on available width. User can adjust thumbnail size via a slider in the status bar or filter bar (zoom control).
+- Thumbnails are square-cropped for uniform grid appearance. No filename label is shown under thumbnails (files use UUID names which are not meaningful to the user).
+- Grid columns adjust based on available width. User can adjust thumbnail size via a slider in the library status bar.
 - Virtualized rendering: only thumbnails in/near the viewport are rendered via `@tanstack/react-virtual`.
 - Click a thumbnail to select it (shows info in right panel).
 - Double-click or press `E` to enter loupe view at that image.
@@ -420,18 +422,17 @@ The default view. A responsive grid of image thumbnails.
 
 #### Filter Bar
 
-Horizontal bar above the grid. Uses shadcn `Select` and `ToggleGroup` components for a consistent look.
+Horizontal bar above the grid. Uses shadcn `Select` components for a compact, consistent look. Focuses on filtering only; sorting, count, and view controls live in the library status bar below.
 
 | Filter | Component | Values |
 |--------|-----------|--------|
-| Rating | `Select` or `ToggleGroup` | Unrated, 1+ stars, 2+, 3+, 4+, 5 |
-| Status | `ToggleGroup` | All, Selected, Rejected, Unmarked |
-| Media Type | `ToggleGroup` | Images (MVP: only option, but present for future video) |
-| Sort | `Select` | Date (newest/oldest), Rating (high/low), Name (A-Z/Z-A) |
+| Rating | `Select` | Unrated, 1+ stars, 2+, 3+, 4+, 5 |
+| Status | `Select` | All, Selected, Rejected, Unmarked |
 
 Also includes:
-- Search input for filename/keyword search.
-- Count label: "342 images" (filtered count / total count).
+- Search input for filename/keyword search (right-aligned).
+
+Media type filter is hidden for MVP (images only). Sort, image count, thumbnail size, and view mode controls are in the library status bar.
 
 #### shadcn Components Used
 
@@ -572,34 +573,42 @@ This is the proven V1 pattern: the right panel is where all "inspection and mani
 | Collapsible sections | `Collapsible` |
 | Action buttons | `Button` (secondary/ghost variants) |
 
-### 4.6 Status Bar
+### 4.6 Status Bars
 
-Persistent thin bar at the bottom of the window (~28px).
+Each pane has its own contextual status bar (~32px) rather than a single global bar spanning the full window.
+
+#### Left Panel Status Bar (`LeftPanelStatusBar`)
+
+Shown at the bottom of the left panel when expanded. Contains generation-related ambient state.
+
+- Engine status indicator: colored dot + label.
+  - Green/primary: "Model loaded" (with model name).
+  - Secondary: "Loading model..."
+  - Muted: "Engine idle" (running but no model loaded).
+  - Red/destructive: "Engine error" (crashed or failed to start).
+- Active generation progress: slim progress bar + step counter (e.g., "2/4") + elapsed time. Only shown when generating.
+- Queue depth badge: "3 queued" (hidden when empty).
+
+#### Library Status Bar (`LibraryStatusBar`)
+
+Shown at the bottom of the center library view. Contains library browsing controls.
 
 **Left side:**
-- Engine status indicator: colored dot + label.
-  - Green: "Model loaded" (with model name).
-  - Yellow: "Loading model..."
-  - Gray: "Engine idle" (running but no model loaded).
-  - Red: "Engine error" (crashed or failed to start).
-
-**Center:**
-- Active generation: phase label + mini progress bar + elapsed time.
-- Shown only when a generation is in progress.
+- Image count: "42 images" in grid mode, "3 / 42 images" in loupe mode (showing current position).
 
 **Right side:**
-- Thumbnail size `Slider` (controls grid column count).
+- Sort dropdown: Date (newest/oldest), Rating (high/low), Name (A-Z/Z-A).
+- Thumbnail size slider with small/large image icons (grid mode only).
 - View mode toggle: Grid / Loupe icons.
-- Image count: "342 images".
-- Queue depth badge: "3 in queue" (hidden when empty).
 
-#### shadcn Components Used
+#### shadcn Components Used (Status Bars)
 
 | Element | Component |
 |---------|-----------|
 | Status dot | Custom (tiny colored circle via Tailwind) |
 | Progress | `Progress` (slim variant) |
 | Queue badge | `Badge` |
+| Sort dropdown | `Select` |
 | Thumbnail slider | `Slider` |
 | View mode toggle | `ToggleGroup` (icon) |
 
@@ -703,13 +712,16 @@ MODALS (configuration -- infrequent access)
 ├── Prompt Editor       ← Future (rich prompt editing modal)
 └── Export Dialog       ← Future (export with adjustments baked in)
 
-STATUS BAR (persistent ambient state)
+LEFT PANEL STATUS BAR (generation ambient state)
 ├── Engine status       ← MVP
 ├── Generation progress ← MVP
-├── Queue depth         ← MVP
-├── Thumbnail size      ← MVP
-├── View mode toggle    ← MVP
-└── Image count         ← MVP
+└── Queue depth         ← MVP
+
+LIBRARY STATUS BAR (library browsing controls)
+├── Image count         ← MVP
+├── Sort dropdown       ← MVP
+├── Thumbnail size      ← MVP (grid only)
+└── View mode toggle    ← MVP
 ```
 
 **The pattern:** Left = inputs, Right = inspection/manipulation, Modals = infrequent config.
