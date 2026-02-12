@@ -10,7 +10,7 @@ export const PANEL_ICON_STRIP_WIDTH_PX = 48
 
 export const TITLE_BAR_HEIGHT_PX = 36
 
-export const STATUS_BAR_HEIGHT_PX = 28
+export const STATUS_BAR_HEIGHT_PX = 32
 
 // Rough fallback for Windows titleBarOverlay controls region.
 // When available, TitleBar computes this dynamically via windowControlsOverlay.
