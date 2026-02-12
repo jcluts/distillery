@@ -10,10 +10,10 @@ Distillery is a desktop application for local AI image generation and media mana
 
 ## 2. Agent Notes
 
-### Layout, Components and CSS
-- Religiously use shadcn/ui for any UI elements where they have a suitable component. 
-- Use Tailwind for all other CSS.
-- Custom css classes should be a last resort when I UI element cannot otherwise be realized.
+### **IMPORTANT** Layout, Components and CSS
+- **Religiously use shadcn/ui for any UI elements where they have a suitable component.** 
+- **Use Tailwind for all other CSS.**
+- **Custom css classes should be a last resort when I UI element cannot otherwise be realized.**
 
 ### UI/UX Aesthetic
 - Professional, clean, and elegant at all times.

@@ -9,7 +9,6 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip'
-import { PANEL_ICON_STRIP_WIDTH_PX } from '@/lib/layout'
 import { cn } from '@/lib/utils'
 import { useUIStore, type RightPanelTab } from '@/stores/ui-store'
 import { MediaInfoPanel } from '@/components/right-panel/sections/MediaInfoPanel'

@@ -152,7 +152,9 @@ export class EngineManager extends EventEmitter {
           offload_to_cpu: params.offload_to_cpu ?? true,
           flash_attn: params.flash_attn ?? true,
           vae_on_cpu: params.vae_on_cpu ?? false,
-          llm_on_cpu: params.llm_on_cpu ?? false
+          llm_on_cpu: params.llm_on_cpu ?? false,
+          vae_decode_only: false,
+          free_params_immediately: false
         }
       }
 
