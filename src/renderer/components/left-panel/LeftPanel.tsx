@@ -67,15 +67,11 @@ export function LeftPanel(): React.JSX.Element {
         style={
           {
             // shadcn/sidebar-style widths
-            ['--sidebar-width' as any]: `${fullWidth}px`,
-            ['--sidebar-width-icon' as any]: `${PANEL_ICON_STRIP_WIDTH_PX}px`
+            ['--sidebar-width' as any]: `${fullWidth}px`
           } as React.CSSProperties
         }
       >
-        <div
-          className="flex shrink-0 flex-col items-center gap-1 border-r px-2 py-2"
-          style={{ width: PANEL_ICON_STRIP_WIDTH_PX }}
-        >
+        <div className="flex shrink-0 flex-col items-center gap-1 border-r px-1.5 py-1.5">
           <TabButton tab="generation" icon={<Sparkles />} label="Generate" />
           <TabButton tab="timeline" icon={<Clock />} label="Timeline" />
           <TabButton tab="import" icon={<Download />} label="Import" />

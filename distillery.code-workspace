@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "../AppData/Roaming/distillery"
+		},
+		{
+			"path": "../shadcnagain/nested/shadcn-example"
 		}
 	],
 	"settings": {}
