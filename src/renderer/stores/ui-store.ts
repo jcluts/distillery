@@ -1,4 +1,9 @@
 import { create } from 'zustand'
+import {
+  LEFT_PANEL_WIDTH_PX,
+  RIGHT_PANEL_WIDTH_PX
+} from '@/lib/layout'
+import { THUMBNAIL_SIZE_DEFAULT } from '@/lib/constants'
 
 // =============================================================================
 // UI Store
@@ -47,12 +52,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   // Initial state
   leftPanelOpen: true,
   leftPanelTab: 'generation',
-  leftPanelWidth: 320,
+  leftPanelWidth: LEFT_PANEL_WIDTH_PX,
   rightPanelOpen: true,
   rightPanelTab: 'info',
-  rightPanelWidth: 280,
+  rightPanelWidth: RIGHT_PANEL_WIDTH_PX,
   viewMode: 'grid',
-  thumbnailSize: 200,
+  thumbnailSize: THUMBNAIL_SIZE_DEFAULT,
   activeModals: [],
 
   // Actions
