@@ -20,6 +20,6 @@ Distillery is a desktop application for local AI image generation and media mana
 
 ## 3. Reference Project
 - The Distillery V1 repo can be found at C:\Users\jason\simple-ai-client.
-- Screenshots of Distillery V1 can be found at C:\Users\jason\distillery\agent_docs\disttilery_v1_screenshots.
+- Screenshots of Distillery V1 can be found at C:\Users\jason\distillery\agent_docs\distillery_v1_screenshots.
 - I am very happy with the UI/UX of the original version, so reference it for design guidance at every opportunity.
 - However, never copy UI/HTML/CSS code wholesale, half the point of this project is to avoid the mistakes made with our front end code the first time around.
