@@ -1,0 +1,7 @@
+{
+  "providerId": "fal",
+  "displayName": "Fal",
+  "enabled": true,
+  "mode": "remote-async",
+  "adapter": "fal"
+}

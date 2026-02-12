@@ -2,8 +2,8 @@
 // Layout constants (single source of truth)
 // =============================================================================
 
-export const LEFT_PANEL_WIDTH_PX = 340
-export const RIGHT_PANEL_WIDTH_PX = 280
+export const LEFT_PANEL_WIDTH_PX = 360
+export const RIGHT_PANEL_WIDTH_PX = 300
 
 // Included inside panel widths
 export const PANEL_ICON_STRIP_WIDTH_PX = 48

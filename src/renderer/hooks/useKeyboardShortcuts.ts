@@ -61,7 +61,7 @@ export function useKeyboardShortcuts(): void {
         e.preventDefault()
         setLeftPanelTab('generation')
         const params = buildParams()
-        if (params.prompt.trim()) {
+        if (params.params.prompt.trim()) {
           void window.api.submitGeneration(params)
         }
         return

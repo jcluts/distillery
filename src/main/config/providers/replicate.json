@@ -1,0 +1,7 @@
+{
+  "providerId": "replicate",
+  "displayName": "Replicate",
+  "enabled": true,
+  "mode": "remote-async",
+  "adapter": "replicate"
+}

@@ -6,8 +6,17 @@ import icon from '../../resources/icon.png?asset'
 import { getDatabase, closeDatabase } from './db/connection'
 import { EngineManager } from './engine/engine-manager'
 import { TimelineService } from './timeline/timeline-service'
-import { QueueManager } from './queue/queue-manager'
+import { WorkQueueManager } from './queue/work-queue-manager'
+import { WORK_TASK_TYPES } from './queue/work-task-types'
+import { PlaceholderHeavyTaskHandler } from './queue/placeholder-heavy-task-handler'
+import { mapWorkItemsToQueueItems } from './queue/work-queue-view'
 import { FileManager } from './files/file-manager'
+import { GenerationIOService } from './generation/generation-io-service'
+import { GenerationService } from './generation/generation-service'
+import { LocalCnEngineProvider } from './generation/providers/local-cn-provider'
+import { RemoteApiProvider } from './generation/providers/remote-api-provider'
+import { ProviderCatalogService } from './generation/catalog/provider-catalog-service'
+import { LocalGenerateTaskHandler } from './generation/tasks/local-generate-task'
 import { IPC_CHANNELS } from './ipc/channels'
 import { applyActiveProfileUserDataPath } from './profiles'
 import { registerLibraryHandlers } from './ipc/handlers/library'
@@ -36,7 +45,8 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null
 let engineManager: EngineManager | null = null
-let queueManager: QueueManager | null = null
+let workQueueManager: WorkQueueManager | null = null
+let generationService: GenerationService | null = null
 let fileManager: FileManager | null = null
 
 function createWindow(): void {
@@ -94,23 +104,42 @@ function setupEngineEventForwarding(engine: EngineManager): void {
   engine.on('statusChanged', (status) => {
     mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_STATUS_CHANGED, status)
   })
+}
 
-  engine.on('progress', (event) => {
-    mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_PROGRESS, event)
+function setupWorkQueueEventForwarding(queue: WorkQueueManager): void {
+  queue.on('updated', () => {
+    const generationQueueView = mapWorkItemsToQueueItems(queue.getItems())
+    mainWindow?.webContents.send(IPC_CHANNELS.QUEUE_UPDATED, generationQueueView)
   })
 }
 
-function setupQueueEventForwarding(queue: QueueManager): void {
-  queue.on('updated', () => {
-    mainWindow?.webContents.send(IPC_CHANNELS.QUEUE_UPDATED, queue.getItems())
+function setupGenerationEventForwarding(service: GenerationService): void {
+  service.on('progress', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.GENERATION_PROGRESS, event)
+    mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_PROGRESS, {
+      jobId: event.generationId,
+      phase: event.phase,
+      step: event.step,
+      totalSteps: event.totalSteps,
+      message: event.message
+    })
   })
 
-  queue.on('result', (event) => {
-    mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_RESULT, event)
-    mainWindow?.webContents.send(IPC_CHANNELS.QUEUE_UPDATED, queue.getItems())
+  service.on('result', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.GENERATION_RESULT, event)
+    mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_RESULT, {
+      jobId: event.generationId,
+      success: event.success,
+      outputPath: event.outputs?.[0]?.providerPath,
+      seed: event.metrics?.seed,
+      totalTimeMs: event.metrics?.totalTimeMs,
+      promptCacheHit: event.metrics?.promptCacheHit,
+      refLatentCacheHit: event.metrics?.refLatentCacheHit,
+      error: event.error
+    })
   })
 
-  queue.on('libraryUpdated', () => {
+  service.on('libraryUpdated', () => {
     mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
   })
 }
@@ -185,17 +214,52 @@ app.whenReady().then(async () => {
   engineManager = new EngineManager(enginePath || '')
   console.log('[Main] Engine manager created')
 
-  // Initialize queue manager
-  queueManager = new QueueManager(db, engineManager, fileManager)
-  console.log('[Main] Queue manager created')
+  // Initialize work queue + generation services
+  workQueueManager = new WorkQueueManager(db)
+  const generationIOService = new GenerationIOService(db, fileManager)
+  const providerCatalogService = new ProviderCatalogService()
+  const localProvider = new LocalCnEngineProvider(engineManager)
+  const remoteApiProvider = new RemoteApiProvider()
+
+  generationService = new GenerationService({
+    db,
+    workQueueManager,
+    generationIOService,
+    providerCatalogService,
+    remoteApiProvider
+  })
+
+  await generationService.initialize()
+
+  localProvider.on('progress', (event) => {
+    generationService?.emitProgress(event)
+  })
+
+  workQueueManager.registerHandler(
+    WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE,
+    new LocalGenerateTaskHandler({
+      db,
+      generationIOService,
+      localProvider,
+      providerCatalogService,
+      generationService
+    })
+  )
+
+  workQueueManager.registerHandler(
+    WORK_TASK_TYPES.PLACEHOLDER_HEAVY_TASK,
+    new PlaceholderHeavyTaskHandler()
+  )
+
+  console.log('[Main] Work queue + generation services initialized')
 
   // Register all IPC handlers
   registerLibraryHandlers(fileManager, () => {
     mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
   })
-  registerGenerationHandlers(queueManager)
+  registerGenerationHandlers(generationService)
   registerEngineHandlers(engineManager)
-  registerQueueHandlers()
+  registerQueueHandlers(workQueueManager)
   registerTimelineHandlers()
   registerSettingsHandlers({
     engineManager,
@@ -215,8 +279,12 @@ app.whenReady().then(async () => {
     setupEngineEventForwarding(engineManager)
   }
 
-  if (queueManager) {
-    setupQueueEventForwarding(queueManager)
+  if (workQueueManager) {
+    setupWorkQueueEventForwarding(workQueueManager)
+  }
+
+  if (generationService) {
+    setupGenerationEventForwarding(generationService)
   }
 
   // Start engine if path is configured

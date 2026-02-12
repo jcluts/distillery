@@ -3,7 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { IPC_CHANNELS } from '../main/ipc/channels'
 import type {
   DistilleryAPI,
-  GenerationParams,
+  GenerationSubmitInput,
   MediaQuery,
   MediaUpdate,
   ModelLoadParams,
@@ -27,10 +27,14 @@ const api: DistilleryAPI = {
     ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAILS_BATCH, ids),
 
   // Generation
-  submitGeneration: (params: GenerationParams) =>
+  submitGeneration: (params: GenerationSubmitInput) =>
     ipcRenderer.invoke(CH.GENERATION_SUBMIT, params),
   cancelGeneration: (jobId: string) =>
     ipcRenderer.invoke(CH.GENERATION_CANCEL, jobId),
+  listGenerationEndpoints: () =>
+    ipcRenderer.invoke(CH.GENERATION_LIST_ENDPOINTS),
+  getGenerationEndpointSchema: (endpointKey: string) =>
+    ipcRenderer.invoke(CH.GENERATION_GET_ENDPOINT_SCHEMA, endpointKey),
 
   // Engine
   getEngineStatus: () => ipcRenderer.invoke(CH.ENGINE_GET_STATUS),
@@ -83,6 +87,8 @@ const api: DistilleryAPI = {
       | typeof CH.ENGINE_STATUS_CHANGED
       | typeof CH.ENGINE_PROGRESS
       | typeof CH.ENGINE_RESULT
+      | typeof CH.GENERATION_PROGRESS
+      | typeof CH.GENERATION_RESULT
       | typeof CH.QUEUE_UPDATED
       | typeof CH.LIBRARY_UPDATED
       | typeof CH.WINDOW_MAXIMIZED_CHANGED
@@ -91,6 +97,8 @@ const api: DistilleryAPI = {
       CH.ENGINE_STATUS_CHANGED,
       CH.ENGINE_PROGRESS,
       CH.ENGINE_RESULT,
+      CH.GENERATION_PROGRESS,
+      CH.GENERATION_RESULT,
       CH.QUEUE_UPDATED,
       CH.LIBRARY_UPDATED,
       CH.WINDOW_MAXIMIZED_CHANGED

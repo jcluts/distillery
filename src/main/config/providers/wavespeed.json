@@ -1,0 +1,7 @@
+{
+  "providerId": "wavespeed",
+  "displayName": "Wavespeed",
+  "enabled": true,
+  "mode": "remote-async",
+  "adapter": "wavespeed"
+}
