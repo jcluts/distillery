@@ -28,14 +28,20 @@ Distillery is a desktop application for local AI image generation and media mana
 | Image Display | HTML Canvas (future: WebGL for adjustments) |
 | Icons | Lucide React |
 
+**shadcn/ui source of truth:** https://ui.shadcn.com/docs
+
+Distillery treats shadcn/ui as **source-in** components (generated into the repo). When in doubt, prefer the patterns and component APIs from the docs above over older blog posts or third-party snippets.
+
 ### shadcn/ui Configuration
 
 ```json
 {
+  "$schema": "https://ui.shadcn.com/schema.json",
   "style": "radix-nova",
   "rsc": false,
   "tsx": true,
   "tailwind": {
+    "config": "",
     "css": "src/renderer/assets/main.css",
     "baseColor": "neutral",
     "cssVariables": true
@@ -207,7 +213,8 @@ distillery/
   components.json                # shadcn/ui configuration
   package.json
   tsconfig.json
-  tsconfig.app.json
+  tsconfig.node.json
+  tsconfig.web.json
 ```
 
 ### 3.3 Key Architectural Decisions
@@ -278,7 +285,11 @@ S = (future: Sketch)
 
 ### 4.2 Left Panel
 
-The left panel uses shadcn `Sidebar` with `collapsible="icon"` mode for the tab bar, or a custom icon strip implemented with `ToggleGroup`.
+The left panel uses shadcn `Sidebar` with the option to collapse to icons for the tab bar.
+- Docs: 
+* https://ui.shadcn.com/docs/components/radix/sidebar
+* https://ui.shadcn.com/docs/components/radix/sidebar.md
+
 
 #### Tab: Generation Panel
 
@@ -418,7 +429,7 @@ Also includes:
 | Search | `Input` |
 | Thumbnail container | Custom (virtualized grid) |
 | Context menu on thumbnail | `ContextMenu` |
-| Empty state | `Empty` |
+| Empty state | Custom empty state (simple text + `Button` where appropriate) |
 
 ### 4.4 Library View -- Loupe Mode
 
@@ -1215,9 +1226,11 @@ For MVP, seeds are always random. The renderer sends `seed: -1`, and cn-engine g
 
 ### 9.4 Timeline Thumbnails
 
-- Timeline thumbnails are generated lazily and cached on disk (separate from library thumbnails).
+- **Decision (MVP):** reuse the library thumbnail for completed outputs (via the output `media.thumb_path`).
+- Persisted input thumbnails already live under `generation_inputs.thumb_path` and must remain stable even if source media is deleted.
+- If an output media item is deleted, the timeline card may show a placeholder state (no dedicated output-thumb persistence for MVP).
 - Batch thumbnail loading: `getThumbnailsBatch` retrieves multiple thumbnails in a single IPC call.
-- Timeline list itself uses virtual scrolling for large generation histories.
+- Timeline list itself should use virtualization (e.g., `@tanstack/react-virtual`) once the list is large.
 
 ---
 
@@ -1243,10 +1256,10 @@ Models are NOT bundled with the app (4-9GB each). For MVP, the user downloads mo
 
 ## 11. Development Phases
 
-### Phase 1: Spec (current)
+### Phase 1: Spec (complete)
 Finalize this document.
 
-### Phase 2: Scaffolding
+### Phase 2: Scaffolding (complete)
 - Initialize electron-vite project with React 19 + TypeScript.
 - Configure Tailwind 4, shadcn/ui (Nova style, cyan theme, dark mode overrides).
 - Set up SQLite with better-sqlite3, migration runner, initial schema (all MVP tables).
@@ -1268,6 +1281,8 @@ Finalize this document.
 - Validate layout, navigation flow, keyboard shortcuts.
 - All UI is non-functional (mock data only).
 
+**Phase 3 note (shadcn/ui):** prefer composing the UI from shadcn primitives (Button, Select, ToggleGroup, ScrollArea, etc.) and keep any custom components thin wrappers. Add components via the shadcn CLI (e.g., `npx shadcn@latest add resizable scroll-area`) so their structure matches the upstream docs.
+
 ### Phase 4: Wire Up
 - Connect generation panel to EngineManager via IPC. User can generate an image.
 - Connect queue system. Progress displays in real time.
@@ -1280,6 +1295,8 @@ Finalize this document.
 - Timeline shows real generation history with thumbnails.
 - Generation Detail Modal works.
 
+**Phase 4 note (Electron main-thread safety):** imports + thumbnail generation can be CPU and disk heavy. Even with synchronous SQLite, keep long-running work chunked and/or moved off the hot path so the main process doesn’t stall IPC responsiveness.
+
 ### Phase 5: Polish
 - Error handling and edge cases (engine crash recovery, disk full, invalid images).
 - Loading states and skeletons.
@@ -1289,6 +1306,8 @@ Finalize this document.
 - Timeline: "reload settings" and "clear completed" actions.
 - Performance profiling and optimization (grid virtualization, thumbnail loading).
 - Platform testing (Windows, macOS, Linux).
+
+**Phase 5 note (shadcn/ui upgrades):** when upgrading shadcn/ui components, treat it like a code change (review diffs). Avoid local modifications to generated components unless the docs explicitly recommend it; prefer wrapping/extending in app-level components.
 
 ---
 
@@ -1305,7 +1324,7 @@ Components from the shadcn/ui library used in Distillery MVP:
 | `Collapsible` | Info panel sections, settings sections |
 | `ContextMenu` | Right-click on grid thumbnails, timeline cards |
 | `Dialog` | Settings, Generation Detail modal |
-| `Empty` | Empty library state, empty timeline state |
+| `Skeleton` | Loading states (Phase 5 polish) |
 | `Input` | Search filter, settings text fields |
 | `Progress` | Generation progress bar (status bar + generation panel) |
 | `Resizable` | Three-panel layout (left, center, right) |
@@ -1334,6 +1353,5 @@ These were open questions in the original spec. V1's implementation provides the
 
 ## 14. Remaining Open Questions
 
-1. **Panel implementation:** Use shadcn `Sidebar` component for the icon tab bars, or build a lighter custom solution with `ToggleGroup` + conditional rendering? Sidebar may be over-engineered for this use case.
-2. **Timeline thumbnail storage:** Store alongside library thumbnails (shared directory) or in a separate timeline-specific cache directory (as V1 does)?
-3. **Generation counter persistence:** V1 uses a sequential number for each generation (#1, #2, etc.) stored in the store and computed from the timeline. Should this be a DB column or derived at runtime?
+1. **Timeline thumbnail storage (resolved):** Reuse library thumbnails for outputs; persist input thumbnails via `generation_inputs.thumb_path`; allow placeholders when outputs are deleted.
+2. **Generation counter persistence (resolved):** Persist the sequential counter in the database (`generations.number`). This avoids renumbering surprises when entries are removed and keeps counters stable across sessions.
