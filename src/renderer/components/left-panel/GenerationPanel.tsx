@@ -62,6 +62,8 @@ function RefThumb({ src, label }: { src: string | null; label: string }): React.
 }
 
 export function GenerationPanel(): React.JSX.Element {
+  const [isUnloadingModel, setIsUnloadingModel] = React.useState(false)
+
   const prompt = useGenerationStore((s) => s.prompt)
   const setPrompt = useGenerationStore((s) => s.setPrompt)
   const refImageIds = useGenerationStore((s) => s.refImageIds)
@@ -79,6 +81,8 @@ export function GenerationPanel(): React.JSX.Element {
   const libraryItems = useLibraryStore((s) => s.items)
 
   const engineState = useEngineStore((s) => s.state)
+  const engineModelName = useEngineStore((s) => s.modelName)
+  const engineError = useEngineStore((s) => s.error)
   const engineCanGenerate = engineState === 'ready' || engineState === 'idle'
 
   const queueItems = useQueueStore((s) => s.items)
@@ -101,6 +105,26 @@ export function GenerationPanel(): React.JSX.Element {
   const isModelLoading = engineState === 'loading'
   const showQueue = (visibleQueueItems?.length ?? 0) > 0 || !!activePhase || isModelLoading
 
+  const isQueueProcessing = queueItems.some((q) => q.status === 'processing')
+  const canUnloadModel = engineState === 'ready' && !isQueueProcessing && !isUnloadingModel
+
+  const modelStatusLabel =
+    engineState === 'loading'
+      ? 'Loading model…'
+      : engineState === 'ready'
+        ? engineModelName
+          ? `Model ready: ${engineModelName}`
+          : 'Model ready'
+        : engineState === 'idle'
+          ? 'No model loaded'
+          : engineState === 'starting'
+            ? 'Starting engine…'
+            : engineState === 'error'
+              ? engineError
+                ? `Engine error: ${engineError}`
+                : 'Engine error'
+              : 'Engine stopped'
+
   const progressValue =
     activeStep != null && activeTotalSteps != null && activeTotalSteps > 0
       ? Math.round((activeStep / activeTotalSteps) * 100)
@@ -112,6 +136,36 @@ export function GenerationPanel(): React.JSX.Element {
 
       <div className="min-h-0 flex-1 space-y-4 overflow-auto px-4 pb-4 pt-4">
         <ModelSelector />
+
+        <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
+          <Badge
+            variant="secondary"
+            className={cn(
+              'max-w-[75%] truncate',
+              engineState === 'error' && 'border border-destructive text-destructive'
+            )}
+          >
+            {modelStatusLabel}
+          </Badge>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={!canUnloadModel}
+            onClick={async () => {
+              setIsUnloadingModel(true)
+              try {
+                await window.api.unloadModel()
+              } catch {
+                // status event drives UI error state
+              } finally {
+                setIsUnloadingModel(false)
+              }
+            }}
+          >
+            {isUnloadingModel ? 'Unloading…' : 'Unload model'}
+          </Button>
+        </div>
 
         <div className="space-y-2">
           <div className="text-xs font-medium text-muted-foreground">Prompt</div>
