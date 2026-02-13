@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import * as path from 'path'
 import * as fs from 'fs'
 import sharp from 'sharp'
-import { generateThumbnail } from '../../files/thumbnail-service'
+import { createThumbnail } from '../../files/image-derivatives'
 
 function toLibraryUrl(relativePath: string): string {
   const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '')
@@ -80,7 +80,7 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
         const width = meta.width ?? null
         const height = meta.height ?? null
 
-        const thumbAbs = await generateThumbnail(absFilePath, fileManager.getThumbnailsDir(), id)
+        const thumbAbs = await createThumbnail(absFilePath, fileManager.getThumbnailsDir(), id)
         const relThumbPath = thumbAbs ? path.join('thumbnails', `${id}_thumb.jpg`) : null
 
         const record: MediaRecord = {

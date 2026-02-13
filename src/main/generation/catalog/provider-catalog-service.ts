@@ -23,19 +23,26 @@ export class ProviderCatalogService {
     const endpoints: CanonicalEndpointDef[] = []
 
     for (const provider of providerConfigs) {
-      const fromConfig = this.fromProviderConfigEndpoints(provider)
-      endpoints.push(...fromConfig)
+      try {
+        const fromConfig = this.fromProviderConfigEndpoints(provider)
+        endpoints.push(...fromConfig)
 
-      const adapter = createProviderAdapter(provider.adapter)
-      if (adapter) {
-        const rawFeed = this.store.readRawFeed(provider.providerId)
-        const defaultRequestSchema = fromConfig[0]?.requestSchema ?? this.defaultRequestSchema()
-        const adaptedEndpoints = adapter.transform({
-          providerConfig: provider,
-          rawFeed,
-          defaultRequestSchema
-        })
-        endpoints.push(...adaptedEndpoints)
+        const adapter = createProviderAdapter(provider.adapter)
+        if (adapter) {
+          const rawFeed = this.store.readRawFeed(provider.providerId)
+          const defaultRequestSchema = fromConfig[0]?.requestSchema ?? this.defaultRequestSchema()
+          const adaptedEndpoints = adapter.transform({
+            providerConfig: provider,
+            rawFeed,
+            defaultRequestSchema
+          })
+          endpoints.push(...adaptedEndpoints)
+        }
+      } catch (error) {
+        console.warn(
+          `[ProviderCatalogService] Failed to process provider "${provider.providerId}", skipping:`,
+          error instanceof Error ? error.message : error
+        )
       }
     }
 
@@ -74,10 +81,6 @@ export class ProviderCatalogService {
 
   async getEndpoint(endpointKey: string): Promise<CanonicalEndpointDef | null> {
     return this.endpointsByKey.get(endpointKey) ?? null
-  }
-
-  getDefaultLocalEndpointKey(): string {
-    return DEFAULT_LOCAL_ENDPOINT_KEY
   }
 
   private fromProviderConfigEndpoints(provider: ProviderConfig): CanonicalEndpointDef[] {

@@ -4,7 +4,7 @@ import { transformWavespeed } from './wavespeed-adapter'
 import { transformFal } from './fal-adapter'
 import { transformReplicate } from './replicate-adapter'
 
-interface AdapterInput {
+export interface AdapterInput {
   providerConfig: ProviderConfig
   rawFeed: unknown
   defaultRequestSchema: CanonicalEndpointDef['requestSchema']

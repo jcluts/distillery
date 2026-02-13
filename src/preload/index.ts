@@ -85,8 +85,6 @@ const api: DistilleryAPI = {
   on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
     type EventChannel =
       | typeof CH.ENGINE_STATUS_CHANGED
-      | typeof CH.ENGINE_PROGRESS
-      | typeof CH.ENGINE_RESULT
       | typeof CH.GENERATION_PROGRESS
       | typeof CH.GENERATION_RESULT
       | typeof CH.QUEUE_UPDATED
@@ -95,8 +93,6 @@ const api: DistilleryAPI = {
 
     const validChannels = new Set<EventChannel>([
       CH.ENGINE_STATUS_CHANGED,
-      CH.ENGINE_PROGRESS,
-      CH.ENGINE_RESULT,
       CH.GENERATION_PROGRESS,
       CH.GENERATION_RESULT,
       CH.QUEUE_UPDATED,

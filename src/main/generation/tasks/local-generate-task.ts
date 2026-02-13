@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import type { WorkItem, WorkTaskResult } from '../../types'
+import type { WorkItem, WorkTaskResult, CanonicalGenerationParams } from '../../types'
 import type { WorkTaskHandler } from '../../queue/work-handler-registry'
 import * as generationRepo from '../../db/repositories/generations'
 import { GenerationIOService } from '../generation-io-service'
@@ -9,19 +9,8 @@ import { GenerationService } from '../generation-service'
 
 interface QueuedLocalTaskPayload {
   generationId: string
-  endpointKey?: string
-  params: {
-    prompt: string
-    width: number
-    height: number
-    seed?: number
-    steps?: number
-    guidance?: number
-    sampling_method?: string
-    ref_image_ids?: string[]
-    ref_image_paths?: string[]
-    [key: string]: unknown
-  }
+  endpointKey: string
+  params: CanonicalGenerationParams
 }
 
 export class LocalGenerateTaskHandler implements WorkTaskHandler {
@@ -46,9 +35,9 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
   }
 
   async execute(item: WorkItem): Promise<WorkTaskResult> {
-    let payload: Partial<QueuedLocalTaskPayload>
+    let payload: QueuedLocalTaskPayload
     try {
-      payload = JSON.parse(item.payload_json) as Partial<QueuedLocalTaskPayload>
+      payload = JSON.parse(item.payload_json) as QueuedLocalTaskPayload
     } catch {
       return {
         success: false,
@@ -56,45 +45,20 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
       }
     }
 
-    const generationId = payload.generationId ?? item.correlation_id ?? ''
-    if (!generationId) {
+    const generationId = payload.generationId
+    if (!generationId || !payload.endpointKey || !payload.params) {
       return {
         success: false,
-        error: 'Missing generationId for local generation task'
+        error: 'Malformed payload: requires generationId, endpointKey, and params'
       }
     }
 
     try {
       generationRepo.markGenerationStarted(this.db, generationId)
 
-      const generation = generationRepo.getGenerationById(this.db, generationId)
-      if (!generation) {
-        throw new Error(`Generation record not found: ${generationId}`)
-      }
-
-      const endpointKey =
-        payload.endpointKey ??
-        (generation.provider === 'local'
-          ? 'local.flux2-klein.image'
-          : `${generation.provider}.${generation.model_file ?? 'unknown'}.image`)
-
-      const payloadParams = payload.params ??
-        (generation.params_json ? (JSON.parse(generation.params_json) as QueuedLocalTaskPayload['params']) : null)
-
-      const params: QueuedLocalTaskPayload['params'] = {
-        prompt: generation.prompt ?? '',
-        width: generation.width ?? 1024,
-        height: generation.height ?? 1024,
-        seed: generation.seed ?? undefined,
-        steps: generation.steps ?? undefined,
-        guidance: generation.guidance ?? undefined,
-        sampling_method: generation.sampling_method ?? undefined,
-        ...(payloadParams ?? {})
-      }
-
-      const endpoint = await this.providerCatalogService.getEndpoint(endpointKey)
+      const endpoint = await this.providerCatalogService.getEndpoint(payload.endpointKey)
       if (!endpoint) {
-        throw new Error(`Unknown endpointKey in queued payload: ${endpointKey}`)
+        throw new Error(`Unknown endpointKey: ${payload.endpointKey}`)
       }
 
       const refImages = await this.generationIOService.getRefImagesForProvider(generationId)
@@ -103,7 +67,7 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
       const result = await this.localProvider.start({
         generationId,
         endpoint,
-        params,
+        params: payload.params,
         outputPath,
         preparedInputs: { refImages }
       })

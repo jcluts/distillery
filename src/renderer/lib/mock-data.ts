@@ -1,4 +1,4 @@
-import type { EngineStatus, GenerationRecord, MediaPage, MediaRecord, QueueItem } from '@/types'
+import type { EngineStatus, GenerationRecord, MediaPage, MediaRecord, WorkQueueItem } from '@/types'
 
 function isoAgo(msAgo: number): string {
   return new Date(Date.now() - msAgo).toISOString()
@@ -79,24 +79,32 @@ export function createMockGenerations(count = 24): GenerationRecord[] {
   })
 }
 
-export function createMockQueueItems(): QueueItem[] {
+export function createMockQueueItems(): WorkQueueItem[] {
   return [
     {
       id: 'mock-queue-0001',
-      generation_id: 'mock-gen-0001',
+      task_type: 'generation.local.image',
       status: 'processing',
       priority: 0,
+      correlation_id: 'mock-gen-0001',
+      owner_module: 'generation',
       error_message: null,
+      attempt_count: 1,
+      max_attempts: 1,
       created_at: isoAgo(1000 * 25),
       started_at: isoAgo(1000 * 10),
       completed_at: null
     },
     {
       id: 'mock-queue-0002',
-      generation_id: 'mock-gen-0002',
+      task_type: 'generation.local.image',
       status: 'pending',
       priority: 0,
+      correlation_id: 'mock-gen-0002',
+      owner_module: 'generation',
       error_message: null,
+      attempt_count: 0,
+      max_attempts: 1,
       created_at: isoAgo(1000 * 5),
       started_at: null,
       completed_at: null

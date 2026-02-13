@@ -20,7 +20,6 @@ function focusPrompt(): void {
 export function useKeyboardShortcuts(): void {
   const setViewMode = useUIStore((s) => s.setViewMode)
   const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
-  const toggleRightPanel = useUIStore((s) => s.toggleRightPanel)
   const viewMode = useUIStore((s) => s.viewMode)
 
   const items = useLibraryStore((s) => s.items)
@@ -162,7 +161,6 @@ export function useKeyboardShortcuts(): void {
     setLeftPanelTab,
     setViewMode,
     toggleLeftPanel,
-    toggleRightPanel,
     updateItem,
     viewMode
   ])

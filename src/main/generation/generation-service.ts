@@ -5,7 +5,6 @@ import * as generationRepo from '../db/repositories/generations'
 import type {
   CanonicalGenerationParams,
   CanonicalEndpointDef,
-  GenerationParams,
   GenerationProgressEvent,
   GenerationRecord,
   GenerationSubmitInput
@@ -14,14 +13,12 @@ import { WorkQueueManager } from '../queue/work-queue-manager'
 import { WORK_TASK_TYPES } from '../queue/work-task-types'
 import { GenerationIOService } from './generation-io-service'
 import { ProviderCatalogService } from './catalog/provider-catalog-service'
-import { RemoteApiProvider } from './providers/remote-api-provider'
 
 interface GenerationServiceDeps {
   db: Database.Database
   workQueueManager: WorkQueueManager
   generationIOService: GenerationIOService
   providerCatalogService: ProviderCatalogService
-  remoteApiProvider: RemoteApiProvider
 }
 
 interface QueuedLocalTaskPayload {
@@ -35,7 +32,6 @@ export class GenerationService extends EventEmitter {
   private workQueueManager: WorkQueueManager
   private generationIOService: GenerationIOService
   private providerCatalogService: ProviderCatalogService
-  private remoteApiProvider: RemoteApiProvider
 
   constructor(deps: GenerationServiceDeps) {
     super()
@@ -43,29 +39,26 @@ export class GenerationService extends EventEmitter {
     this.workQueueManager = deps.workQueueManager
     this.generationIOService = deps.generationIOService
     this.providerCatalogService = deps.providerCatalogService
-    this.remoteApiProvider = deps.remoteApiProvider
   }
 
   async initialize(): Promise<void> {
     await this.providerCatalogService.refresh()
   }
 
-  async submit(input: GenerationSubmitInput | GenerationParams): Promise<string> {
-    const normalized = this.normalizeSubmitInput(input)
-
-    const endpoint = await this.providerCatalogService.getEndpoint(normalized.endpointKey)
+  async submit(input: GenerationSubmitInput): Promise<string> {
+    const endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
     if (!endpoint) {
-      throw new Error(`Unknown endpointKey: ${normalized.endpointKey}`)
+      throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
 
-    this.validateParams(normalized.params)
+    this.validateParams(input.params)
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
 
     const { inputRecords } = await this.generationIOService.prepareInputs(
       generationId,
-      normalized.params,
+      input.params,
       now
     )
 
@@ -75,17 +68,15 @@ export class GenerationService extends EventEmitter {
       base_model_id: endpoint.canonicalModelId ?? null,
       provider: endpoint.providerId,
       model_file: endpoint.providerModelId,
-      prompt: this.asString(normalized.params.prompt),
-      width: this.asNumber(normalized.params.width),
-      height: this.asNumber(normalized.params.height),
-      seed: this.asOptionalNumber(normalized.params.seed),
-      steps: this.asOptionalNumber(normalized.params.steps) ?? 4,
-      guidance: this.asOptionalNumber(normalized.params.guidance) ?? 3.5,
+      prompt: this.asString(input.params.prompt),
+      width: this.asNumber(input.params.width),
+      height: this.asNumber(input.params.height),
+      seed: this.asOptionalNumber(input.params.seed),
+      steps: this.asOptionalNumber(input.params.steps) ?? 4,
+      guidance: this.asOptionalNumber(input.params.guidance) ?? 3.5,
       sampling_method:
-        typeof normalized.params.sampling_method === 'string'
-          ? normalized.params.sampling_method
-          : 'euler',
-      params_json: JSON.stringify(normalized.params),
+        typeof input.params.sampling_method === 'string' ? input.params.sampling_method : 'euler',
+      params_json: JSON.stringify(input.params),
       status: 'pending',
       error: null,
       total_time_ms: null,
@@ -104,7 +95,7 @@ export class GenerationService extends EventEmitter {
       const payload: QueuedLocalTaskPayload = {
         generationId,
         endpointKey: endpoint.endpointKey,
-        params: normalized.params
+        params: input.params
       }
 
       await this.workQueueManager.enqueue({
@@ -119,20 +110,11 @@ export class GenerationService extends EventEmitter {
       return generationId
     }
 
-    const remoteResult = await this.remoteApiProvider.start({
-      generationId,
-      endpoint,
-      params: normalized.params
-    })
-
-    const mediaRecords = await this.generationIOService.finalize(remoteResult)
-
-    this.emit('result', remoteResult)
-    if (mediaRecords.length > 0) {
-      this.emit('libraryUpdated')
-    }
-
-    return generationId
+    // Remote-async providers are not yet implemented.
+    // Fail explicitly rather than silently running a stub.
+    throw new Error(
+      `Execution mode "${endpoint.executionMode}" is not yet supported (endpoint: ${endpoint.endpointKey})`
+    )
   }
 
   cancel(generationId: string): void {
@@ -173,32 +155,6 @@ export class GenerationService extends EventEmitter {
 
   emitLibraryUpdated(): void {
     this.emit('libraryUpdated')
-  }
-
-  private normalizeSubmitInput(input: GenerationSubmitInput | GenerationParams): GenerationSubmitInput {
-    const anyInput = input as Partial<GenerationSubmitInput>
-    if (anyInput.endpointKey && anyInput.params) {
-      return {
-        endpointKey: anyInput.endpointKey,
-        params: anyInput.params
-      }
-    }
-
-    const legacy = input as GenerationParams
-    return {
-      endpointKey: this.providerCatalogService.getDefaultLocalEndpointKey(),
-      params: {
-        prompt: legacy.prompt,
-        width: legacy.width,
-        height: legacy.height,
-        seed: legacy.seed,
-        steps: legacy.steps,
-        guidance: legacy.guidance,
-        sampling_method: legacy.sampling_method,
-        ref_image_ids: legacy.ref_image_ids,
-        ref_image_paths: legacy.ref_image_paths
-      }
-    }
   }
 
   private validateParams(params: CanonicalGenerationParams): void {

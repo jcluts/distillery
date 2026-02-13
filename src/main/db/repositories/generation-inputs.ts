@@ -46,15 +46,3 @@ export function getGenerationInputById(
       .get(id) as GenerationInput) ?? null
   )
 }
-
-/**
- * Delete all inputs for a generation.
- */
-export function deleteGenerationInputs(
-  db: Database.Database,
-  generationId: string
-): void {
-  db.prepare('DELETE FROM generation_inputs WHERE generation_id = ?').run(
-    generationId
-  )
-}

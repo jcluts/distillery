@@ -10,10 +10,10 @@ import * as generationInputRepo from '../db/repositories/generation-inputs'
 import * as generationRepo from '../db/repositories/generations'
 import * as mediaRepo from '../db/repositories/media'
 import {
-  downscaleToMaxPixels,
-  generateThumbnail,
-  REF_IMAGE_MAX_PIXELS
-} from '../files/thumbnail-service'
+  createReferenceImageDerivative,
+  createThumbnail,
+  REFERENCE_IMAGE_MAX_PIXELS
+} from '../files/image-derivatives'
 import type {
   CanonicalGenerationParams,
   GenerationExecutionResult,
@@ -208,7 +208,7 @@ export class GenerationIOService {
 
     const stat = await fs.promises.stat(absFilePath)
 
-    const thumbAbs = await generateThumbnail(absFilePath, this.fileManager.getThumbnailsDir(), mediaId)
+    const thumbAbs = await createThumbnail(absFilePath, this.fileManager.getThumbnailsDir(), mediaId)
     const relThumbPath = thumbAbs ? path.join('thumbnails', `${mediaId}_thumb.jpg`) : null
 
     let width: number | null = null
@@ -277,7 +277,7 @@ export class GenerationIOService {
 
   private async persistExternalThumbnail(sourceAbsPath: string, outputAbsPath: string): Promise<void> {
     await fs.promises.mkdir(path.dirname(outputAbsPath), { recursive: true })
-    const out = await generateThumbnail(
+    const out = await createThumbnail(
       sourceAbsPath,
       path.dirname(outputAbsPath),
       path.basename(outputAbsPath, '.jpg')
@@ -293,7 +293,7 @@ export class GenerationIOService {
   private async createRefCacheFile(sourceAbsPath: string): Promise<string> {
     const filename = `${uuidv4()}.png`
     const outputAbs = path.join(this.fileManager.getRefCacheDir(), filename)
-    await downscaleToMaxPixels(sourceAbsPath, outputAbs, REF_IMAGE_MAX_PIXELS)
+    await createReferenceImageDerivative(sourceAbsPath, outputAbs, REFERENCE_IMAGE_MAX_PIXELS)
     return outputAbs
   }
 

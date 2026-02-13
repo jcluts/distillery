@@ -278,29 +278,32 @@ export function GenerationPanel(): React.JSX.Element {
               </div>
             ) : null}
             <div className="mt-2 space-y-1">
-              {visibleQueueItems.slice(0, 3).map((q) => (
-                <div
-                  key={q.id}
-                  className="flex items-center justify-between text-xs"
-                >
-                  <span className="truncate text-muted-foreground">
-                    {generations.find((g) => g.id === q.generation_id)?.prompt ?? q.generation_id}
-                  </span>
-                  <div className="ml-2 flex items-center gap-2">
-                    <Badge variant="outline">{q.status}</Badge>
-                    {q.status === 'pending' ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => window.api.cancelGeneration(q.generation_id)}
-                      >
-                        Cancel
-                      </Button>
-                    ) : null}
+              {visibleQueueItems.slice(0, 3).map((q) => {
+                const generationId = q.correlation_id
+                return (
+                  <div
+                    key={q.id}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span className="truncate text-muted-foreground">
+                      {generations.find((g) => g.id === generationId)?.prompt ?? generationId ?? q.id}
+                    </span>
+                    <div className="ml-2 flex items-center gap-2">
+                      <Badge variant="outline">{q.status}</Badge>
+                      {q.status === 'pending' && generationId ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => window.api.cancelGeneration(generationId)}
+                        >
+                          Cancel
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </Card>
         ) : null}

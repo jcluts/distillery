@@ -1,10 +1,7 @@
 // =============================================================================
-// Thumbnail Service
-// Uses sharp for generating square-cropped JPEG thumbnails.
+// Image Derivatives
+// Uses sharp for generating thumbnails and normalized reference images.
 // =============================================================================
-
-// NOTE: Implementation will be added when wiring up the full pipeline.
-// For scaffolding, this establishes the module boundary.
 
 import sharp from 'sharp'
 import { join } from 'path'
@@ -12,7 +9,7 @@ import { existsSync } from 'fs'
 
 const THUMBNAIL_SIZE = 400
 const THUMBNAIL_QUALITY = 80
-export const REF_IMAGE_MAX_PIXELS = 1024 * 1024
+export const REFERENCE_IMAGE_MAX_PIXELS = 1024 * 1024
 
 /**
  * Generate a square-cropped JPEG thumbnail.
@@ -22,7 +19,7 @@ export const REF_IMAGE_MAX_PIXELS = 1024 * 1024
  * @param filename - Output filename (without extension)
  * @returns Path to the generated thumbnail, or null on failure
  */
-export async function generateThumbnail(
+export async function createThumbnail(
   sourcePath: string,
   outputDir: string,
   filename: string
@@ -44,7 +41,7 @@ export async function generateThumbnail(
 
     return outputPath
   } catch (err) {
-    console.error(`[ThumbnailService] Failed to generate thumbnail: ${err}`)
+    console.error(`[ImageDerivatives] Failed to generate thumbnail: ${err}`)
     return null
   }
 }
@@ -56,10 +53,10 @@ export async function generateThumbnail(
  * @param outputPath - Path to write the downscaled image
  * @param maxPixels - Maximum total pixels (default 1024*1024)
  */
-export async function downscaleToMaxPixels(
+export async function createReferenceImageDerivative(
   sourcePath: string,
   outputPath: string,
-  maxPixels = REF_IMAGE_MAX_PIXELS
+  maxPixels = REFERENCE_IMAGE_MAX_PIXELS
 ): Promise<void> {
   const metadata = await sharp(sourcePath).metadata()
   const width = metadata.width ?? 0
@@ -96,7 +93,7 @@ export async function downscaleToMaxPixels(
     }
 
     console.info(
-      `[ThumbnailService] Resized reference image ${width}x${height} -> ${targetWidth}x${targetHeight} (${reasons.join(', ')}) source=${sourcePath}`
+      `[ImageDerivatives] Resized reference image ${width}x${height} -> ${targetWidth}x${targetHeight} (${reasons.join(', ')}) source=${sourcePath}`
     )
   }
 

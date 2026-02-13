@@ -94,18 +94,6 @@ export interface GenerationInput {
   created_at: string
 }
 
-export interface GenerationParams {
-  prompt: string
-  width: number
-  height: number
-  seed?: number
-  steps?: number
-  guidance?: number
-  sampling_method?: string
-  ref_image_ids?: string[]
-  ref_image_paths?: string[]
-}
-
 export interface CanonicalGenerationParams {
   prompt: string
   width: number
@@ -130,17 +118,6 @@ export interface BaseModel {
   family: string
   media_type: MediaType
   created_at: string
-}
-
-export interface QueueItem {
-  id: string
-  generation_id: string
-  status: QueueStatus
-  priority: number
-  error_message: string | null
-  created_at: string
-  started_at: string | null
-  completed_at: string | null
 }
 
 export interface WorkItem {
@@ -195,7 +172,6 @@ export interface GenerationExecutionResult {
     refLatentCacheHit?: boolean
   }
   error?: string
-  externalJobId?: string
 }
 
 export interface GenerationProgressEvent {

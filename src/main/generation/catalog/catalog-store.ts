@@ -16,10 +16,6 @@ export class CatalogStore {
     return path.join(this.getProfileRoot(), 'model_feeds')
   }
 
-  getCoreModelsPath(): string {
-    return path.join(this.getProfileRoot(), 'core-models.json')
-  }
-
   ensureDirectories(): void {
     const dirs = [this.getEndpointCatalogDir(), this.getModelFeedsDir()]
     for (const dir of dirs) {
@@ -59,11 +55,5 @@ export class CatalogStore {
     } catch {
       return null
     }
-  }
-
-  writeRawFeed(providerId: string, payload: unknown): void {
-    this.ensureDirectories()
-    const filePath = path.join(this.getModelFeedsDir(), `${providerId}.json`)
-    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8')
   }
 }

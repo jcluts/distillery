@@ -101,18 +101,6 @@ export interface GenerationInput {
   created_at: string
 }
 
-export interface GenerationParams {
-  prompt: string
-  width: number
-  height: number
-  seed?: number
-  steps?: number
-  guidance?: number
-  sampling_method?: string
-  ref_image_ids?: string[]
-  ref_image_paths?: string[] // for external images
-}
-
 export interface CanonicalGenerationParams {
   prompt: string
   width: number
@@ -149,12 +137,16 @@ export interface BaseModel {
 
 export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
-export interface QueueItem {
+export interface WorkQueueItem {
   id: string
-  generation_id: string
+  task_type: string
   status: QueueStatus
   priority: number
+  correlation_id: string | null
+  owner_module: string
   error_message: string | null
+  attempt_count: number
+  max_attempts: number
   created_at: string
   started_at: string | null
   completed_at: string | null
@@ -249,25 +241,6 @@ export interface ModelLoadParams {
   llm_on_cpu?: boolean
 }
 
-export interface EngineProgressEvent {
-  jobId: string
-  phase: string
-  step?: number
-  totalSteps?: number
-  message?: string
-}
-
-export interface EngineResultEvent {
-  jobId: string
-  success: boolean
-  outputPath?: string
-  seed?: number
-  totalTimeMs?: number
-  promptCacheHit?: boolean
-  refLatentCacheHit?: boolean
-  error?: string
-}
-
 // -----------------------------------------------------------------------------
 // Settings
 // -----------------------------------------------------------------------------
@@ -346,7 +319,7 @@ export interface DistilleryAPI {
   unloadModel(): Promise<void>
 
   // Queue
-  getQueue(): Promise<QueueItem[]>
+  getQueue(): Promise<WorkQueueItem[]>
 
   // Timeline
   timeline: {

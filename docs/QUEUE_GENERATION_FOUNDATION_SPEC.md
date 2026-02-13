@@ -1,6 +1,6 @@
 # Distillery Queue + Generation Foundation Refactor Spec
 
-**Status:** Proposed  
+**Status:** Implemented (post-review revision 2026-02-12)  
 **Date:** 2026-02-12  
 **Scope:** Main process architecture (queue, generation, JSON-based provider catalog/schema normalization, engine integration, IPC contracts)
 
@@ -133,7 +133,7 @@ Responsibilities:
 Provider examples:
 
 - `LocalCnEngineProvider` (current cn-engine path).
-- `RemoteApiProvider` (future async API providers).
+- Future remote async providers (to be added when concrete API integration is implemented).
 
 ---
 
@@ -148,7 +148,6 @@ src/main/
   generation/
     generation-service.ts         # submit/cancel/query orchestration
     generation-io-service.ts      # input prep + output ingestion (shared path)
-    generation-events.ts          # typed generation event payloads
     catalog/
       provider-config-service.ts  # load/merge provider definitions and overrides
       provider-catalog-service.ts # build runtime endpoint catalog (from JSON files)
@@ -162,7 +161,6 @@ src/main/
     providers/
       generation-provider.ts      # provider interface
       local-cn-provider.ts        # wraps EngineManager for local generation
-      remote-api-provider.ts      # future scaffold
     tasks/
       local-generate-task.ts      # queue task handler for local generation
   config/
@@ -201,10 +199,11 @@ Notes:
 
 ## Remote provider generation (future, not queued)
 
-1. `GenerationService.submit()` resolves endpoint from catalog and creates generation records.
-2. Service calls `RemoteApiProvider.startGeneration()` directly.
-3. Provider returns external job reference using canonical async contract.
-4. Poll/webhook completion callback enters `GenerationIOService.finalize()`.
+1. `GenerationService.submit()` resolves endpoint from catalog, detects `remote-async` execution mode.
+2. Service throws with explicit "not yet supported" error.
+3. When implemented: service creates generation records, calls provider, polls/webhooks completion, enters `GenerationIOService.finalize()`.
+
+> **Implementation note:** `submit()` explicitly rejects unsupported execution modes. Remote providers should be added only when a concrete adapter + async lifecycle implementation is ready.
 
 ---
 
@@ -430,6 +429,8 @@ interface GenerationExecutionResult {
 
 Engine-named channels (`engine:progress`, `engine:result`) are not required after this refactor.
 
+`queue:get` / `queue:updated` return native `work_queue` items (filtered by `owner_module = 'generation'` for current renderer scope), not a generation-specific compatibility shape.
+
 ---
 
 ## 8) Migration map from current code
@@ -508,14 +509,18 @@ Engine-named channels (`engine:progress`, `engine:result`) are not required afte
 
 ## 10) Acceptance criteria (definition of done)
 
-1. Queue domain is generic and reusable for at least two task types (`generation.local.image` + one placeholder heavy task type).
+1. Queue domain is generic and reusable — any module can register task handlers via `WorkHandlerRegistry`.
 2. Queue module does not import `EngineManager`, `media` repository, or generation I/O helpers.
 3. Generation result ingestion path is single and shared (no duplicated local vs remote output persistence code).
-4. Provider abstraction exists with local provider implemented and remote provider contract scaffolded.
+4. Provider abstraction interface exists with local provider implemented; remote execution mode is explicitly guarded until concrete provider implementation is added.
 5. Provider catalog exists with adapter-based ETL into canonical endpoint schema.
 6. Generation execution references `endpointKey` + canonical params (not provider-specific payloads).
 7. Timeline/library provenance remains intact for generation inputs/outputs.
 8. Fal/Replicate/Wavespeed provider configuration is JSON-backed and user-editable at profile level.
+9. Unsupported execution modes fail explicitly at submit time.
+10. Per-provider error boundaries in catalog refresh prevent one bad config from blocking the app.
+11. No in-repo legacy generation submit path exists; `generation:submit` accepts only `GenerationSubmitInput`.
+12. No compatibility queue view mapper exists between `work_queue` and renderer queue payloads.
 
 ---
 
@@ -559,3 +564,57 @@ Preferred implementation slice: **Phase 1 + Phase 2 in one shot**
 5. Wire generation submit path through `GenerationService` using `endpointKey`.
 
 This avoids a second disruptive pass and sets the clean foundation for local + API generation convergence.
+
+---
+
+## 14) Post-implementation review notes (2026-02-12)
+
+The following issues were identified and corrected during post-implementation review:
+
+### 14.1 Removed: Placeholder heavy task handler
+
+The `PlaceholderHeavyTaskHandler` existed solely to satisfy acceptance criteria #1 ("reusable for at least two task types"). Registering a no-op handler in production is dead code that adds clutter. The queue's genericity is self-evident from the `WorkHandlerRegistry` architecture — any module can register handlers without modifying queue internals. Criteria #1 was revised accordingly.
+
+### 14.2 Fixed: `AdapterInput` interface duplicated across 4 files
+
+The `AdapterInput` interface was independently defined in `adapter-factory.ts`, `wavespeed-adapter.ts`, `fal-adapter.ts`, and `replicate-adapter.ts`. Consolidated to a single export from `adapter-factory.ts` to prevent drift.
+
+### 14.3 Fixed: `LocalGenerateTaskHandler` over-defensive param reconstruction
+
+The handler received a payload with `{ generationId, endpointKey, params }` from `GenerationService.submit()`, but then re-read the generation record from the DB and reconstructed params by merging DB columns with payload params. This created ambiguous data flow where the source of truth was unclear. Simplified to trust the payload as the canonical source. The handler now only touches the DB for `markGenerationStarted` and error handling.
+
+### 14.4 Fixed: Premature remote provider wiring
+
+`GenerationService.submit()` had a live code path that called a non-queued provider path directly for remote endpoints. This was untestable dead code before remote lifecycle support existed. It was replaced with an explicit error for unsupported execution modes.
+
+### 14.5 Fixed: No error boundary in catalog refresh
+
+A single bad provider config or adapter throw would crash the entire `ProviderCatalogService.refresh()` call and prevent the app from starting. Added per-provider try/catch with warning-level logging so one broken provider config doesn't take down the catalog.
+
+### 14.6 Updated: Legacy submit path fully removed
+
+`GenerationService.submit()` now accepts only `GenerationSubmitInput` and rejects all legacy payload shapes by type contract. `generation:submit` IPC handler was updated to the same strict contract.
+
+### 14.7 Removed: Queue compatibility mapper (`work-queue-view.ts`)
+
+Renderer queue hydration now consumes native `work_queue` rows (filtered to `owner_module = 'generation'`) rather than a translated `QueueItem` compatibility shape (`generation_id` aliasing).
+
+### 14.8 Removed: Engine progress/result compatibility event aliases
+
+`generation.progress` and `generation.result` are now the single progress/result event stream for generation workflows. Forwarding to `engine:progress` / `engine:result` was removed.
+
+### 14.9 Removed: `RemoteApiProvider` stub class
+
+The stub class only returned "not implemented" and was not wired. It was removed to avoid carrying dead abstractions. The forward-looking contract remains via `GenerationProvider` interface, `executionMode` in endpoint schema, and explicit unsupported-mode guard in `GenerationService.submit()`.
+
+### 14.10 Second-pass dead-code pruning (ruthless cleanup)
+
+Removed additional zero-usage symbols to keep the foundation lean:
+
+- Unused catalog store helpers: `getCoreModelsPath`, `writeRawFeed`.
+- Unused repository helpers: `deleteWorkItemsByCorrelationId`, `deleteGenerationInputs`.
+- Unused remote-only field: `GenerationExecutionResult.externalJobId`.
+- Unused renderer-only engine event interfaces: `EngineProgressEvent`, `EngineResultEvent`.
+- Stale keyboard-shortcut dependency on `toggleRightPanel` (not used by any shortcut behavior).
+
+These removals intentionally favor a minimal, explicit foundation over speculative scaffolding.
