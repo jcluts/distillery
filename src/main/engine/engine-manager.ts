@@ -281,6 +281,18 @@ export class EngineManager extends EventEmitter {
   }
 
   /**
+   * Unload the active model by restarting the engine process.
+   * After this call the engine is back in 'idle' – ready for a fresh loadModel().
+   */
+  async unloadModel(): Promise<void> {
+    if (this.state !== 'ready' && this.state !== 'loading') return
+
+    // Restart the engine process to free all model memory
+    await this.stop()
+    await this.start()
+  }
+
+  /**
    * Gracefully shut down the engine.
    */
   async stop(): Promise<void> {

@@ -50,7 +50,7 @@ export function LeftPanelStatusBar(): React.JSX.Element {
       : engineState === 'loading'
         ? 'Loading model…'
         : engineState === 'idle'
-          ? 'Engine idle'
+          ? 'Ready'
           : engineState === 'error'
             ? `Engine error${engineError ? `: ${engineError}` : ''}`
             : 'Engine stopped'

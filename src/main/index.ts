@@ -26,7 +26,6 @@ import { registerModelHandlers } from './ipc/handlers/models'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
 import { ModelCatalogService } from './models/model-catalog-service'
-import { ModelResolver } from './models/model-resolver'
 import { ModelDownloadManager } from './models/model-download-manager'
 import { bootstrapQuantSelections } from './models/selection-bootstrap'
 
@@ -247,7 +246,9 @@ app.whenReady().then(async () => {
       generationIOService,
       localProvider,
       providerCatalogService,
-      generationService
+      generationService,
+      engineManager,
+      modelCatalogService
     })
   )
 
@@ -264,7 +265,6 @@ app.whenReady().then(async () => {
   registerSettingsHandlers({
     engineManager,
     fileManager,
-    modelCatalogService,
     modelDownloadManager,
     onLibraryRootChanged: () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
@@ -296,25 +296,11 @@ app.whenReady().then(async () => {
     setupGenerationEventForwarding(generationService)
   }
 
-  // Start engine if path is configured
+  // Start engine process if path is configured (model will be lazy-loaded on first generation)
   if (enginePath) {
     try {
       await engineManager.start()
-      console.log('[Main] Engine started')
-
-      const settings = getAllSettings(db)
-      const resolver = new ModelResolver(modelCatalogService.loadCatalog(), settings)
-
-      if (resolver.isModelReady(settings.active_model_id)) {
-        const paths = resolver.getActiveModelPaths()
-        await engineManager.loadModel({
-          ...paths,
-          offload_to_cpu: settings.offload_to_cpu,
-          flash_attn: settings.flash_attn,
-          vae_on_cpu: settings.vae_on_cpu,
-          llm_on_cpu: settings.llm_on_cpu
-        })
-      }
+      console.log('[Main] Engine started (model will load on first generation)')
     } catch (err) {
       console.error('[Main] Engine startup error:', err)
     }
