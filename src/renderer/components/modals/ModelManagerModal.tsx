@@ -17,7 +17,7 @@ export function ModelManagerModal(): React.JSX.Element {
         if (!next) closeModal('models')
       }}
     >
-      <DialogContent className="h-[92vh] w-[96vw] max-w-[96vw] p-4 sm:rounded-xl">
+      <DialogContent className="h-[92vh] w-[96vw] max-w-[1100px] p-4 sm:rounded-xl">
         <DialogHeader>
           <DialogTitle>Model Manager</DialogTitle>
         </DialogHeader>

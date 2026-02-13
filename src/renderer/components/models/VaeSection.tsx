@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Download, X } from 'lucide-react'
+import { Check, Download, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,83 +28,70 @@ export function VaeSection({
   const isCancelled = downloadStatus?.status === 'cancelled'
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="text-xs font-semibold tracking-wider text-muted-foreground">VAE</div>
 
-      <div className="grid grid-cols-[1fr,auto] items-center gap-3 rounded-md border px-3 py-2">
-        <div className="space-y-0.5">
-          <div className="text-sm font-medium">{vae.file.split('/').pop() ?? vae.file}</div>
-          <div className="text-xs text-muted-foreground">{formatApproxSize(vae.size)}</div>
-        </div>
+      <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-1.5">
+        <span className="text-sm font-medium">{vae.file.split('/').pop() ?? vae.file}</span>
+        <span className="text-xs text-muted-foreground">{formatApproxSize(vae.size)}</span>
 
-        <div className="min-w-44">
+        <div className="ml-auto shrink-0">
           {isDownloading && downloadStatus ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>{toPercent(downloadStatus.downloadedBytes, downloadStatus.totalBytes)}%</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2"
-                  onClick={onCancel}
-                >
-                  <X className="size-3" />
-                </Button>
-              </div>
+            <div className="flex items-center gap-2">
               <Progress
                 value={toPercent(downloadStatus.downloadedBytes, downloadStatus.totalBytes)}
+                className="h-1.5 w-20"
               />
-            </div>
-          ) : isFailed && downloadStatus ? (
-            <div className="space-y-1">
-              <Badge
-                className="border border-red-500/25 bg-red-500/15 text-red-400"
-                variant="outline"
-              >
-                Download failed
-              </Badge>
-              {downloadStatus.error ? (
-                <div
-                  className="max-w-64 truncate text-[11px] text-red-400"
-                  title={downloadStatus.error}
-                >
-                  {downloadStatus.error}
-                </div>
-              ) : null}
+              <span className="w-8 text-right text-xs text-muted-foreground">
+                {toPercent(downloadStatus.downloadedBytes, downloadStatus.totalBytes)}%
+              </span>
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="h-8"
-                onClick={onDownload}
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={onCancel}
               >
-                Retry
+                <X className="size-3" />
               </Button>
             </div>
+          ) : isFailed ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={onDownload}
+            >
+              Retry
+            </Button>
           ) : isCancelled ? (
-            <div className="space-y-1">
-              <Badge
-                className="border border-amber-500/25 bg-amber-500/15 text-amber-400"
-                variant="outline"
-              >
-                Cancelled
-              </Badge>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8"
-                onClick={onDownload}
-              >
-                Resume
-              </Button>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={onDownload}
+            >
+              Resume
+            </Button>
           ) : isDownloaded ? (
-            <Badge variant="secondary">Downloaded</Badge>
+            <Badge
+              variant="outline"
+              className="border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+            >
+              <Check className="mr-1 size-3" />
+              Ready
+            </Badge>
           ) : (
-            <Button type="button" size="sm" variant="outline" className="h-8" onClick={onDownload}>
-              <Download className="mr-1 size-3.5" />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={onDownload}
+            >
+              <Download className="mr-1 size-3" />
               Download
             </Button>
           )}
