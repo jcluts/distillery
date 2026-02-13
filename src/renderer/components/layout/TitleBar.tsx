@@ -103,7 +103,8 @@ export function TitleBar(): React.JSX.Element {
         <Button
           type="button"
           variant="ghost"
-          size="icon"
+          size="sm"
+          className="h-8"
           onClick={() => openModal('settings')}
           aria-label="Open settings"
         >
