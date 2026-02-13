@@ -2,7 +2,6 @@ import * as React from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import type { DownloadProgressEvent, ModelDefinition } from '@/types'
 import { QuantSection } from './QuantSection'
 import { VaeSection } from './VaeSection'
