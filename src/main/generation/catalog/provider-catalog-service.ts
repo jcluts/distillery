@@ -56,7 +56,9 @@ export class ProviderCatalogService {
     }
 
     const normalizedEndpoints = Array.from(deduped.values())
-    this.endpointsByKey = new Map(normalizedEndpoints.map((endpoint) => [endpoint.endpointKey, endpoint]))
+    this.endpointsByKey = new Map(
+      normalizedEndpoints.map((endpoint) => [endpoint.endpointKey, endpoint])
+    )
 
     this.store.writeNormalizedEndpoints(normalizedEndpoints)
     this.store.writeEndpointsByProvider(normalizedEndpoints)
@@ -111,7 +113,6 @@ export class ProviderCatalogService {
       endpointKey: DEFAULT_LOCAL_ENDPOINT_KEY,
       providerId: 'local',
       providerModelId: 'flux2-klein',
-      canonicalModelId: 'flux2-klein-4b',
       displayName: 'FLUX.2 Klein (Local)',
       modes: ['text-to-image', 'image-to-image'],
       outputType: 'image',

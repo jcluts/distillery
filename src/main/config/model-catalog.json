@@ -1,0 +1,205 @@
+{
+  "catalogVersion": 1,
+  "models": [
+    {
+      "id": "flux2-klein-4b",
+      "name": "FLUX.2 Klein 4B",
+      "description": "Lightweight 4B-param FLUX diffusion model. Best for low-VRAM setups.",
+      "type": "image-generation",
+      "family": "flux2-klein",
+      "vae": {
+        "file": "vae/ae.safetensors",
+        "size": 335544320,
+        "downloadUrl": "https://huggingface.co/black-forest-labs/FLUX.2-dev/resolve/main/ae.safetensors?download=true"
+      },
+      "diffusion": {
+        "quants": [
+          {
+            "id": "Q3_K_S",
+            "label": "Q3_K_S",
+            "description": "Smallest — ~2.1 GB, lower quality",
+            "file": "flux2-klein-4b/flux-2-klein-4b-Q3_K_S.gguf",
+            "size": 2254857830,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q3_K_S.gguf"
+          },
+          {
+            "id": "Q4_K_S",
+            "label": "Q4_K_S",
+            "description": "Balanced — ~2.6 GB, good quality/size tradeoff",
+            "file": "flux2-klein-4b/flux-2-klein-4b-Q4_K_S.gguf",
+            "size": 2791728742,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q4_K_S.gguf"
+          },
+          {
+            "id": "Q5_K_M",
+            "label": "Q5_K_M",
+            "description": "High quality — ~3.1 GB",
+            "file": "flux2-klein-4b/flux-2-klein-4b-Q5_K_M.gguf",
+            "size": 3326083481,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q5_K_M.gguf"
+          },
+          {
+            "id": "Q6_K",
+            "label": "Q6_K",
+            "description": "Very high quality — ~3.4 GB",
+            "file": "flux2-klein-4b/flux-2-klein-4b-Q6_K.gguf",
+            "size": 3693084672,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q6_K.gguf"
+          },
+          {
+            "id": "Q8_0",
+            "label": "Q8_0",
+            "description": "Near-lossless — ~4.3 GB",
+            "file": "flux2-klein-4b/flux-2-klein-4b-Q8_0.gguf",
+            "size": 4617089024,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q8_0.gguf"
+          }
+        ]
+      },
+      "textEncoder": {
+        "quants": [
+          {
+            "id": "Q3_K_M",
+            "label": "Q3_K_M",
+            "description": "Smallest — ~2.1 GB",
+            "file": "qwen3-4b/Qwen3-4B-Q3_K_M.gguf",
+            "size": 2254857830,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q3_K_M.gguf"
+          },
+          {
+            "id": "Q4_K_M",
+            "label": "Q4_K_M",
+            "description": "Balanced — ~2.5 GB",
+            "file": "qwen3-4b/Qwen3-4B-Q4_K_M.gguf",
+            "size": 2684354560,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
+          },
+          {
+            "id": "Q5_K_M",
+            "label": "Q5_K_M",
+            "description": "High quality — ~2.9 GB",
+            "file": "qwen3-4b/Qwen3-4B-Q5_K_M.gguf",
+            "size": 3113851289,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q5_K_M.gguf"
+          },
+          {
+            "id": "Q6_K",
+            "label": "Q6_K",
+            "description": "Very high quality — ~3.3 GB",
+            "file": "qwen3-4b/Qwen3-4B-Q6_K.gguf",
+            "size": 3543348019,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
+          },
+          {
+            "id": "Q8_0",
+            "label": "Q8_0",
+            "description": "Near-lossless — ~4.3 GB",
+            "file": "qwen3-4b/Qwen3-4B-Q8_0.gguf",
+            "size": 4617089024,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q8_0.gguf"
+          }
+        ]
+      }
+    },
+    {
+      "id": "flux2-klein-9b",
+      "name": "FLUX.2 Klein 9B",
+      "description": "Full 9B-param FLUX diffusion model. Higher quality, requires more VRAM.",
+      "type": "image-generation",
+      "family": "flux2-klein",
+      "vae": {
+        "file": "vae/ae.safetensors",
+        "size": 335544320,
+        "downloadUrl": "https://huggingface.co/black-forest-labs/FLUX.2-dev/resolve/main/ae.safetensors?download=true"
+      },
+      "diffusion": {
+        "quants": [
+          {
+            "id": "Q3_K_S",
+            "label": "Q3_K_S",
+            "description": "Smallest — ~4.7 GB, lower quality",
+            "file": "flux2-klein-9b/flux-2-klein-9b-Q3_K_S.gguf",
+            "size": 5045559091,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q3_K_S.gguf"
+          },
+          {
+            "id": "Q4_K_S",
+            "label": "Q4_K_S",
+            "description": "Balanced — ~5.8 GB, good quality/size tradeoff",
+            "file": "flux2-klein-9b/flux-2-klein-9b-Q4_K_S.gguf",
+            "size": 6264135475,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q4_K_S.gguf"
+          },
+          {
+            "id": "Q5_K_M",
+            "label": "Q5_K_M",
+            "description": "High quality — ~7.0 GB",
+            "file": "flux2-klein-9b/flux-2-klein-9b-Q5_K_M.gguf",
+            "size": 7549747200,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q5_K_M.gguf"
+          },
+          {
+            "id": "Q6_K",
+            "label": "Q6_K",
+            "description": "Very high quality — ~7.9 GB",
+            "file": "flux2-klein-9b/flux-2-klein-9b-Q6_K.gguf",
+            "size": 8451522560,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q6_K.gguf"
+          },
+          {
+            "id": "Q8_0",
+            "label": "Q8_0",
+            "description": "Near-lossless — ~10.0 GB",
+            "file": "flux2-klein-9b/flux-2-klein-9b-Q8_0.gguf",
+            "size": 10737418240,
+            "downloadUrl": "https://huggingface.co/unsloth/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q8_0.gguf"
+          }
+        ]
+      },
+      "textEncoder": {
+        "quants": [
+          {
+            "id": "Q3_K_M",
+            "label": "Q3_K_M",
+            "description": "Smallest — ~4.1 GB",
+            "file": "qwen3-8b/Qwen3-8B-Q3_K_M.gguf",
+            "size": 4424260608,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q3_K_M.gguf"
+          },
+          {
+            "id": "Q4_K_M",
+            "label": "Q4_K_M",
+            "description": "Balanced — ~5.0 GB",
+            "file": "qwen3-8b/Qwen3-8B-Q4_K_M.gguf",
+            "size": 5402263552,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf"
+          },
+          {
+            "id": "Q5_K_M",
+            "label": "Q5_K_M",
+            "description": "High quality — ~5.9 GB",
+            "file": "qwen3-8b/Qwen3-8B-Q5_K_M.gguf",
+            "size": 6283018240,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q5_K_M.gguf"
+          },
+          {
+            "id": "Q6_K",
+            "label": "Q6_K",
+            "description": "Very high quality — ~6.7 GB",
+            "file": "qwen3-8b/Qwen3-8B-Q6_K.gguf",
+            "size": 7226982400,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q6_K.gguf"
+          },
+          {
+            "id": "Q8_0",
+            "label": "Q8_0",
+            "description": "Near-lossless — ~8.7 GB",
+            "file": "qwen3-8b/Qwen3-8B-Q8_0.gguf",
+            "size": 9353953280,
+            "downloadUrl": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q8_0.gguf"
+          }
+        ]
+      }
+    }
+  ]
+}

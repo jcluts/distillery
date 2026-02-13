@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { AppLayout } from '@/components/layout/AppLayout'
 import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
+import { ModelManagerModal } from '@/components/modals/ModelManagerModal'
 import { SettingsModal } from '@/components/modals/SettingsModal'
+import { useModelCatalog } from '@/hooks/useModelCatalog'
+import { useModelDownload } from '@/hooks/useModelDownload'
 import { useEngineStore } from './stores/engine-store'
 import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
@@ -15,6 +18,9 @@ import type {
 } from './types'
 
 function App(): React.JSX.Element {
+  useModelCatalog()
+  useModelDownload()
+
   const setEngineStatus = useEngineStore((s) => s.setStatus)
 
   const setMediaPage = useLibraryStore((s) => s.setItems)
@@ -198,6 +204,7 @@ function App(): React.JSX.Element {
       <AppLayout />
       <GenerationDetailModal />
       <SettingsModal />
+      <ModelManagerModal />
     </>
   )
 }

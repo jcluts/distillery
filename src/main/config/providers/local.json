@@ -7,7 +7,6 @@
     {
       "endpointKey": "local.flux2-klein.image",
       "providerModelId": "flux2-klein",
-      "canonicalModelId": "flux2-klein-4b",
       "displayName": "FLUX.2 Klein (Local)",
       "modes": ["text-to-image", "image-to-image"],
       "outputType": "image",
@@ -15,10 +14,28 @@
       "requestSchema": {
         "properties": {
           "prompt": { "type": "string", "title": "Prompt" },
-          "width": { "type": "integer", "default": 1024, "minimum": 256, "maximum": 2048, "step": 64 },
-          "height": { "type": "integer", "default": 1024, "minimum": 256, "maximum": 2048, "step": 64 },
+          "width": {
+            "type": "integer",
+            "default": 1024,
+            "minimum": 256,
+            "maximum": 2048,
+            "step": 64
+          },
+          "height": {
+            "type": "integer",
+            "default": 1024,
+            "minimum": 256,
+            "maximum": 2048,
+            "step": 64
+          },
           "steps": { "type": "integer", "default": 4, "minimum": 1, "maximum": 64 },
-          "guidance": { "type": "number", "default": 3.5, "minimum": 1, "maximum": 20, "step": 0.1 },
+          "guidance": {
+            "type": "number",
+            "default": 3.5,
+            "minimum": 1,
+            "maximum": 20,
+            "step": 0.1
+          },
           "sampling_method": { "type": "string", "default": "euler" },
           "ref_image_ids": { "type": "array", "items": { "type": "string" } },
           "ref_image_paths": { "type": "array", "items": { "type": "string" } }

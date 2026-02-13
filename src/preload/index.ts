@@ -20,19 +20,15 @@ const api: DistilleryAPI = {
   updateMedia: (id: string, updates: MediaUpdate) =>
     ipcRenderer.invoke(CH.LIBRARY_UPDATE_MEDIA, id, updates),
   deleteMedia: (ids: string[]) => ipcRenderer.invoke(CH.LIBRARY_DELETE_MEDIA, ids),
-  importMedia: (filePaths: string[]) =>
-    ipcRenderer.invoke(CH.LIBRARY_IMPORT_MEDIA, filePaths),
+  importMedia: (filePaths: string[]) => ipcRenderer.invoke(CH.LIBRARY_IMPORT_MEDIA, filePaths),
   getThumbnail: (id: string) => ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAIL, id),
-  getThumbnailsBatch: (ids: string[]) =>
-    ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAILS_BATCH, ids),
+  getThumbnailsBatch: (ids: string[]) => ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAILS_BATCH, ids),
 
   // Generation
   submitGeneration: (params: GenerationSubmitInput) =>
     ipcRenderer.invoke(CH.GENERATION_SUBMIT, params),
-  cancelGeneration: (jobId: string) =>
-    ipcRenderer.invoke(CH.GENERATION_CANCEL, jobId),
-  listGenerationEndpoints: () =>
-    ipcRenderer.invoke(CH.GENERATION_LIST_ENDPOINTS),
+  cancelGeneration: (jobId: string) => ipcRenderer.invoke(CH.GENERATION_CANCEL, jobId),
+  listGenerationEndpoints: () => ipcRenderer.invoke(CH.GENERATION_LIST_ENDPOINTS),
   getGenerationEndpointSchema: (endpointKey: string) =>
     ipcRenderer.invoke(CH.GENERATION_GET_ENDPOINT_SCHEMA, endpointKey),
 
@@ -50,8 +46,7 @@ const api: DistilleryAPI = {
     get: (id: string) => ipcRenderer.invoke(CH.TIMELINE_GET, id),
     remove: (id: string) => ipcRenderer.invoke(CH.TIMELINE_REMOVE, id),
     clearCompleted: () => ipcRenderer.invoke(CH.TIMELINE_CLEAR_COMPLETED),
-    getThumbnail: (genId: string) =>
-      ipcRenderer.invoke(CH.TIMELINE_GET_THUMBNAIL, genId),
+    getThumbnail: (genId: string) => ipcRenderer.invoke(CH.TIMELINE_GET_THUMBNAIL, genId),
     getThumbnailsBatch: (genIds: string[]) =>
       ipcRenderer.invoke(CH.TIMELINE_GET_THUMBNAILS_BATCH, genIds),
     getInputThumbnail: (inputId: string) =>
@@ -66,13 +61,19 @@ const api: DistilleryAPI = {
   getSettings: () => ipcRenderer.invoke(CH.SETTINGS_GET),
   saveSettings: (updates: SettingsUpdate) => ipcRenderer.invoke(CH.SETTINGS_SAVE, updates),
 
+  // Models
+  getModelCatalog: () => ipcRenderer.invoke(CH.MODEL_GET_CATALOG),
+  getModelDownloadStatus: () => ipcRenderer.invoke(CH.MODEL_GET_DOWNLOAD_STATUS),
+  downloadModelFile: (payload) => ipcRenderer.invoke(CH.MODEL_DOWNLOAD_FILE, payload),
+  cancelModelDownload: (payload) => ipcRenderer.invoke(CH.MODEL_CANCEL_DOWNLOAD, payload),
+  checkModelFiles: (payload) => ipcRenderer.invoke(CH.MODEL_CHECK_FILES, payload),
+
   // App
   showOpenDialog: (options: Electron.OpenDialogOptions) =>
     ipcRenderer.invoke(CH.APP_SHOW_OPEN_DIALOG, options),
   showSaveDialog: (options: Electron.SaveDialogOptions) =>
     ipcRenderer.invoke(CH.APP_SHOW_SAVE_DIALOG, options),
-  showItemInFolder: (path: string) =>
-    ipcRenderer.invoke(CH.APP_SHOW_ITEM_IN_FOLDER, path),
+  showItemInFolder: (path: string) => ipcRenderer.invoke(CH.APP_SHOW_ITEM_IN_FOLDER, path),
   getHardwareProfile: () => ipcRenderer.invoke(CH.APP_GET_HARDWARE_PROFILE),
 
   // Window controls
@@ -90,6 +91,7 @@ const api: DistilleryAPI = {
       | typeof CH.QUEUE_UPDATED
       | typeof CH.LIBRARY_UPDATED
       | typeof CH.WINDOW_MAXIMIZED_CHANGED
+      | typeof CH.MODEL_DOWNLOAD_PROGRESS
 
     const validChannels = new Set<EventChannel>([
       CH.ENGINE_STATUS_CHANGED,
@@ -97,7 +99,8 @@ const api: DistilleryAPI = {
       CH.GENERATION_RESULT,
       CH.QUEUE_UPDATED,
       CH.LIBRARY_UPDATED,
-      CH.WINDOW_MAXIMIZED_CHANGED
+      CH.WINDOW_MAXIMIZED_CHANGED,
+      CH.MODEL_DOWNLOAD_PROGRESS
     ])
 
     if (!validChannels.has(channel as EventChannel)) {

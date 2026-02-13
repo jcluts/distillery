@@ -42,11 +42,7 @@ function PathField({
     <div className="space-y-2">
       <FieldLabel>{label}</FieldLabel>
       <Row>
-        <Input
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <Input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
         <Button type="button" variant="secondary" size="icon" onClick={() => void onBrowse()}>
           <FolderOpen />
         </Button>
@@ -163,9 +159,7 @@ export function SettingsModal(): React.JSX.Element {
       const updates: SettingsUpdate = {
         library_root: draft.library_root,
         engine_path: draft.engine_path,
-        diffusion_model_path: draft.diffusion_model_path,
-        vae_path: draft.vae_path,
-        llm_path: draft.llm_path,
+        model_base_path: draft.model_base_path,
         offload_to_cpu: draft.offload_to_cpu,
         flash_attn: draft.flash_attn,
         vae_on_cpu: draft.vae_on_cpu,
@@ -194,13 +188,17 @@ export function SettingsModal(): React.JSX.Element {
             <SettingsIcon className="size-5" />
             Settings
           </DialogTitle>
-          <DialogDescription>Model paths, library root, and engine runtime flags.</DialogDescription>
+          <DialogDescription>
+            Library location, model directory, and engine runtime flags.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-4">
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">PATHS</div>
+              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+                PATHS
+              </div>
 
               <PathField
                 label="Library root"
@@ -227,35 +225,13 @@ export function SettingsModal(): React.JSX.Element {
               ) : null}
 
               <PathField
-                label="Diffusion model"
-                value={draft?.diffusion_model_path ?? ''}
-                placeholder="...\\model.gguf"
-                onChange={(v) => update('diffusion_model_path', v)}
+                label="Model directory"
+                value={draft?.model_base_path ?? ''}
+                placeholder="C:\\Users\\...\\distillery\\profiles\\Default\\models"
+                onChange={(v) => update('model_base_path', v)}
                 onBrowse={async () => {
-                  const selected = await browseFile('Choose diffusion model', ['gguf', 'safetensors'])
-                  if (selected) update('diffusion_model_path', selected)
-                }}
-              />
-
-              <PathField
-                label="VAE"
-                value={draft?.vae_path ?? ''}
-                placeholder="...\\ae.safetensors"
-                onChange={(v) => update('vae_path', v)}
-                onBrowse={async () => {
-                  const selected = await browseFile('Choose VAE', ['safetensors', 'bin'])
-                  if (selected) update('vae_path', selected)
-                }}
-              />
-
-              <PathField
-                label="LLM"
-                value={draft?.llm_path ?? ''}
-                placeholder="...\\qwen.gguf"
-                onChange={(v) => update('llm_path', v)}
-                onBrowse={async () => {
-                  const selected = await browseFile('Choose LLM', ['gguf'])
-                  if (selected) update('llm_path', selected)
+                  const selected = await browseFolder('Choose model directory')
+                  if (selected) update('model_base_path', selected)
                 }}
               />
             </div>
@@ -263,7 +239,9 @@ export function SettingsModal(): React.JSX.Element {
 
           <div className="space-y-4">
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">ENGINE FLAGS</div>
+              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+                ENGINE FLAGS
+              </div>
 
               <BoolField
                 label="Offload to CPU"
@@ -292,13 +270,9 @@ export function SettingsModal(): React.JSX.Element {
 
             <Separator />
 
-            {error ? (
-              <div className={cn('text-sm', 'text-destructive')}>{error}</div>
-            ) : null}
+            {error ? <div className={cn('text-sm', 'text-destructive')}>{error}</div> : null}
 
-            {!loaded && open ? (
-              <div className="text-sm text-muted-foreground">Loading…</div>
-            ) : null}
+            {!loaded && open ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
           </div>
         </div>
 

@@ -22,8 +22,13 @@ import { registerEngineHandlers } from './ipc/handlers/engine'
 import { registerQueueHandlers } from './ipc/handlers/queue'
 import { registerTimelineHandlers } from './ipc/handlers/timeline'
 import { registerSettingsHandlers } from './ipc/handlers/settings'
+import { registerModelHandlers } from './ipc/handlers/models'
 import { registerWindowHandlers } from './ipc/handlers/window'
-import { getSetting } from './db/repositories/settings'
+import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
+import { ModelCatalogService } from './models/model-catalog-service'
+import { ModelResolver } from './models/model-resolver'
+import { ModelDownloadManager } from './models/model-download-manager'
+import { bootstrapQuantSelections } from './models/selection-bootstrap'
 
 // Allow the renderer to load library files via a safe custom protocol.
 // This avoids `file://` restrictions when running the renderer from http:// (dev server).
@@ -149,6 +154,28 @@ app.whenReady().then(async () => {
   timelineService.initialize()
   console.log('[Main] Timeline service initialized')
 
+  const modelCatalogService = new ModelCatalogService()
+  const modelCatalog = modelCatalogService.loadCatalog()
+
+  const initialSettings = getAllSettings(db)
+  const bootstrap = bootstrapQuantSelections({
+    catalog: modelCatalog,
+    settings: initialSettings
+  })
+
+  if (bootstrap.updated) {
+    saveSettings(db, { model_quant_selections: bootstrap.selections })
+  }
+
+  const startupSettings = bootstrap.updated
+    ? {
+        ...initialSettings,
+        model_quant_selections: bootstrap.selections
+      }
+    : initialSettings
+
+  const modelDownloadManager = new ModelDownloadManager(startupSettings.model_base_path)
+
   // Initialize file manager (library root)
   const libraryRoot = getSetting(db, 'library_root')
   fileManager = new FileManager(libraryRoot)
@@ -237,8 +264,17 @@ app.whenReady().then(async () => {
   registerSettingsHandlers({
     engineManager,
     fileManager,
+    modelCatalogService,
+    modelDownloadManager,
     onLibraryRootChanged: () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
+  })
+  registerModelHandlers({
+    modelCatalogService,
+    modelDownloadManager,
+    onDownloadProgress: (event) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.MODEL_DOWNLOAD_PROGRESS, event)
     }
   })
   registerWindowHandlers(() => mainWindow)
@@ -266,20 +302,17 @@ app.whenReady().then(async () => {
       await engineManager.start()
       console.log('[Main] Engine started')
 
-      // Auto-load model if paths are configured
-      const diffusionPath = getSetting(db, 'diffusion_model_path')
-      const vaePath = getSetting(db, 'vae_path')
-      const llmPath = getSetting(db, 'llm_path')
+      const settings = getAllSettings(db)
+      const resolver = new ModelResolver(modelCatalogService.loadCatalog(), settings)
 
-      if (diffusionPath && vaePath && llmPath) {
+      if (resolver.isModelReady(settings.active_model_id)) {
+        const paths = resolver.getActiveModelPaths()
         await engineManager.loadModel({
-          diffusion_model: diffusionPath,
-          vae: vaePath,
-          llm: llmPath,
-          offload_to_cpu: getSetting(db, 'offload_to_cpu'),
-          flash_attn: getSetting(db, 'flash_attn'),
-          vae_on_cpu: getSetting(db, 'vae_on_cpu'),
-          llm_on_cpu: getSetting(db, 'llm_on_cpu')
+          ...paths,
+          offload_to_cpu: settings.offload_to_cpu,
+          flash_attn: settings.flash_attn,
+          vae_on_cpu: settings.vae_on_cpu,
+          llm_on_cpu: settings.llm_on_cpu
         })
       }
     } catch (err) {
