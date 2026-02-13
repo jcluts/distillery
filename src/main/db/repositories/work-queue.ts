@@ -114,13 +114,6 @@ export function incrementAttemptCount(db: Database.Database, id: string): void {
   db.prepare('UPDATE work_queue SET attempt_count = attempt_count + 1 WHERE id = ?').run(id)
 }
 
-export function deleteWorkItemsByCorrelationId(
-  db: Database.Database,
-  correlationId: string
-): void {
-  db.prepare('DELETE FROM work_queue WHERE correlation_id = ?').run(correlationId)
-}
-
 export function markInterruptedWorkItems(db: Database.Database): void {
   db.prepare(
     "UPDATE work_queue SET status = 'failed', error_message = 'Interrupted by application restart', completed_at = datetime('now') WHERE status IN ('pending', 'processing')"

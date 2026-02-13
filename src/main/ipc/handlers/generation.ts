@@ -1,12 +1,12 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../channels'
-import type { GenerationParams, GenerationSubmitInput } from '../../types'
+import type { GenerationSubmitInput } from '../../types'
 import type { GenerationService } from '../../generation/generation-service'
 
 export function registerGenerationHandlers(generationService: GenerationService): void {
   ipcMain.handle(
     IPC_CHANNELS.GENERATION_SUBMIT,
-    async (_event, params: GenerationSubmitInput | GenerationParams) => {
+    async (_event, params: GenerationSubmitInput) => {
       return generationService.submit(params)
     }
   )

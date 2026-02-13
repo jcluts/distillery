@@ -56,8 +56,6 @@ export const IPC_CHANNELS = {
 
   // Events (main -> renderer)
   ENGINE_STATUS_CHANGED: 'engine:status',
-  ENGINE_PROGRESS: 'engine:progress',
-  ENGINE_RESULT: 'engine:result',
   GENERATION_PROGRESS: 'generation:progress',
   GENERATION_RESULT: 'generation:result',
   QUEUE_UPDATED: 'queue:updated',

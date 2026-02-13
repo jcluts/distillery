@@ -8,13 +8,10 @@ import { EngineManager } from './engine/engine-manager'
 import { TimelineService } from './timeline/timeline-service'
 import { WorkQueueManager } from './queue/work-queue-manager'
 import { WORK_TASK_TYPES } from './queue/work-task-types'
-import { PlaceholderHeavyTaskHandler } from './queue/placeholder-heavy-task-handler'
-import { mapWorkItemsToQueueItems } from './queue/work-queue-view'
 import { FileManager } from './files/file-manager'
 import { GenerationIOService } from './generation/generation-io-service'
 import { GenerationService } from './generation/generation-service'
 import { LocalCnEngineProvider } from './generation/providers/local-cn-provider'
-import { RemoteApiProvider } from './generation/providers/remote-api-provider'
 import { ProviderCatalogService } from './generation/catalog/provider-catalog-service'
 import { LocalGenerateTaskHandler } from './generation/tasks/local-generate-task'
 import { IPC_CHANNELS } from './ipc/channels'
@@ -108,35 +105,18 @@ function setupEngineEventForwarding(engine: EngineManager): void {
 
 function setupWorkQueueEventForwarding(queue: WorkQueueManager): void {
   queue.on('updated', () => {
-    const generationQueueView = mapWorkItemsToQueueItems(queue.getItems())
-    mainWindow?.webContents.send(IPC_CHANNELS.QUEUE_UPDATED, generationQueueView)
+    const generationWorkItems = queue.getItems({ owner_module: 'generation' })
+    mainWindow?.webContents.send(IPC_CHANNELS.QUEUE_UPDATED, generationWorkItems)
   })
 }
 
 function setupGenerationEventForwarding(service: GenerationService): void {
   service.on('progress', (event) => {
     mainWindow?.webContents.send(IPC_CHANNELS.GENERATION_PROGRESS, event)
-    mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_PROGRESS, {
-      jobId: event.generationId,
-      phase: event.phase,
-      step: event.step,
-      totalSteps: event.totalSteps,
-      message: event.message
-    })
   })
 
   service.on('result', (event) => {
     mainWindow?.webContents.send(IPC_CHANNELS.GENERATION_RESULT, event)
-    mainWindow?.webContents.send(IPC_CHANNELS.ENGINE_RESULT, {
-      jobId: event.generationId,
-      success: event.success,
-      outputPath: event.outputs?.[0]?.providerPath,
-      seed: event.metrics?.seed,
-      totalTimeMs: event.metrics?.totalTimeMs,
-      promptCacheHit: event.metrics?.promptCacheHit,
-      refLatentCacheHit: event.metrics?.refLatentCacheHit,
-      error: event.error
-    })
   })
 
   service.on('libraryUpdated', () => {
@@ -219,14 +199,12 @@ app.whenReady().then(async () => {
   const generationIOService = new GenerationIOService(db, fileManager)
   const providerCatalogService = new ProviderCatalogService()
   const localProvider = new LocalCnEngineProvider(engineManager)
-  const remoteApiProvider = new RemoteApiProvider()
 
   generationService = new GenerationService({
     db,
     workQueueManager,
     generationIOService,
-    providerCatalogService,
-    remoteApiProvider
+    providerCatalogService
   })
 
   await generationService.initialize()
@@ -244,11 +222,6 @@ app.whenReady().then(async () => {
       providerCatalogService,
       generationService
     })
-  )
-
-  workQueueManager.registerHandler(
-    WORK_TASK_TYPES.PLACEHOLDER_HEAVY_TASK,
-    new PlaceholderHeavyTaskHandler()
   )
 
   console.log('[Main] Work queue + generation services initialized')

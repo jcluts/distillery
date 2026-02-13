@@ -1,11 +1,5 @@
 import type { CanonicalEndpointDef } from '../../../types'
-import type { ProviderConfig } from '../provider-config-service'
-
-interface AdapterInput {
-  providerConfig: ProviderConfig
-  rawFeed: unknown
-  defaultRequestSchema: CanonicalEndpointDef['requestSchema']
-}
+import type { AdapterInput } from './adapter-factory'
 
 export function transformFal(input: AdapterInput): CanonicalEndpointDef[] {
   const models =

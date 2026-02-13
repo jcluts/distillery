@@ -1,14 +1,15 @@
 import { EventEmitter } from 'events'
 import { EngineManager } from '../../engine/engine-manager'
-import type { GenerationExecutionRequest, GenerationExecutionResult, GenerationProgressEvent } from '../../types'
+import type {
+  GenerationExecutionRequest,
+  GenerationExecutionResult,
+  GenerationProgressEvent
+} from '../../types'
 import type { GenerationProvider } from './generation-provider'
 
-export class LocalCnEngineProvider
-  extends EventEmitter
-  implements GenerationProvider
-{
+export class LocalCnEngineProvider extends EventEmitter implements GenerationProvider {
   id = 'local'
-  mode: 'queued-local' = 'queued-local'
+  mode = 'queued-local' as const
 
   private engineManager: EngineManager
 
@@ -48,7 +49,8 @@ export class LocalCnEngineProvider
       seed: typeof params.seed === 'number' ? params.seed : -1,
       steps: typeof params.steps === 'number' ? params.steps : 4,
       guidance: typeof params.guidance === 'number' ? params.guidance : 3.5,
-      sampling_method: typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
+      sampling_method:
+        typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
       ref_images: request.preparedInputs?.refImages ?? [],
       output: outputPath,
       use_prompt_cache: true,

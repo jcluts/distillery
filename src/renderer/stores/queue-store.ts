@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { QueueItem } from '../types'
+import type { WorkQueueItem } from '../types'
 
 // =============================================================================
 // Queue Store
@@ -7,7 +7,7 @@ import type { QueueItem } from '../types'
 // =============================================================================
 
 interface QueueState {
-  items: QueueItem[]
+  items: WorkQueueItem[]
   activeJobId: string | null
   activePhase: string | null
   activeStep: number | null
@@ -16,7 +16,7 @@ interface QueueState {
   activeStartTime: number | null
 
   // Actions
-  setItems: (items: QueueItem[]) => void
+  setItems: (items: WorkQueueItem[]) => void
   setActiveProgress: (jobId: string, phase: string, step?: number, totalSteps?: number) => void
   clearActiveProgress: () => void
   startTimer: (jobId: string) => void

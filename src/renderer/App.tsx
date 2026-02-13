@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { AppLayout } from '@/components/layout/AppLayout'
 import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
@@ -11,7 +11,7 @@ import type {
   GenerationProgressEvent,
   GenerationResultEvent,
   EngineStatus,
-  QueueItem
+  WorkQueueItem
 } from './types'
 
 function App(): React.JSX.Element {
@@ -43,23 +43,29 @@ function App(): React.JSX.Element {
 
   const debounceRef = useRef<number | null>(null)
 
-  const syncActiveFromQueue = (items: QueueItem[]): void => {
-    const processing = items.find((q) => q.status === 'processing')
-    if (!processing) {
-      clearActiveProgress()
-      return
-    }
+  const syncActiveFromQueue = useCallback(
+    (items: WorkQueueItem[]): void => {
+      const processing = items.find((q) => q.status === 'processing')
+      if (!processing) {
+        clearActiveProgress()
+        return
+      }
 
-    if (activeJobId !== processing.generation_id) {
-      startTimer(processing.generation_id)
-    }
+      const generationId = processing.correlation_id
+      if (!generationId) return
 
-    if (!activePhase) {
-      setActiveProgress(processing.generation_id, 'Processing')
-    }
-  }
+      if (activeJobId !== generationId) {
+        startTimer(generationId)
+      }
 
-  const loadMedia = async (): Promise<void> => {
+      if (!activePhase) {
+        setActiveProgress(generationId, 'Processing')
+      }
+    },
+    [activeJobId, activePhase, clearActiveProgress, setActiveProgress, startTimer]
+  )
+
+  const loadMedia = useCallback(async (): Promise<void> => {
     setLibraryLoading(true)
     try {
       const mediaPage = await window.api.getMedia(buildLibraryQuery())
@@ -70,18 +76,18 @@ function App(): React.JSX.Element {
     } finally {
       setLibraryLoading(false)
     }
-  }
+  }, [buildLibraryQuery, focusedId, selectSingle, setLibraryLoading, setMediaPage])
 
-  const loadTimeline = async (): Promise<void> => {
+  const loadTimeline = useCallback(async (): Promise<void> => {
     try {
       const { generations } = await window.api.timeline.getAll()
       setGenerations(generations)
     } catch {
       // ignore
     }
-  }
+  }, [setGenerations])
 
-  const loadQueue = async (): Promise<void> => {
+  const loadQueue = useCallback(async (): Promise<void> => {
     try {
       const items = await window.api.getQueue()
       setQueueItems(items)
@@ -89,7 +95,7 @@ function App(): React.JSX.Element {
     } catch {
       // ignore
     }
-  }
+  }, [setQueueItems, syncActiveFromQueue])
 
   // Subscribe to engine status events
   useEffect(() => {
@@ -102,7 +108,10 @@ function App(): React.JSX.Element {
 
   // Hydrate initial state
   useEffect(() => {
-    window.api.getEngineStatus().then(setEngineStatus).catch(() => {})
+    window.api
+      .getEngineStatus()
+      .then(setEngineStatus)
+      .catch(() => {})
   }, [setEngineStatus])
 
   // Initial hydration (library, timeline, queue)
@@ -110,7 +119,7 @@ function App(): React.JSX.Element {
     void loadMedia()
     void loadTimeline()
     void loadQueue()
-  }, [])
+  }, [loadMedia, loadQueue, loadTimeline])
 
   // Re-query library on filter changes.
   useEffect(() => {
@@ -126,17 +135,17 @@ function App(): React.JSX.Element {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current)
     }
-  }, [page, pageSize, ratingFilter, statusFilter, searchQuery, sortField, sortDirection])
+  }, [loadMedia, page, pageSize, ratingFilter, searchQuery, sortDirection, sortField, statusFilter])
 
   // Queue updates
   useEffect(() => {
     const unsubscribe = window.api.on('queue:updated', (payload: unknown) => {
-      const items = (payload as QueueItem[]) ?? []
+      const items = (payload as WorkQueueItem[]) ?? []
       setQueueItems(items)
       syncActiveFromQueue(items)
     })
     return unsubscribe
-  }, [activeJobId, activePhase, clearActiveProgress, setActiveProgress, setQueueItems, startTimer])
+  }, [setQueueItems, syncActiveFromQueue])
 
   // Library updates (imports/new generations)
   useEffect(() => {
@@ -144,7 +153,7 @@ function App(): React.JSX.Element {
       void loadMedia()
     })
     return unsubscribe
-  }, [buildLibraryQuery, setMediaPage])
+  }, [loadMedia])
 
   // Generation progress -> status bar / queue progress
   useEffect(() => {
@@ -167,13 +176,18 @@ function App(): React.JSX.Element {
       void loadTimeline()
     })
     return unsubscribe
-  }, [])
+  }, [loadMedia, loadQueue, loadTimeline])
 
   // Keep elapsed time ticking while active
   useEffect(() => {
     const id = window.setInterval(() => {
       if (activeJobId && activePhase) {
-        setActiveProgress(activeJobId, activePhase, activeStep ?? undefined, activeTotalSteps ?? undefined)
+        setActiveProgress(
+          activeJobId,
+          activePhase,
+          activeStep ?? undefined,
+          activeTotalSteps ?? undefined
+        )
       }
     }, 250)
     return () => window.clearInterval(id)
