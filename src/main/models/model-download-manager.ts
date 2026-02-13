@@ -21,6 +21,10 @@ export class ModelDownloadManager extends EventEmitter {
   private activeClientRequest: http.ClientRequest | null = null
   private activeCancelled = false
 
+  /** Throttle: last time a 'downloading' progress event was emitted per path */
+  private lastProgressEmitTime = new Map<string, number>()
+  private static readonly PROGRESS_THROTTLE_MS = 250
+
   constructor(modelBasePath: string) {
     super()
     this.modelBasePath = modelBasePath
@@ -85,6 +89,34 @@ export class ModelDownloadManager extends EventEmitter {
       })
       item.resolve()
     }
+  }
+
+  removeDownloadedFile(relativePath: string): void {
+    const canonicalRelativePath = this.canonicalizeRelativePath(relativePath)
+
+    if (this.activeRelativePath === canonicalRelativePath) {
+      throw new Error(`Cannot remove file while download is in progress: ${canonicalRelativePath}`)
+    }
+
+    const queuedIndex = this.queue.findIndex(
+      (item) =>
+        this.canonicalizeRelativePath(item.request.destRelativePath) === canonicalRelativePath
+    )
+
+    if (queuedIndex >= 0) {
+      throw new Error(`Cannot remove file while download is queued: ${canonicalRelativePath}`)
+    }
+
+    const fsRelativePath = this.toFileSystemRelativePath(canonicalRelativePath)
+    const destination = path.join(this.modelBasePath, fsRelativePath)
+
+    if (fs.existsSync(destination)) {
+      fs.unlinkSync(destination)
+    }
+
+    this.safeDelete(`${destination}.part`)
+    this.statuses.delete(canonicalRelativePath)
+    this.lastProgressEmitTime.delete(canonicalRelativePath)
   }
 
   private processQueue(): void {
@@ -229,6 +261,21 @@ export class ModelDownloadManager extends EventEmitter {
 
   private emitProgress(event: DownloadProgressEvent): void {
     this.statuses.set(event.relativePath, event)
+
+    // Throttle 'downloading' status events to avoid flooding the renderer IPC channel.
+    // Status-change events (queued, completed, failed, cancelled) are always emitted immediately.
+    if (event.status === 'downloading') {
+      const now = Date.now()
+      const last = this.lastProgressEmitTime.get(event.relativePath) ?? 0
+      if (now - last < ModelDownloadManager.PROGRESS_THROTTLE_MS) {
+        return
+      }
+      this.lastProgressEmitTime.set(event.relativePath, now)
+    } else {
+      // Clear throttle tracking on terminal states
+      this.lastProgressEmitTime.delete(event.relativePath)
+    }
+
     this.emit('progress', event)
   }
 

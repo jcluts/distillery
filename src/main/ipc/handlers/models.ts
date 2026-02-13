@@ -19,6 +19,10 @@ interface CancelDownloadPayload {
   relativePath: string
 }
 
+interface RemoveModelFilePayload {
+  relativePath: string
+}
+
 interface CheckFilesPayload {
   modelId: string
 }
@@ -90,6 +94,13 @@ export function registerModelHandlers(options: {
     IPC_CHANNELS.MODEL_CANCEL_DOWNLOAD,
     async (_event, payload: CancelDownloadPayload) => {
       modelDownloadManager.cancelDownload(payload.relativePath)
+    }
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.MODEL_REMOVE_FILE,
+    async (_event, payload: RemoveModelFilePayload) => {
+      modelDownloadManager.removeDownloadedFile(payload.relativePath)
     }
   )
 

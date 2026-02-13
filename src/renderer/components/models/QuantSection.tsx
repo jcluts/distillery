@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ChevronDown, Check, Download, X } from 'lucide-react'
+import { ChevronDown, Check, Clock3, Download, Trash2, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ interface QuantSectionProps {
   onSelectQuant: (quantId: string) => void
   onDownload: (quantId: string) => void
   onCancel: (relativePath: string) => void
+  onRemove: (relativePath: string) => void
 }
 
 /** Returns whether a quant is the "recommended" balanced option */
@@ -34,13 +35,16 @@ export function QuantSection({
   downloadStatusByPath,
   onSelectQuant,
   onDownload,
-  onCancel
+  onCancel,
+  onRemove
 }: QuantSectionProps): React.JSX.Element {
   const [open, setOpen] = React.useState(false)
 
   const activeQuant = quants.find((q) => q.id === activeQuantId)
   const activeDownloaded = activeQuant ? !!downloadedByPath[activeQuant.file] : false
   const anyDownloading = quants.some((q) => {
+    // If the file already exists on disk, ignore stale download status
+    if (downloadedByPath[q.file]) return false
     const dl = downloadStatusByPath[q.file]
     return dl?.status === 'downloading' || dl?.status === 'queued'
   })
@@ -67,6 +71,7 @@ export function QuantSection({
           activeDownloaded={activeDownloaded}
           anyDownloading={anyDownloading}
           quants={quants}
+          downloadedByPath={downloadedByPath}
           downloadStatusByPath={downloadStatusByPath}
         />
       </div>
@@ -85,6 +90,7 @@ export function QuantSection({
                 onSelect={() => onSelectQuant(quant.id)}
                 onDownload={() => onDownload(quant.id)}
                 onCancel={() => onCancel(quant.file)}
+                onRemove={() => onRemove(quant.file)}
               />
             ))}
           </div>
@@ -103,20 +109,23 @@ function QuantSummary({
   activeDownloaded,
   anyDownloading,
   quants,
+  downloadedByPath,
   downloadStatusByPath
 }: {
   activeQuant: QuantVariant | undefined
   activeDownloaded: boolean
   anyDownloading: boolean
   quants: QuantVariant[]
+  downloadedByPath: Record<string, boolean>
   downloadStatusByPath: Record<string, DownloadProgressEvent>
 }): React.JSX.Element {
-  // If a download is in progress, show its progress
   if (anyDownloading) {
     const downloadingQuant = quants.find((q) => {
+      if (downloadedByPath[q.file]) return false
       const dl = downloadStatusByPath[q.file]
-      return dl?.status === 'downloading' || dl?.status === 'queued'
+      return dl?.status === 'downloading'
     })
+
     const downloading = downloadingQuant ? downloadStatusByPath[downloadingQuant.file] : undefined
     if (downloading) {
       const pct = toPercent(downloading.downloadedBytes, downloading.totalBytes)
@@ -126,6 +135,21 @@ function QuantSummary({
             Downloading {downloadingQuant?.label}… {pct}%
           </span>
           <Progress value={pct} className="h-1.5 flex-1" />
+        </div>
+      )
+    }
+
+    const queuedQuant = quants.find((q) => {
+      if (downloadedByPath[q.file]) return false
+      const dl = downloadStatusByPath[q.file]
+      return dl?.status === 'queued'
+    })
+
+    if (queuedQuant) {
+      return (
+        <div className="flex items-center gap-2 rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-400">
+          <Clock3 className="size-3" />
+          Queued {queuedQuant.label} — waiting for current download to finish
         </div>
       )
     }
@@ -174,7 +198,8 @@ function QuantRow({
   downloadStatus,
   onSelect,
   onDownload,
-  onCancel
+  onCancel,
+  onRemove
 }: {
   quant: QuantVariant
   isActive: boolean
@@ -183,11 +208,12 @@ function QuantRow({
   onSelect: () => void
   onDownload: () => void
   onCancel: () => void
+  onRemove: () => void
 }): React.JSX.Element {
-  const isDownloading =
-    downloadStatus?.status === 'downloading' || downloadStatus?.status === 'queued'
-  const isFailed = downloadStatus?.status === 'failed'
-  const isCancelled = downloadStatus?.status === 'cancelled'
+  const isDownloading = !isDownloaded && downloadStatus?.status === 'downloading'
+  const isQueued = !isDownloaded && downloadStatus?.status === 'queued'
+  const isFailed = !isDownloaded && downloadStatus?.status === 'failed'
+  const isCancelled = !isDownloaded && downloadStatus?.status === 'cancelled'
   const recommended = isRecommended(quant)
   const canSelect = isDownloaded && !isActive
 
@@ -261,6 +287,22 @@ function QuantRow({
               <X className="size-3" />
             </Button>
           </div>
+        ) : isQueued ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="border-amber-500/25 bg-amber-500/10 text-amber-400">
+              <Clock3 className="mr-1 size-3" />
+              Queued
+            </Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={onCancel}
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
         ) : isFailed ? (
           <Button
             type="button"
@@ -282,7 +324,16 @@ function QuantRow({
             Resume
           </Button>
         ) : isDownloaded ? (
-          <Check className="size-4 text-emerald-400" />
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1 px-2 text-xs"
+            onClick={onRemove}
+          >
+            <Trash2 className="size-3" />
+            Remove
+          </Button>
         ) : (
           <Button
             type="button"

@@ -16,6 +16,7 @@ interface ModelCardProps {
   onSelectQuant: (component: 'diffusion' | 'textEncoder', quantId: string) => void
   onDownload: (component: 'vae' | 'diffusion' | 'textEncoder', quantId?: string) => void
   onCancelDownload: (relativePath: string) => void
+  onRemoveDownload: (relativePath: string) => void
 }
 
 export function ModelCard({
@@ -27,7 +28,8 @@ export function ModelCard({
   downloadStatusByPath,
   onSelectQuant,
   onDownload,
-  onCancelDownload
+  onCancelDownload,
+  onRemoveDownload
 }: ModelCardProps): React.JSX.Element {
   const normalizeRelativePath = (relativePath: string): string => relativePath.replace(/\\+/g, '/')
 
@@ -68,6 +70,7 @@ export function ModelCard({
           onSelectQuant={(quantId) => onSelectQuant('diffusion', quantId)}
           onDownload={(quantId) => onDownload('diffusion', quantId)}
           onCancel={onCancelDownload}
+          onRemove={onRemoveDownload}
         />
 
         <QuantSection
@@ -79,6 +82,7 @@ export function ModelCard({
           onSelectQuant={(quantId) => onSelectQuant('textEncoder', quantId)}
           onDownload={(quantId) => onDownload('textEncoder', quantId)}
           onCancel={onCancelDownload}
+          onRemove={onRemoveDownload}
         />
 
         <VaeSection
@@ -87,6 +91,7 @@ export function ModelCard({
           downloadStatus={normalizedDownloadStatusByPath[normalizeRelativePath(model.vae.file)]}
           onDownload={() => onDownload('vae')}
           onCancel={() => onCancelDownload(model.vae.file)}
+          onRemove={() => onRemoveDownload(model.vae.file)}
         />
       </CardContent>
     </Card>

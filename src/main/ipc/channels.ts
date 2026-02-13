@@ -47,6 +47,7 @@ export const IPC_CHANNELS = {
   MODEL_GET_DOWNLOAD_STATUS: 'model:get-download-status',
   MODEL_DOWNLOAD_FILE: 'model:download-file',
   MODEL_CANCEL_DOWNLOAD: 'model:cancel-download',
+  MODEL_REMOVE_FILE: 'model:remove-file',
   MODEL_CHECK_FILES: 'model:check-files',
 
   // App

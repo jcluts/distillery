@@ -20,6 +20,7 @@ interface ModelStoreState {
   refreshModelFiles: (modelId: string) => Promise<void>
   refreshAllModelFiles: () => Promise<void>
   setDownloadProgress: (event: DownloadProgressEvent) => void
+  reconcileDownloadStatuses: () => Promise<void>
   setActiveModel: (modelId: string) => Promise<void>
   setModelQuantSelection: (
     modelId: string,
@@ -32,6 +33,7 @@ interface ModelStoreState {
     quantId?: string
   }) => Promise<void>
   cancelModelDownload: (relativePath: string) => Promise<void>
+  removeModelFile: (payload: { modelId: string; relativePath: string }) => Promise<void>
 }
 
 function normalizeRelativePath(relativePath: string): string {
@@ -125,6 +127,50 @@ export const useModelStore = create<ModelStoreState>((set, get) => ({
     await get().refreshSettings()
   },
 
+  reconcileDownloadStatuses: async () => {
+    // Re-fetch authoritative download statuses from the main process and disk state.
+    // This corrects any stale renderer state caused by missed IPC events
+    // (e.g. when the window was unfocused and Chromium throttled the renderer).
+    const rawStatuses = await window.api.getModelDownloadStatus()
+    const freshStatuses = Object.fromEntries(
+      Object.entries(rawStatuses).map(([key, value]) => [
+        normalizeRelativePath(key),
+        { ...value, relativePath: normalizeRelativePath(value.relativePath) }
+      ])
+    )
+
+    // Also reconcile against actual files on disk: if a file exists,
+    // any non-completed download status is stale and should be overridden.
+    const filesByModelId = get().filesByModelId
+    const existingPaths = new Set<string>()
+    for (const check of Object.values(filesByModelId)) {
+      for (const file of check.files) {
+        if (file.exists) {
+          existingPaths.add(normalizeRelativePath(file.relativePath))
+        }
+      }
+    }
+
+    const reconciled = { ...freshStatuses }
+    for (const [relPath, status] of Object.entries(reconciled)) {
+      if (
+        existingPaths.has(relPath) &&
+        (status.status === 'downloading' || status.status === 'queued')
+      ) {
+        reconciled[relPath] = {
+          ...status,
+          status: 'completed',
+          downloadedBytes: status.totalBytes
+        }
+      }
+    }
+
+    set({ downloadStatusByPath: reconciled })
+
+    // Refresh file presence from disk as well
+    await get().refreshAllModelFiles()
+  },
+
   setDownloadProgress: (event) => {
     const normalizedEvent = {
       ...event,
@@ -215,5 +261,22 @@ export const useModelStore = create<ModelStoreState>((set, get) => ({
 
   cancelModelDownload: async (relativePath) => {
     await window.api.cancelModelDownload({ relativePath })
+  },
+
+  removeModelFile: async ({ modelId, relativePath }) => {
+    try {
+      await window.api.removeModelFile({ relativePath })
+
+      const normalizedPath = normalizeRelativePath(relativePath)
+      set((state) => {
+        const nextStatusByPath = { ...state.downloadStatusByPath }
+        delete nextStatusByPath[normalizedPath]
+        return { downloadStatusByPath: nextStatusByPath, error: null }
+      })
+
+      await get().refreshModelFiles(modelId)
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) })
+    }
   }
 }))
