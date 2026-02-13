@@ -79,7 +79,7 @@ export function GenerationPanel(): React.JSX.Element {
   const libraryItems = useLibraryStore((s) => s.items)
 
   const engineState = useEngineStore((s) => s.state)
-  const engineReady = engineState === 'ready'
+  const engineCanGenerate = engineState === 'ready' || engineState === 'idle'
 
   const queueItems = useQueueStore((s) => s.items)
   const activePhase = useQueueStore((s) => s.activePhase)
@@ -92,13 +92,14 @@ export function GenerationPanel(): React.JSX.Element {
   const dims = computeDimensions(resolution, ratio.width, ratio.height)
 
   const params = buildParams()
-  const generateDisabled = !engineReady || !params.params.prompt.trim()
+  const generateDisabled = !engineCanGenerate || !params.params.prompt.trim()
   const visibleQueueItems = React.useMemo(
     () => queueItems.filter((q) => q.status === 'pending' || q.status === 'processing'),
     [queueItems]
   )
 
-  const showQueue = (visibleQueueItems?.length ?? 0) > 0 || !!activePhase
+  const isModelLoading = engineState === 'loading'
+  const showQueue = (visibleQueueItems?.length ?? 0) > 0 || !!activePhase || isModelLoading
 
   const progressValue =
     activeStep != null && activeTotalSteps != null && activeTotalSteps > 0
@@ -271,19 +272,32 @@ export function GenerationPanel(): React.JSX.Element {
 
         {showQueue ? (
           <Card className="p-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{activePhase ? `Generating: ${activePhase}` : 'Queue'}</span>
-              {activeStep != null && activeTotalSteps != null ? (
-                <span className="tabular-nums">
-                  {activeStep}/{activeTotalSteps}
-                </span>
-              ) : null}
-            </div>
-            {activePhase ? (
-              <div className="mt-2">
-                <Progress value={progressValue} />
-              </div>
-            ) : null}
+            {isModelLoading ? (
+              <>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Loading model…</span>
+                </div>
+                <div className="mt-2">
+                  <Progress className="animate-pulse" />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{activePhase ? `Generating: ${activePhase}` : 'Queue'}</span>
+                  {activeStep != null && activeTotalSteps != null ? (
+                    <span className="tabular-nums">
+                      {activeStep}/{activeTotalSteps}
+                    </span>
+                  ) : null}
+                </div>
+                {activePhase ? (
+                  <div className="mt-2">
+                    <Progress value={progressValue} />
+                  </div>
+                ) : null}
+              </>
+            )}
             <div className="mt-2 space-y-1">
               {visibleQueueItems.slice(0, 3).map((q) => {
                 const generationId = q.correlation_id

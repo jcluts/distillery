@@ -16,6 +16,6 @@ export function registerEngineHandlers(engineManager: EngineManager): void {
   )
 
   ipcMain.handle(IPC_CHANNELS.ENGINE_UNLOAD_MODEL, async () => {
-    // TODO: Implement model unloading
+    await engineManager.unloadModel()
   })
 }

@@ -4,16 +4,13 @@ import { getDatabase } from '../../db/connection'
 import * as settingsRepo from '../../db/repositories/settings'
 import type { EngineManager } from '../../engine/engine-manager'
 import type { FileManager } from '../../files/file-manager'
-import type { ModelCatalogService } from '../../models/model-catalog-service'
 import type { ModelDownloadManager } from '../../models/model-download-manager'
-import { ModelResolver } from '../../models/model-resolver'
 import os from 'os'
 import type { SettingsUpdate } from '../../types'
 
 export function registerSettingsHandlers(options?: {
   engineManager?: EngineManager
   fileManager?: FileManager
-  modelCatalogService?: ModelCatalogService
   modelDownloadManager?: ModelDownloadManager
   onLibraryRootChanged?: (nextRoot: string) => void
 }): void {
@@ -28,7 +25,6 @@ export function registerSettingsHandlers(options?: {
 
     const engineManager = options?.engineManager
     const fileManager = options?.fileManager
-    const modelCatalogService = options?.modelCatalogService
     const modelDownloadManager = options?.modelDownloadManager
 
     if (fileManager && typeof updates.library_root === 'string') {
@@ -53,29 +49,18 @@ export function registerSettingsHandlers(options?: {
       }
     }
 
+    // When model-affecting settings change, unload the current model so the
+    // next generation lazy-loads the correct one.
     if (engineManager) {
-      const all = settingsRepo.getAllSettings(db)
-      const status = engineManager.getStatus()
+      const modelSettingsChanged =
+        updates.active_model_id !== undefined || updates.model_quant_selections !== undefined
 
-      const canLoad = status.state === 'idle' || status.state === 'ready'
-
-      if (canLoad && modelCatalogService) {
+      if (modelSettingsChanged && engineManager.getStatus().state === 'ready') {
         try {
-          const resolver = new ModelResolver(modelCatalogService.loadCatalog(), all)
-          if (!resolver.isModelReady(all.active_model_id)) {
-            return
-          }
-
-          const paths = resolver.getActiveModelPaths()
-          await engineManager.loadModel({
-            ...paths,
-            offload_to_cpu: all.offload_to_cpu,
-            flash_attn: all.flash_attn,
-            vae_on_cpu: all.vae_on_cpu,
-            llm_on_cpu: all.llm_on_cpu
-          })
+          await engineManager.unloadModel()
+          console.log('[Settings] Model unloaded after model/quant change')
         } catch (err) {
-          console.error('[Settings] Model load failed after settings update:', err)
+          console.error('[Settings] Failed to unload model:', err)
         }
       }
     }
