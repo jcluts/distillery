@@ -17,7 +17,7 @@ export function ModelManagerModal(): React.JSX.Element {
         if (!next) closeModal('models')
       }}
     >
-      <DialogContent className="h-[92vh] w-[96vw] max-w-[1100px] p-4 sm:rounded-xl">
+      <DialogContent className="top-[4vh] h-[82vh] w-[96vw] max-w-[1100px] translate-y-0 flex flex-col overflow-hidden p-4 data-[state=closed]:slide-out-to-top-[4vh] data-[state=open]:slide-in-from-top-[4vh] sm:rounded-xl">
         <DialogHeader>
           <DialogTitle>Model Manager</DialogTitle>
         </DialogHeader>
