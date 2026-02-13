@@ -4,7 +4,13 @@ import { X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -15,6 +21,7 @@ import { useQueueStore } from '@/stores/queue-store'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useLibraryStore } from '@/stores/library-store'
+import { ModelSelector } from '@/components/generation/ModelSelector'
 
 function PanelHeader({ title }: { title: string }): React.JSX.Element {
   return (
@@ -103,6 +110,8 @@ export function GenerationPanel(): React.JSX.Element {
       <PanelHeader title="Generation" />
 
       <div className="min-h-0 flex-1 space-y-4 overflow-auto px-4 pb-4 pt-4">
+        <ModelSelector />
+
         <div className="space-y-2">
           <div className="text-xs font-medium text-muted-foreground">Prompt</div>
           <Textarea
@@ -141,7 +150,10 @@ export function GenerationPanel(): React.JSX.Element {
                 title: 'Choose reference images',
                 properties: ['openFile', 'multiSelections'],
                 filters: [
-                  { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff'] }
+                  {
+                    name: 'Images',
+                    extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff']
+                  }
                 ]
               })
               if (!paths) return
@@ -150,9 +162,7 @@ export function GenerationPanel(): React.JSX.Element {
             }}
           >
             {refImagePaths.length === 0 && refImageIds.length === 0 ? (
-              <div className="text-sm">
-                Drag images here, or click to browse
-              </div>
+              <div className="text-sm">Drag images here, or click to browse</div>
             ) : (
               <div className="flex items-center gap-2 overflow-x-auto">
                 {refImageIds.map((id, idx) => {
@@ -203,10 +213,7 @@ export function GenerationPanel(): React.JSX.Element {
         <div className="space-y-3">
           <div className="text-xs font-medium text-muted-foreground">Resolution</div>
           <div className="grid grid-cols-2 gap-2">
-            <Select
-              value={String(resolution)}
-              onValueChange={(v) => setResolution(Number(v))}
-            >
+            <Select value={String(resolution)} onValueChange={(v) => setResolution(Number(v))}>
               <SelectTrigger>
                 <SelectValue placeholder="Resolution" />
               </SelectTrigger>
@@ -281,12 +288,11 @@ export function GenerationPanel(): React.JSX.Element {
               {visibleQueueItems.slice(0, 3).map((q) => {
                 const generationId = q.correlation_id
                 return (
-                  <div
-                    key={q.id}
-                    className="flex items-center justify-between text-xs"
-                  >
+                  <div key={q.id} className="flex items-center justify-between text-xs">
                     <span className="truncate text-muted-foreground">
-                      {generations.find((g) => g.id === generationId)?.prompt ?? generationId ?? q.id}
+                      {generations.find((g) => g.id === generationId)?.prompt ??
+                        generationId ??
+                        q.id}
                     </span>
                     <div className="ml-2 flex items-center gap-2">
                       <Badge variant="outline">{q.status}</Badge>

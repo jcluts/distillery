@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import Database from 'better-sqlite3'
 import * as generationRepo from '../db/repositories/generations'
+import * as settingsRepo from '../db/repositories/settings'
 import type {
   CanonicalGenerationParams,
   CanonicalEndpointDef,
@@ -55,6 +56,25 @@ export class GenerationService extends EventEmitter {
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
+    const allSettings = settingsRepo.getAllSettings(this.db)
+
+    const activeModelId =
+      endpoint.providerId === 'local'
+        ? allSettings.active_model_id
+        : (endpoint.canonicalModelId ?? null)
+
+    const activeSelections = activeModelId
+      ? allSettings.model_quant_selections?.[activeModelId]
+      : undefined
+
+    const paramsWithModel = {
+      ...input.params,
+      model: {
+        id: activeModelId,
+        diffusionQuant: activeSelections?.diffusionQuant ?? null,
+        textEncoderQuant: activeSelections?.textEncoderQuant ?? null
+      }
+    }
 
     const { inputRecords } = await this.generationIOService.prepareInputs(
       generationId,
@@ -65,9 +85,9 @@ export class GenerationService extends EventEmitter {
     const generationRecord: GenerationRecord = {
       id: generationId,
       number: generationRepo.getNextGenerationNumber(this.db),
-      base_model_id: endpoint.canonicalModelId ?? null,
+      base_model_id: activeModelId,
       provider: endpoint.providerId,
-      model_file: endpoint.providerModelId,
+      model_file: activeModelId,
       prompt: this.asString(input.params.prompt),
       width: this.asNumber(input.params.width),
       height: this.asNumber(input.params.height),
@@ -76,7 +96,7 @@ export class GenerationService extends EventEmitter {
       guidance: this.asOptionalNumber(input.params.guidance) ?? 3.5,
       sampling_method:
         typeof input.params.sampling_method === 'string' ? input.params.sampling_method : 'euler',
-      params_json: JSON.stringify(input.params),
+      params_json: JSON.stringify(paramsWithModel),
       status: 'pending',
       error: null,
       total_time_ms: null,

@@ -241,6 +241,73 @@ export interface ModelLoadParams {
   llm_on_cpu?: boolean
 }
 
+export type ModelType = 'image-generation'
+
+export interface ModelCatalog {
+  catalogVersion: number
+  models: ModelDefinition[]
+}
+
+export interface ModelDefinition {
+  id: string
+  name: string
+  description: string
+  type: ModelType
+  family: string
+  vae: ModelFileRef
+  diffusion: QuantCollection
+  textEncoder: QuantCollection
+}
+
+export interface ModelFileRef {
+  file: string
+  size: number
+  downloadUrl: string
+}
+
+export interface QuantVariant {
+  id: string
+  label: string
+  description: string
+  file: string
+  size: number
+  downloadUrl: string
+}
+
+export interface QuantCollection {
+  quants: QuantVariant[]
+}
+
+export interface ModelQuantSelections {
+  [modelId: string]: {
+    diffusionQuant: string
+    textEncoderQuant: string
+  }
+}
+
+export type ModelComponent = 'vae' | 'diffusion' | 'textEncoder'
+
+export type ModelDownloadStatus = 'queued' | 'downloading' | 'completed' | 'failed' | 'cancelled'
+
+export interface DownloadProgressEvent {
+  relativePath: string
+  downloadedBytes: number
+  totalBytes: number
+  status: ModelDownloadStatus
+  error?: string
+}
+
+export interface ModelFileCheckStatus {
+  relativePath: string
+  exists: boolean
+}
+
+export interface ModelFilesCheckResult {
+  modelId: string
+  isReady: boolean
+  files: ModelFileCheckStatus[]
+}
+
 // -----------------------------------------------------------------------------
 // Settings
 // -----------------------------------------------------------------------------
@@ -249,9 +316,9 @@ export interface AppSettings {
   // Paths
   library_root: string
   engine_path: string
-  diffusion_model_path: string
-  vae_path: string
-  llm_path: string
+  model_base_path: string
+  active_model_id: string
+  model_quant_selections: ModelQuantSelections
 
   // Engine flags
   offload_to_cpu: boolean
@@ -337,6 +404,17 @@ export interface DistilleryAPI {
   // Settings
   getSettings(): Promise<AppSettings>
   saveSettings(settings: SettingsUpdate): Promise<void>
+
+  // Models
+  getModelCatalog(): Promise<ModelCatalog>
+  getModelDownloadStatus(): Promise<Record<string, DownloadProgressEvent>>
+  downloadModelFile(payload: {
+    modelId: string
+    component: ModelComponent
+    quantId?: string
+  }): Promise<void>
+  cancelModelDownload(payload: { relativePath: string }): Promise<void>
+  checkModelFiles(payload: { modelId: string }): Promise<ModelFilesCheckResult>
 
   // App
   showOpenDialog(options: Electron.OpenDialogOptions): Promise<string[] | null>

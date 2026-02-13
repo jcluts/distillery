@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Copy, Minus, Settings, Square, X } from 'lucide-react'
+import { Boxes, Copy, Minus, Settings, Square, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,10 @@ function WindowControls(): React.JSX.Element {
   const [isMaximized, setIsMaximized] = React.useState(false)
 
   React.useEffect(() => {
-    void window.api.windowIsMaximized().then(setIsMaximized).catch(() => {})
+    void window.api
+      .windowIsMaximized()
+      .then(setIsMaximized)
+      .catch(() => {})
     const unsub = window.api.on('app:windowMaximizedChanged', (value: unknown) => {
       setIsMaximized(Boolean(value))
     })
@@ -88,11 +91,24 @@ export function TitleBar(): React.JSX.Element {
         <Button
           type="button"
           variant="ghost"
+          size="sm"
+          className="h-8"
+          onClick={() => openModal('models')}
+          aria-label="Open model manager"
+        >
+          <Boxes className="size-4" />
+          Models
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
           size="icon"
           onClick={() => openModal('settings')}
           aria-label="Open settings"
         >
-          <Settings />
+          <Settings className="size-4" />
+          Settings
         </Button>
       </div>
 

@@ -42,6 +42,13 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
 
+  // Models
+  MODEL_GET_CATALOG: 'model:get-catalog',
+  MODEL_GET_DOWNLOAD_STATUS: 'model:get-download-status',
+  MODEL_DOWNLOAD_FILE: 'model:download-file',
+  MODEL_CANCEL_DOWNLOAD: 'model:cancel-download',
+  MODEL_CHECK_FILES: 'model:check-files',
+
   // App
   APP_SHOW_OPEN_DIALOG: 'app:showOpenDialog',
   APP_SHOW_SAVE_DIALOG: 'app:showSaveDialog',
@@ -60,7 +67,8 @@ export const IPC_CHANNELS = {
   GENERATION_RESULT: 'generation:result',
   QUEUE_UPDATED: 'queue:updated',
   LIBRARY_UPDATED: 'library:updated',
-  WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged'
+  WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged',
+  MODEL_DOWNLOAD_PROGRESS: 'model:download-progress'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

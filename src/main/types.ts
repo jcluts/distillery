@@ -254,6 +254,13 @@ export interface ModelLoadParams {
   llm_on_cpu?: boolean
 }
 
+export interface ModelQuantSelections {
+  [modelId: string]: {
+    diffusionQuant: string
+    textEncoderQuant: string
+  }
+}
+
 export interface EngineProgressEvent {
   jobId: string
   phase: string
@@ -277,9 +284,9 @@ export interface EngineResultEvent {
 export interface AppSettings {
   library_root: string
   engine_path: string
-  diffusion_model_path: string
-  vae_path: string
-  llm_path: string
+  model_base_path: string
+  active_model_id: string
+  model_quant_selections: ModelQuantSelections
   offload_to_cpu: boolean
   flash_attn: boolean
   vae_on_cpu: boolean
