@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Check, Download, X } from 'lucide-react'
+import { Check, Clock3, Download, Trash2, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ interface VaeSectionProps {
   downloadStatus?: DownloadProgressEvent
   onDownload: () => void
   onCancel: () => void
+  onRemove: () => void
 }
 
 export function VaeSection({
@@ -20,12 +21,13 @@ export function VaeSection({
   isDownloaded,
   downloadStatus,
   onDownload,
-  onCancel
+  onCancel,
+  onRemove
 }: VaeSectionProps): React.JSX.Element {
-  const isDownloading =
-    downloadStatus?.status === 'downloading' || downloadStatus?.status === 'queued'
-  const isFailed = downloadStatus?.status === 'failed'
-  const isCancelled = downloadStatus?.status === 'cancelled'
+  const isDownloading = !isDownloaded && downloadStatus?.status === 'downloading'
+  const isQueued = !isDownloaded && downloadStatus?.status === 'queued'
+  const isFailed = !isDownloaded && downloadStatus?.status === 'failed'
+  const isCancelled = !isDownloaded && downloadStatus?.status === 'cancelled'
 
   return (
     <div className="space-y-1.5">
@@ -45,6 +47,25 @@ export function VaeSection({
               <span className="w-8 text-right text-xs text-muted-foreground">
                 {toPercent(downloadStatus.downloadedBytes, downloadStatus.totalBytes)}%
               </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={onCancel}
+              >
+                <X className="size-3" />
+              </Button>
+            </div>
+          ) : isQueued ? (
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="border-amber-500/25 bg-amber-500/10 text-amber-400"
+              >
+                <Clock3 className="mr-1 size-3" />
+                Queued
+              </Badge>
               <Button
                 type="button"
                 size="sm"
@@ -76,13 +97,25 @@ export function VaeSection({
               Resume
             </Button>
           ) : isDownloaded ? (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
-            >
-              <Check className="mr-1 size-3" />
-              Ready
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+              >
+                <Check className="mr-1 size-3" />
+                Ready
+              </Badge>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-xs"
+                onClick={onRemove}
+              >
+                <Trash2 className="size-3" />
+                Remove
+              </Button>
+            </div>
           ) : (
             <Button
               type="button"

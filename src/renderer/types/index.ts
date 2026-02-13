@@ -414,6 +414,7 @@ export interface DistilleryAPI {
     quantId?: string
   }): Promise<void>
   cancelModelDownload(payload: { relativePath: string }): Promise<void>
+  removeModelFile(payload: { relativePath: string }): Promise<void>
   checkModelFiles(payload: { modelId: string }): Promise<ModelFilesCheckResult>
 
   // App

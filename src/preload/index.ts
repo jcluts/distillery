@@ -66,6 +66,7 @@ const api: DistilleryAPI = {
   getModelDownloadStatus: () => ipcRenderer.invoke(CH.MODEL_GET_DOWNLOAD_STATUS),
   downloadModelFile: (payload) => ipcRenderer.invoke(CH.MODEL_DOWNLOAD_FILE, payload),
   cancelModelDownload: (payload) => ipcRenderer.invoke(CH.MODEL_CANCEL_DOWNLOAD, payload),
+  removeModelFile: (payload) => ipcRenderer.invoke(CH.MODEL_REMOVE_FILE, payload),
   checkModelFiles: (payload) => ipcRenderer.invoke(CH.MODEL_CHECK_FILES, payload),
 
   // App

@@ -16,6 +16,7 @@ export function ModelManager(): React.JSX.Element {
   const setModelQuantSelection = useModelStore((s) => s.setModelQuantSelection)
   const downloadModelFile = useModelStore((s) => s.downloadModelFile)
   const cancelModelDownload = useModelStore((s) => s.cancelModelDownload)
+  const removeModelFile = useModelStore((s) => s.removeModelFile)
 
   const [category, setCategory] = React.useState<'all' | 'image-generation'>('all')
 
@@ -78,6 +79,9 @@ export function ModelManager(): React.JSX.Element {
                 }}
                 onCancelDownload={(relativePath) => {
                   void cancelModelDownload(relativePath)
+                }}
+                onRemoveDownload={(relativePath) => {
+                  void removeModelFile({ modelId: model.id, relativePath })
                 }}
               />
             )
