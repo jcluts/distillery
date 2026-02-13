@@ -45,7 +45,7 @@ export function ModelManager(): React.JSX.Element {
       ) : null}
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-4 pb-1">
+        <div className="grid grid-cols-1 gap-4 pb-1 lg:grid-cols-2">
           {visibleModels.map((model) => {
             const selections = settings.model_quant_selections?.[model.id] ?? {
               diffusionQuant: '',

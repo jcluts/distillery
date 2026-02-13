@@ -1,13 +1,14 @@
 import * as React from 'react'
-import { Download, X } from 'lucide-react'
+import { ChevronDown, Check, Download, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Progress } from '@/components/ui/progress'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { DownloadProgressEvent, QuantVariant } from '@/types'
 import { formatApproxSize, toPercent } from './utils'
+import { cn } from '@/lib/utils'
 
 interface QuantSectionProps {
   label: string
@@ -20,6 +21,11 @@ interface QuantSectionProps {
   onCancel: (relativePath: string) => void
 }
 
+/** Returns whether a quant is the "recommended" balanced option */
+function isRecommended(quant: QuantVariant): boolean {
+  return quant.description.toLowerCase().startsWith('balanced')
+}
+
 export function QuantSection({
   label,
   quants,
@@ -30,134 +36,266 @@ export function QuantSection({
   onDownload,
   onCancel
 }: QuantSectionProps): React.JSX.Element {
+  const [open, setOpen] = React.useState(false)
+
+  const activeQuant = quants.find((q) => q.id === activeQuantId)
+  const activeDownloaded = activeQuant ? !!downloadedByPath[activeQuant.file] : false
+  const anyDownloading = quants.some((q) => {
+    const dl = downloadStatusByPath[q.file]
+    return dl?.status === 'downloading' || dl?.status === 'queued'
+  })
+
   return (
-    <div className="space-y-2">
-      <div className="text-xs font-semibold tracking-wider text-muted-foreground">
-        {label.toUpperCase()}
+    <Collapsible open={open} onOpenChange={setOpen}>
+      {/* Summary row — always visible */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-wider text-muted-foreground">
+            {label.toUpperCase()}
+          </span>
+          <CollapsibleTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs">
+              {open ? 'Collapse' : 'Change'}
+              <ChevronDown className={cn('size-3 transition-transform', open && 'rotate-180')} />
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+
+        {/* Active quant summary pill */}
+        <QuantSummary
+          activeQuant={activeQuant}
+          activeDownloaded={activeDownloaded}
+          anyDownloading={anyDownloading}
+          quants={quants}
+          downloadStatusByPath={downloadStatusByPath}
+        />
       </div>
 
-      <TooltipProvider delayDuration={250}>
-        <RadioGroup value={activeQuantId} onValueChange={onSelectQuant} className="space-y-2">
-          {quants.map((quant) => {
-            const download = downloadStatusByPath[quant.file]
-            const downloaded = !!downloadedByPath[quant.file]
-            const isDownloading =
-              download?.status === 'downloading' || download?.status === 'queued'
-            const isFailed = download?.status === 'failed'
-            const isCancelled = download?.status === 'cancelled'
-
-            return (
-              <div
+      {/* Expanded quant picker */}
+      <CollapsibleContent className="pt-2">
+        <TooltipProvider delayDuration={250}>
+          <div className="space-y-1">
+            {quants.map((quant) => (
+              <QuantRow
                 key={quant.id}
-                className="grid grid-cols-[auto,1fr,auto] items-center gap-3 rounded-md border px-3 py-2"
-              >
-                <RadioGroupItem
-                  value={quant.id}
-                  id={`${label}-${quant.id}`}
-                  disabled={!downloaded}
-                />
+                quant={quant}
+                isActive={quant.id === activeQuantId}
+                isDownloaded={!!downloadedByPath[quant.file]}
+                downloadStatus={downloadStatusByPath[quant.file]}
+                onSelect={() => onSelectQuant(quant.id)}
+                onDownload={() => onDownload(quant.id)}
+                onCancel={() => onCancel(quant.file)}
+              />
+            ))}
+          </div>
+        </TooltipProvider>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
 
-                <div className="min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor={`${label}-${quant.id}`} className="text-sm font-medium">
-                      {quant.label}
-                    </label>
-                    <span className="text-xs text-muted-foreground">
-                      {formatApproxSize(quant.size)}
-                    </span>
-                  </div>
+/* -------------------------------------------------------------------------- */
+/*  Summary (collapsed view)                                                  */
+/* -------------------------------------------------------------------------- */
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {quant.description}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>{quant.description}</TooltipContent>
-                  </Tooltip>
-                </div>
+function QuantSummary({
+  activeQuant,
+  activeDownloaded,
+  anyDownloading,
+  quants,
+  downloadStatusByPath
+}: {
+  activeQuant: QuantVariant | undefined
+  activeDownloaded: boolean
+  anyDownloading: boolean
+  quants: QuantVariant[]
+  downloadStatusByPath: Record<string, DownloadProgressEvent>
+}): React.JSX.Element {
+  // If a download is in progress, show its progress
+  if (anyDownloading) {
+    const downloadingQuant = quants.find((q) => {
+      const dl = downloadStatusByPath[q.file]
+      return dl?.status === 'downloading' || dl?.status === 'queued'
+    })
+    const downloading = downloadingQuant ? downloadStatusByPath[downloadingQuant.file] : undefined
+    if (downloading) {
+      const pct = toPercent(downloading.downloadedBytes, downloading.totalBytes)
+      return (
+        <div className="flex items-center gap-3 rounded-md border border-border/50 bg-muted/30 px-3 py-1.5">
+          <span className="shrink-0 text-xs text-muted-foreground">
+            Downloading {downloadingQuant?.label}… {pct}%
+          </span>
+          <Progress value={pct} className="h-1.5 flex-1" />
+        </div>
+      )
+    }
+  }
 
-                <div className="min-w-44">
-                  {isDownloading ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span>{toPercent(download.downloadedBytes, download.totalBytes)}%</span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-2"
-                          onClick={() => onCancel(quant.file)}
-                        >
-                          <X className="size-3" />
-                        </Button>
-                      </div>
-                      <Progress value={toPercent(download.downloadedBytes, download.totalBytes)} />
-                    </div>
-                  ) : isFailed ? (
-                    <div className="space-y-1">
-                      <Badge
-                        className="border border-red-500/25 bg-red-500/15 text-red-400"
-                        variant="outline"
-                      >
-                        Download failed
-                      </Badge>
-                      {download.error ? (
-                        <div
-                          className="max-w-64 truncate text-[11px] text-red-400"
-                          title={download.error}
-                        >
-                          {download.error}
-                        </div>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8"
-                        onClick={() => onDownload(quant.id)}
-                      >
-                        Retry
-                      </Button>
-                    </div>
-                  ) : isCancelled ? (
-                    <div className="space-y-1">
-                      <Badge
-                        className="border border-amber-500/25 bg-amber-500/15 text-amber-400"
-                        variant="outline"
-                      >
-                        Cancelled
-                      </Badge>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8"
-                        onClick={() => onDownload(quant.id)}
-                      >
-                        Resume
-                      </Button>
-                    </div>
-                  ) : downloaded ? (
-                    <Badge variant="secondary">Downloaded</Badge>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8"
-                      onClick={() => onDownload(quant.id)}
-                    >
-                      <Download className="mr-1 size-3.5" />
-                      Download
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </RadioGroup>
-      </TooltipProvider>
+  if (!activeQuant) {
+    return (
+      <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-400">
+        No quant selected — expand to choose one
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-1.5">
+      <span className="text-sm font-medium">{activeQuant.label}</span>
+      <span className="text-xs text-muted-foreground">{formatApproxSize(activeQuant.size)}</span>
+      {activeDownloaded ? (
+        <Badge
+          variant="outline"
+          className="ml-auto border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+        >
+          <Check className="mr-1 size-3" />
+          Ready
+        </Badge>
+      ) : (
+        <Badge
+          variant="outline"
+          className="ml-auto border-amber-500/25 bg-amber-500/10 text-amber-400"
+        >
+          Download needed
+        </Badge>
+      )}
     </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Single quant row (expanded view)                                          */
+/* -------------------------------------------------------------------------- */
+
+function QuantRow({
+  quant,
+  isActive,
+  isDownloaded,
+  downloadStatus,
+  onSelect,
+  onDownload,
+  onCancel
+}: {
+  quant: QuantVariant
+  isActive: boolean
+  isDownloaded: boolean
+  downloadStatus?: DownloadProgressEvent
+  onSelect: () => void
+  onDownload: () => void
+  onCancel: () => void
+}): React.JSX.Element {
+  const isDownloading =
+    downloadStatus?.status === 'downloading' || downloadStatus?.status === 'queued'
+  const isFailed = downloadStatus?.status === 'failed'
+  const isCancelled = downloadStatus?.status === 'cancelled'
+  const recommended = isRecommended(quant)
+  const canSelect = isDownloaded && !isActive
+
+  return (
+    <button
+      type="button"
+      onClick={canSelect ? onSelect : undefined}
+      className={cn(
+        'group flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors',
+        isActive
+          ? 'border-primary/50 bg-primary/10'
+          : canSelect
+            ? 'cursor-pointer border-border/50 hover:border-border hover:bg-muted/50'
+            : 'cursor-default border-border/30 opacity-70'
+      )}
+    >
+      {/* Selection indicator */}
+      <div
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded-full border',
+          isActive
+            ? 'border-primary bg-primary'
+            : isDownloaded
+              ? 'border-muted-foreground/40'
+              : 'border-muted-foreground/20'
+        )}
+      >
+        {isActive && <Check className="size-2.5 text-primary-foreground" />}
+      </div>
+
+      {/* Label + description */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{quant.label}</span>
+          <span className="text-xs text-muted-foreground">{formatApproxSize(quant.size)}</span>
+          {recommended && (
+            <Badge
+              variant="outline"
+              className="border-blue-500/25 bg-blue-500/10 px-1.5 py-0 text-[10px] text-blue-400"
+            >
+              Recommended
+            </Badge>
+          )}
+        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="truncate text-xs text-muted-foreground">{quant.description}</div>
+          </TooltipTrigger>
+          <TooltipContent>{quant.description}</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Status / actions */}
+      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+        {isDownloading && downloadStatus ? (
+          <div className="flex items-center gap-2">
+            <Progress
+              value={toPercent(downloadStatus.downloadedBytes, downloadStatus.totalBytes)}
+              className="h-1.5 w-20"
+            />
+            <span className="w-8 text-right text-xs text-muted-foreground">
+              {toPercent(downloadStatus.downloadedBytes, downloadStatus.totalBytes)}%
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={onCancel}
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
+        ) : isFailed ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={onDownload}
+          >
+            Retry
+          </Button>
+        ) : isCancelled ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={onDownload}
+          >
+            Resume
+          </Button>
+        ) : isDownloaded ? (
+          <Check className="size-4 text-emerald-400" />
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={onDownload}
+          >
+            <Download className="mr-1 size-3" />
+            Download
+          </Button>
+        )}
+      </div>
+    </button>
   )
 }

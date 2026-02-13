@@ -59,7 +59,7 @@ export function ModelCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         <QuantSection
           label="Diffusion Model"
           quants={model.diffusion.quants}
@@ -71,8 +71,6 @@ export function ModelCard({
           onCancel={onCancelDownload}
         />
 
-        <Separator />
-
         <QuantSection
           label="Text Encoder"
           quants={model.textEncoder.quants}
@@ -83,8 +81,6 @@ export function ModelCard({
           onDownload={(quantId) => onDownload('textEncoder', quantId)}
           onCancel={onCancelDownload}
         />
-
-        <Separator />
 
         <VaeSection
           vae={model.vae}
