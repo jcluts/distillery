@@ -15,6 +15,14 @@ Distillery is a desktop application for local AI image generation and media mana
 - **Use Tailwind for all other CSS.**
 - **Custom css classes should be a last resort when I UI element cannot otherwise be realized.**
 
+### Leave No Legacy!
+- This application is a fresh start that is days old.
+- THere are no users other than the dev.
+- Never, under any circumstance leave behind "legacy" code or "compatibility" code. 
+- There are no external users to support. 
+- Relentless pursue the creation of a clean, uncluttered, solid foundation to this application. 
+- Always leave the application working and fully functional after every update or refactor, but never leave code behind "just in case". 
+
 ### UI/UX Aesthetic
 - Professional, clean, and elegant at all times.
 
