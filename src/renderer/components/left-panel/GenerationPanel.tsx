@@ -21,7 +21,9 @@ import { useQueueStore } from '@/stores/queue-store'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useLibraryStore } from '@/stores/library-store'
+import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
+import { ModelSetupWizard } from '@/components/left-panel/ModelSetupWizard'
 
 function PanelHeader({ title }: { title: string }): React.JSX.Element {
   return (
@@ -63,6 +65,9 @@ function RefThumb({ src, label }: { src: string | null; label: string }): React.
 
 export function GenerationPanel(): React.JSX.Element {
   const [isUnloadingModel, setIsUnloadingModel] = React.useState(false)
+
+  const filesByModelId = useModelStore((s) => s.filesByModelId)
+  const anyModelReady = Object.values(filesByModelId).some((f) => f.isReady)
 
   const prompt = useGenerationStore((s) => s.prompt)
   const setPrompt = useGenerationStore((s) => s.setPrompt)
@@ -129,6 +134,17 @@ export function GenerationPanel(): React.JSX.Element {
     activeStep != null && activeTotalSteps != null && activeTotalSteps > 0
       ? Math.round((activeStep / activeTotalSteps) * 100)
       : 0
+
+  if (!anyModelReady) {
+    return (
+      <div className="flex h-full flex-col overflow-hidden">
+        <PanelHeader title="Generation" />
+        <div className="min-h-0 flex-1 overflow-auto px-4 pb-4 pt-4">
+          <ModelSetupWizard />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
