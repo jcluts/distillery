@@ -1,6 +1,5 @@
 import * as React from 'react'
 
-import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useEngineStore } from '@/stores/engine-store'
 import { useQueueStore } from '@/stores/queue-store'
@@ -29,7 +28,6 @@ export function LeftPanelStatusBar(): React.JSX.Element {
   const engineModelName = useEngineStore((s) => s.modelName)
   const engineError = useEngineStore((s) => s.error)
 
-  const queueItems = useQueueStore((s) => s.items)
   const activePhase = useQueueStore((s) => s.activePhase)
   const activeStep = useQueueStore((s) => s.activeStep)
   const activeTotalSteps = useQueueStore((s) => s.activeTotalSteps)
@@ -39,10 +37,6 @@ export function LeftPanelStatusBar(): React.JSX.Element {
     activeStep != null && activeTotalSteps != null && activeTotalSteps > 0
       ? Math.round((activeStep / activeTotalSteps) * 100)
       : 0
-
-  const queueDepth = queueItems.filter(
-    (q) => q.status === 'pending' || q.status === 'processing'
-  ).length
 
   const engineLabel =
     engineState === 'ready'
@@ -56,13 +50,7 @@ export function LeftPanelStatusBar(): React.JSX.Element {
             : 'Engine stopped'
 
   return (
-    <div
-      className="flex shrink-0 items-center gap-2 border-t bg-background px-3 text-xs h-10"
-    >
-      {/* Engine status */}
-      <EngineDot state={engineState} />
-      <span className="min-w-0 truncate text-muted-foreground">{engineLabel}</span>
-
+    <div className="flex h-10 shrink-0 items-center gap-2 px-3 text-xs">
       {/* Generation progress (when active) */}
       {activePhase ? (
         <>
@@ -73,14 +61,13 @@ export function LeftPanelStatusBar(): React.JSX.Element {
             {activeStep ?? 0}/{activeTotalSteps ?? 0} · {formatElapsed(activeElapsedMs)}
           </span>
         </>
-      ) : null}
-
-      {/* Queue depth badge */}
-      {queueDepth > 0 ? (
-        <Badge variant="secondary" className="ml-auto text-[10px]">
-          {queueDepth} queued
-        </Badge>
-      ) : null}
+      ) : (
+        <>
+          {/* Engine status */}
+          <EngineDot state={engineState} />
+          <span className="min-w-0 truncate text-muted-foreground">{engineLabel}</span>
+        </>
+      )}
     </div>
   )
 }

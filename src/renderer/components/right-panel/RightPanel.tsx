@@ -1,84 +1,102 @@
 import * as React from 'react'
-import { Info, SlidersHorizontal } from 'lucide-react'
+import { Info, SlidersHorizontal, type LucideIcon } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { Sidebar } from '@/components/ui/sidebar'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider
+} from '@/components/ui/sidebar'
 import { useUIStore, type RightPanelTab } from '@/stores/ui-store'
 import { MediaInfoPanel } from '@/components/right-panel/sections/MediaInfoPanel'
 import { GenerationInfoPanel } from '@/components/right-panel/sections/GenerationInfoPanel'
 
-function TabButton({
-  tab,
-  icon,
-  label
-}: {
+const RIGHT_PANEL_TABS: Array<{
   tab: RightPanelTab
-  icon: React.ReactNode
   label: string
-}): React.JSX.Element {
-  const activeTab = useUIStore((s) => s.rightPanelTab)
-  const open = useUIStore((s) => s.rightPanelOpen)
-  const toggleRightPanel = useUIStore((s) => s.toggleRightPanel)
-  const isActive = open && activeTab === tab
+  icon: LucideIcon
+}> = [
+  { tab: 'info', label: 'Info', icon: Info },
+  { tab: 'generation-info', label: 'Generation', icon: SlidersHorizontal }
+]
 
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn(
-            'h-9 w-9',
-            isActive && 'bg-accent text-accent-foreground'
-          )}
-          onClick={() => toggleRightPanel(tab)}
-          aria-label={label}
-        >
-          {icon}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="left">{label}</TooltipContent>
-    </Tooltip>
-  )
+function HeaderTitle({ tab }: { tab: RightPanelTab }): React.JSX.Element {
+  const title = tab === 'info' ? 'MEDIA INFO' : 'GENERATION INFO'
+
+  return <div className="text-xs font-semibold tracking-wider text-muted-foreground">{title}</div>
 }
 
 export function RightPanel(): React.JSX.Element {
   const open = useUIStore((s) => s.rightPanelOpen)
   const tab = useUIStore((s) => s.rightPanelTab)
+  const activeTab = useUIStore((s) => s.rightPanelTab)
+  const toggleRightPanel = useUIStore((s) => s.toggleRightPanel)
+  const setRightPanelOpen = useUIStore((s) => s.setRightPanelOpen)
   const fullWidth = useUIStore((s) => s.rightPanelWidth)
 
   return (
-    <TooltipProvider delayDuration={250}>
+    <SidebarProvider
+      open={open}
+      onOpenChange={setRightPanelOpen}
+      style={
+        {
+          '--sidebar-width': `${fullWidth}px`,
+          '--sidebar-width-icon': '3.25rem'
+        } as React.CSSProperties
+      }
+    >
       <Sidebar
+        side="right"
         collapsible="icon"
-        open={open}
-        className="flex-row-reverse border-l border-r-0 bg-sidebar text-sidebar-foreground"
-        style={
-          {
-            ['--sidebar-width' as any]: `${fullWidth}px`
-          } as React.CSSProperties
-        }
+        className="flex-row-reverse overflow-hidden border-l border-r-0"
       >
-        <div className="flex shrink-0 flex-col items-center gap-1 border-l px-1.5 py-1.5">
-          <TabButton tab="info" icon={<Info />} label="Info" />
-          <TabButton tab="generation-info" icon={<SlidersHorizontal />} label="Generation" />
-        </div>
+        <Sidebar side="right" collapsible="none" className="border-l border-r-0">
+          <SidebarContent>
+            <SidebarGroup className="p-1.5">
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {RIGHT_PANEL_TABS.map((item) => (
+                    <SidebarMenuItem key={item.tab}>
+                      <SidebarMenuButton
+                        tooltip={{ children: item.label, side: 'left', hidden: false }}
+                        isActive={open && activeTab === item.tab}
+                        className="size-9 justify-center p-0"
+                        onClick={() => toggleRightPanel(item.tab)}
+                        aria-label={item.label}
+                      >
+                        <item.icon />
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
 
-        {open ? (
-          <div className="min-w-0 flex-1 overflow-hidden">
-            {tab === 'info' ? <MediaInfoPanel /> : null}
-            {tab === 'generation-info' ? <GenerationInfoPanel /> : null}
-          </div>
-        ) : null}
+        <Sidebar side="right" collapsible="none" className="min-w-0 flex-1 border-0">
+          <SidebarHeader className="border-b px-3 py-2">
+            <HeaderTitle tab={tab} />
+          </SidebarHeader>
+
+          <SidebarContent>
+            <SidebarGroup className="p-0">
+              <SidebarGroupContent className="px-3 py-3">
+                {tab === 'info' ? <MediaInfoPanel /> : null}
+                {tab === 'generation-info' ? <GenerationInfoPanel /> : null}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter className="border-t p-0" />
+        </Sidebar>
       </Sidebar>
-    </TooltipProvider>
+    </SidebarProvider>
   )
 }
