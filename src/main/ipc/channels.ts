@@ -10,6 +10,9 @@ export const IPC_CHANNELS = {
   LIBRARY_UPDATE_MEDIA: 'library:updateMedia',
   LIBRARY_DELETE_MEDIA: 'library:deleteMedia',
   LIBRARY_IMPORT_MEDIA: 'library:importMedia',
+  LIBRARY_SHOW_IN_FOLDER: 'library:showInFolder',
+  LIBRARY_OPEN_IN_APP: 'library:openInApp',
+  LIBRARY_COPY_TO_CLIPBOARD: 'library:copyToClipboard',
   LIBRARY_GET_THUMBNAIL: 'library:getThumbnail',
   LIBRARY_GET_THUMBNAILS_BATCH: 'library:getThumbnailsBatch',
 
