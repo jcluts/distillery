@@ -31,7 +31,13 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
   // 'all' and undefined = no filter
 
   if (params.search) {
-    conditions.push('(file_name LIKE ? OR keywords LIKE ?)')
+    conditions.push(
+      `(file_name LIKE ? OR id IN (
+        SELECT mk.media_id FROM media_keywords mk
+        JOIN keywords k ON k.id = mk.keyword_id
+        WHERE k.keyword LIKE ?
+      ))`
+    )
     const like = `%${params.search}%`
     values.push(like, like)
   }
@@ -98,11 +104,11 @@ export function insertMedia(db: Database.Database, media: MediaRecord): void {
   db.prepare(
     `INSERT INTO media (
       id, file_path, thumb_path, file_name, media_type, origin,
-      width, height, file_size, rating, status, keywords,
+      width, height, file_size, rating, status,
       generation_id, origin_id, created_at, updated_at
     ) VALUES (
       @id, @file_path, @thumb_path, @file_name, @media_type, @origin,
-      @width, @height, @file_size, @rating, @status, @keywords,
+      @width, @height, @file_size, @rating, @status,
       @generation_id, @origin_id, @created_at, @updated_at
     )`
   ).run(media)
@@ -126,10 +132,6 @@ export function updateMedia(
   if (updates.status !== undefined) {
     sets.push('status = ?')
     values.push(updates.status)
-  }
-  if (updates.keywords !== undefined) {
-    sets.push('keywords = ?')
-    values.push(updates.keywords)
   }
   if (updates.file_name !== undefined) {
     sets.push('file_name = ?')

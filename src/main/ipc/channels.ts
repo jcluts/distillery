@@ -13,6 +13,14 @@ export const IPC_CHANNELS = {
   LIBRARY_GET_THUMBNAIL: 'library:getThumbnail',
   LIBRARY_GET_THUMBNAILS_BATCH: 'library:getThumbnailsBatch',
 
+  // Keywords
+  KEYWORDS_GET_FOR_MEDIA: 'keywords:getForMedia',
+  KEYWORDS_SET_FOR_MEDIA: 'keywords:setForMedia',
+  KEYWORDS_ADD_TO_MEDIA: 'keywords:addToMedia',
+  KEYWORDS_REMOVE_FROM_MEDIA: 'keywords:removeFromMedia',
+  KEYWORDS_SEARCH: 'keywords:search',
+  KEYWORDS_GET_ALL: 'keywords:getAll',
+
   // Generation
   GENERATION_SUBMIT: 'generation:submit',
   GENERATION_CANCEL: 'generation:cancel',

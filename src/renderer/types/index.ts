@@ -24,7 +24,6 @@ export interface MediaRecord {
   file_size: number | null
   rating: number // 0-5
   status: MediaStatus
-  keywords: string | null
   generation_id: string | null
   origin_id: string | null
   created_at: string
@@ -34,7 +33,6 @@ export interface MediaRecord {
 export interface MediaUpdate {
   rating?: number
   status?: MediaStatus
-  keywords?: string
   file_name?: string
 }
 
@@ -373,6 +371,16 @@ export interface DistilleryAPI {
   importMedia(filePaths: string[]): Promise<MediaRecord[]>
   getThumbnail(id: string): Promise<string | null>
   getThumbnailsBatch(ids: string[]): Promise<Record<string, string>>
+
+  // Keywords
+  keywords: {
+    getForMedia(mediaId: string): Promise<string[]>
+    setForMedia(mediaId: string, keywords: string[]): Promise<void>
+    addToMedia(mediaId: string, keyword: string): Promise<void>
+    removeFromMedia(mediaId: string, keyword: string): Promise<void>
+    search(prefix: string, limit?: number): Promise<string[]>
+    getAll(): Promise<{ keyword: string; count: number }[]>
+  }
 
   // Generation
   submitGeneration(params: GenerationSubmitInput): Promise<string>

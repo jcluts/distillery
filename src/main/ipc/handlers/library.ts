@@ -95,7 +95,6 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
           file_size: stat.size,
           rating: 0,
           status: null,
-          keywords: null,
           generation_id: null,
           origin_id: null,
           created_at: now,

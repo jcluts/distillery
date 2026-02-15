@@ -233,7 +233,6 @@ export class GenerationIOService {
       file_size: stat.size,
       rating: 0,
       status: null,
-      keywords: null,
       generation_id: generationId,
       origin_id: null,
       created_at: now,

@@ -24,6 +24,20 @@ const api: DistilleryAPI = {
   getThumbnail: (id: string) => ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAIL, id),
   getThumbnailsBatch: (ids: string[]) => ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAILS_BATCH, ids),
 
+  // Keywords
+  keywords: {
+    getForMedia: (mediaId: string) => ipcRenderer.invoke(CH.KEYWORDS_GET_FOR_MEDIA, mediaId),
+    setForMedia: (mediaId: string, keywords: string[]) =>
+      ipcRenderer.invoke(CH.KEYWORDS_SET_FOR_MEDIA, mediaId, keywords),
+    addToMedia: (mediaId: string, keyword: string) =>
+      ipcRenderer.invoke(CH.KEYWORDS_ADD_TO_MEDIA, mediaId, keyword),
+    removeFromMedia: (mediaId: string, keyword: string) =>
+      ipcRenderer.invoke(CH.KEYWORDS_REMOVE_FROM_MEDIA, mediaId, keyword),
+    search: (prefix: string, limit?: number) =>
+      ipcRenderer.invoke(CH.KEYWORDS_SEARCH, prefix, limit),
+    getAll: () => ipcRenderer.invoke(CH.KEYWORDS_GET_ALL)
+  },
+
   // Generation
   submitGeneration: (params: GenerationSubmitInput) =>
     ipcRenderer.invoke(CH.GENERATION_SUBMIT, params),

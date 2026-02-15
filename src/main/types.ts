@@ -21,7 +21,6 @@ export interface MediaRecord {
   file_size: number | null
   rating: number
   status: MediaStatus
-  keywords: string | null
   generation_id: string | null
   origin_id: string | null
   created_at: string
@@ -31,7 +30,6 @@ export interface MediaRecord {
 export interface MediaUpdate {
   rating?: number
   status?: MediaStatus
-  keywords?: string
   file_name?: string
 }
 

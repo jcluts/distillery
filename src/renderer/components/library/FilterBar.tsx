@@ -68,7 +68,7 @@ export function FilterBar(): React.JSX.Element {
       <Input
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search"
+        placeholder="Search name or keywords…"
         className="h-7 w-[200px] text-xs"
       />
     </div>
