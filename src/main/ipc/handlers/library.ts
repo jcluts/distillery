@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { clipboard, ipcMain, nativeImage, shell } from 'electron'
 import { IPC_CHANNELS } from '../channels'
 import { getDatabase } from '../../db/connection'
 import * as mediaRepo from '../../db/repositories/media'
@@ -111,6 +111,30 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
     if (imported.length > 0) onLibraryUpdated?.()
 
     return imported.map((m) => mapMediaPaths(m))
+  })
+
+  // Resolve media ID → absolute file path (helper)
+  function resolveMediaAbsPath(id: string): string | null {
+    const media = mediaRepo.getMediaById(db, id)
+    if (!media?.file_path) return null
+    return fileManager.resolve(media.file_path)
+  }
+
+  ipcMain.handle(IPC_CHANNELS.LIBRARY_SHOW_IN_FOLDER, (_event, id: string) => {
+    const absPath = resolveMediaAbsPath(id)
+    if (absPath) shell.showItemInFolder(absPath)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LIBRARY_OPEN_IN_APP, async (_event, id: string) => {
+    const absPath = resolveMediaAbsPath(id)
+    if (absPath) await shell.openPath(absPath)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LIBRARY_COPY_TO_CLIPBOARD, (_event, id: string) => {
+    const absPath = resolveMediaAbsPath(id)
+    if (!absPath) return
+    const img = nativeImage.createFromPath(absPath)
+    if (!img.isEmpty()) clipboard.writeImage(img)
   })
 
   ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_THUMBNAIL, (_event, id: string) => {

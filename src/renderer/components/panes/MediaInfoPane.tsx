@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { CircleCheck, CircleMinus, CircleX, Star, X } from 'lucide-react'
+import { CircleCheck, CircleMinus, CircleX, ClipboardCopy, ExternalLink, FolderOpen, Star, Trash2, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -131,6 +132,7 @@ export function MediaInfoPane(): React.JSX.Element {
   const updateItem = useLibraryStore((s) => s.updateItem)
   const buildQuery = useLibraryStore((s) => s.buildQuery)
   const setItems = useLibraryStore((s) => s.setItems)
+  const removeItems = useLibraryStore((s) => s.removeItems)
 
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
 
@@ -170,6 +172,28 @@ export function MediaInfoPane(): React.JSX.Element {
     const page = await window.api.getMedia(buildQuery())
     setItems(page)
   }, [media?.id, fetchKeywords, buildQuery, setItems])
+
+  // -- Media file actions --
+
+  const handleShowInFolder = React.useCallback(() => {
+    if (media?.id) window.api.showMediaInFolder(media.id)
+  }, [media?.id])
+
+  const handleOpenInApp = React.useCallback(() => {
+    if (media?.id) window.api.openMediaInApp(media.id)
+  }, [media?.id])
+
+  const handleCopyToClipboard = React.useCallback(() => {
+    if (media?.id) window.api.copyMediaToClipboard(media.id)
+  }, [media?.id])
+
+  const handleDelete = React.useCallback(async () => {
+    if (!media?.id) return
+    await window.api.deleteMedia([media.id])
+    removeItems([media.id])
+    const page = await window.api.getMedia(buildQuery())
+    setItems(page)
+  }, [media?.id, removeItems, buildQuery, setItems])
 
   return (
     <div className="space-y-4">
@@ -247,6 +271,50 @@ export function MediaInfoPane(): React.JSX.Element {
           </div>
         </div>
       </div>
+
+      {media && (
+        <>
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="text-xs font-semibold tracking-wider text-muted-foreground">ACTIONS</div>
+            <div className="flex flex-wrap gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="size-7" onClick={handleShowInFolder}>
+                    <FolderOpen className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Show in folder</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="size-7" onClick={handleOpenInApp}>
+                    <ExternalLink className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Open in default app</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="size-7" onClick={handleCopyToClipboard}>
+                    <ClipboardCopy className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Copy to clipboard</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="size-7 text-destructive hover:bg-destructive/10" onClick={handleDelete}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Delete image</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </>
+      )}
 
       <Separator />
 

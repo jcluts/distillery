@@ -23,6 +23,9 @@ const api: DistilleryAPI = {
   importMedia: (filePaths: string[]) => ipcRenderer.invoke(CH.LIBRARY_IMPORT_MEDIA, filePaths),
   getThumbnail: (id: string) => ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAIL, id),
   getThumbnailsBatch: (ids: string[]) => ipcRenderer.invoke(CH.LIBRARY_GET_THUMBNAILS_BATCH, ids),
+  showMediaInFolder: (id: string) => ipcRenderer.invoke(CH.LIBRARY_SHOW_IN_FOLDER, id),
+  openMediaInApp: (id: string) => ipcRenderer.invoke(CH.LIBRARY_OPEN_IN_APP, id),
+  copyMediaToClipboard: (id: string) => ipcRenderer.invoke(CH.LIBRARY_COPY_TO_CLIPBOARD, id),
 
   // Keywords
   keywords: {

@@ -371,6 +371,9 @@ export interface DistilleryAPI {
   importMedia(filePaths: string[]): Promise<MediaRecord[]>
   getThumbnail(id: string): Promise<string | null>
   getThumbnailsBatch(ids: string[]): Promise<Record<string, string>>
+  showMediaInFolder(id: string): Promise<void>
+  openMediaInApp(id: string): Promise<void>
+  copyMediaToClipboard(id: string): Promise<void>
 
   // Keywords
   keywords: {
