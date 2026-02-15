@@ -38,7 +38,7 @@ function StarRating({
   )
 }
 
-export function MediaInfoPanel(): React.JSX.Element {
+export function MediaInfoPane(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
   const updateItem = useLibraryStore((s) => s.updateItem)

@@ -16,10 +16,10 @@ import {
   SidebarProvider
 } from '@/components/ui/sidebar'
 import { useUIStore, type LeftPanelTab } from '@/stores/ui-store'
-import { GenerationPanel } from '@/components/left-panel/GenerationPanel'
-import { TimelinePanel } from '@/components/left-panel/TimelinePanel'
-import { ImportPanel } from '@/components/left-panel/ImportPanel'
-import { LeftPanelStatusBar } from '@/components/left-panel/LeftPanelStatusBar'
+import { GenerationPane } from '@/components/panes/GenerationPane'
+import { TimelinePane } from '@/components/panes/TimelinePane'
+import { ImportPane } from '@/components/panes/ImportPane'
+import { LeftSidebarStatusBar } from '@/components/layout/LeftSidebarStatusBar'
 import { useGenerationStore } from '@/stores/generation-store'
 
 const LEFT_PANEL_TABS: Array<{
@@ -54,7 +54,7 @@ function TimelineHeaderActions(): React.JSX.Element {
   )
 }
 
-export function LeftPanel(): React.JSX.Element {
+export function LeftSidebar(): React.JSX.Element {
   const open = useUIStore((s) => s.leftPanelOpen)
   const tab = useUIStore((s) => s.leftPanelTab)
   const setLeftPanelOpen = useUIStore((s) => s.setLeftPanelOpen)
@@ -111,15 +111,15 @@ export function LeftPanel(): React.JSX.Element {
           <SidebarContent>
             <SidebarGroup className="p-0">
               <SidebarGroupContent className="px-3 py-3">
-                {tab === 'generation' ? <GenerationPanel /> : null}
-                {tab === 'timeline' ? <TimelinePanel /> : null}
-                {tab === 'import' ? <ImportPanel /> : null}
+                {tab === 'generation' ? <GenerationPane /> : null}
+                {tab === 'timeline' ? <TimelinePane /> : null}
+                {tab === 'import' ? <ImportPane /> : null}
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
 
           <SidebarFooter className="border-t p-0">
-            <LeftPanelStatusBar />
+            <LeftSidebarStatusBar />
           </SidebarFooter>
         </Sidebar>
       </Sidebar>

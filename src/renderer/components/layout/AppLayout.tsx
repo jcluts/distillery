@@ -1,8 +1,8 @@
 import * as React from 'react'
 
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import { LeftPanel } from '@/components/left-panel/LeftPanel'
-import { RightPanel } from '@/components/right-panel/RightPanel'
+import { LeftSidebar } from '@/components/layout/LeftSidebar'
+import { RightSidebar } from '@/components/layout/RightSidebar'
 import { FilterBar } from '@/components/library/FilterBar'
 import { LibraryStatusBar } from '@/components/library/LibraryStatusBar'
 import { GridView } from '@/components/library/GridView'
@@ -18,7 +18,7 @@ export function AppLayout(): React.JSX.Element {
     <div className="flex h-screen w-screen flex-col overflow-hidden">
       <TitleBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <LeftPanel />
+        <LeftSidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <FilterBar />
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -26,7 +26,7 @@ export function AppLayout(): React.JSX.Element {
           </div>
           <LibraryStatusBar />
         </div>
-        <RightPanel />
+        <RightSidebar />
       </div>
     </div>
   )

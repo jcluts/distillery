@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
 
-export function ImportPanel(): React.JSX.Element {
+export function ImportPane(): React.JSX.Element {
   const [importedCount, setImportedCount] = React.useState<number>(0)
 
   const doImport = React.useCallback(async (filePaths: string[]) => {

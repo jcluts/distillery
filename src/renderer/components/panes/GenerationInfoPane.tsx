@@ -39,7 +39,7 @@ function pickResolution(longEdge: number): number {
   return best
 }
 
-export function GenerationInfoPanel(): React.JSX.Element {
+export function GenerationInfoPane(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
