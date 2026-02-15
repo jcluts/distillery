@@ -4,7 +4,7 @@ import { useGenerationStore } from '@/stores/generation-store'
 import { useUIStore } from '@/stores/ui-store'
 import { TimelineItemCard } from './TimelineItemCard'
 
-export function TimelinePanel(): React.JSX.Element {
+export function TimelinePane(): React.JSX.Element {
   const generations = useGenerationStore((s) => s.generations)
   const setDetailGenerationId = useGenerationStore((s) => s.setDetailGenerationId)
   const openModal = useUIStore((s) => s.openModal)

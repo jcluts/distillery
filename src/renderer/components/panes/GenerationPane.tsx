@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
 import { useLibraryStore } from '@/stores/library-store'
 import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
-import { ModelSetupWizard } from '@/components/left-panel/ModelSetupWizard'
+import { ModelSetupWizard } from '@/components/panes/ModelSetupWizard'
 
 function extractDroppedFilePaths(e: React.DragEvent): string[] {
   type ElectronLikeFile = File & { path?: string }
@@ -61,7 +61,7 @@ function RefThumb({ src, label }: { src: string | null; label: string }): React.
   )
 }
 
-export function GenerationPanel(): React.JSX.Element {
+export function GenerationPane(): React.JSX.Element {
   const [isUnloadingModel, setIsUnloadingModel] = React.useState(false)
 
   const filesByModelId = useModelStore((s) => s.filesByModelId)

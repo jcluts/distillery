@@ -23,7 +23,7 @@ function EngineDot({ state }: { state: string }): React.JSX.Element {
   return <span className={cn('inline-block size-2 rounded-full', cls)} />
 }
 
-export function LeftPanelStatusBar(): React.JSX.Element {
+export function LeftSidebarStatusBar(): React.JSX.Element {
   const engineState = useEngineStore((s) => s.state)
   const engineModelName = useEngineStore((s) => s.modelName)
   const engineError = useEngineStore((s) => s.error)

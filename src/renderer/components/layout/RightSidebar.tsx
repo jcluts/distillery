@@ -14,8 +14,8 @@ import {
   SidebarProvider
 } from '@/components/ui/sidebar'
 import { useUIStore, type RightPanelTab } from '@/stores/ui-store'
-import { MediaInfoPanel } from '@/components/right-panel/sections/MediaInfoPanel'
-import { GenerationInfoPanel } from '@/components/right-panel/sections/GenerationInfoPanel'
+import { MediaInfoPane } from '@/components/panes/MediaInfoPane'
+import { GenerationInfoPane } from '@/components/panes/GenerationInfoPane'
 
 const RIGHT_PANEL_TABS: Array<{
   tab: RightPanelTab
@@ -32,7 +32,7 @@ function HeaderTitle({ tab }: { tab: RightPanelTab }): React.JSX.Element {
   return <div className="text-xs font-semibold tracking-wider text-muted-foreground">{title}</div>
 }
 
-export function RightPanel(): React.JSX.Element {
+export function RightSidebar(): React.JSX.Element {
   const open = useUIStore((s) => s.rightPanelOpen)
   const tab = useUIStore((s) => s.rightPanelTab)
   const activeTab = useUIStore((s) => s.rightPanelTab)
@@ -88,8 +88,8 @@ export function RightPanel(): React.JSX.Element {
           <SidebarContent>
             <SidebarGroup className="p-0">
               <SidebarGroupContent className="px-3 py-3">
-                {tab === 'info' ? <MediaInfoPanel /> : null}
-                {tab === 'generation-info' ? <GenerationInfoPanel /> : null}
+                {tab === 'info' ? <MediaInfoPane /> : null}
+                {tab === 'generation-info' ? <GenerationInfoPane /> : null}
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
