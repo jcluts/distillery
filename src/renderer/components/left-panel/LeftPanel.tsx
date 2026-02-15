@@ -1,92 +1,128 @@
 import * as React from 'react'
-import { Clock, Download, Sparkles } from 'lucide-react'
+import { Clock, Download, Sparkles, type LucideIcon } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Sidebar } from '@/components/ui/sidebar'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider
+} from '@/components/ui/sidebar'
 import { useUIStore, type LeftPanelTab } from '@/stores/ui-store'
 import { GenerationPanel } from '@/components/left-panel/GenerationPanel'
 import { TimelinePanel } from '@/components/left-panel/TimelinePanel'
 import { ImportPanel } from '@/components/left-panel/ImportPanel'
 import { LeftPanelStatusBar } from '@/components/left-panel/LeftPanelStatusBar'
+import { useGenerationStore } from '@/stores/generation-store'
 
-function TabButton({
-  tab,
-  icon,
-  label
-}: {
+const LEFT_PANEL_TABS: Array<{
   tab: LeftPanelTab
-  icon: React.ReactNode
   label: string
-}): React.JSX.Element {
-  const activeTab = useUIStore((s) => s.leftPanelTab)
-  const open = useUIStore((s) => s.leftPanelOpen)
-  const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
-  const isActive = open && activeTab === tab
+  icon: LucideIcon
+}> = [
+  { tab: 'generation', label: 'Generate', icon: Sparkles },
+  { tab: 'timeline', label: 'Timeline', icon: Clock },
+  { tab: 'import', label: 'Import', icon: Download }
+]
+
+function TimelineHeaderActions(): React.JSX.Element {
+  const generations = useGenerationStore((s) => s.generations)
+  const setGenerations = useGenerationStore((s) => s.setGenerations)
+
+  const activeCount = generations.filter((g) => g.status === 'pending').length
+
+  const clearCompleted = React.useCallback(async () => {
+    await window.api.timeline.clearCompleted()
+    const { generations } = await window.api.timeline.getAll()
+    setGenerations(generations)
+  }, [setGenerations])
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn(
-            'h-9 w-9',
-            isActive && 'bg-accent text-accent-foreground'
-          )}
-          onClick={() => toggleLeftPanel(tab)}
-          aria-label={label}
-        >
-          {icon}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
+    <div className="flex items-center gap-2">
+      {activeCount > 0 ? <Badge variant="secondary">{activeCount}</Badge> : null}
+      <Button type="button" size="sm" variant="secondary" onClick={clearCompleted}>
+        Clear completed
+      </Button>
+    </div>
   )
 }
 
 export function LeftPanel(): React.JSX.Element {
   const open = useUIStore((s) => s.leftPanelOpen)
   const tab = useUIStore((s) => s.leftPanelTab)
+  const setLeftPanelOpen = useUIStore((s) => s.setLeftPanelOpen)
+  const activeTab = useUIStore((s) => s.leftPanelTab)
+  const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
   const fullWidth = useUIStore((s) => s.leftPanelWidth)
 
   return (
-    <TooltipProvider delayDuration={250}>
-      <Sidebar
-        collapsible="icon"
-        open={open}
-        className="flex-row bg-sidebar text-sidebar-foreground"
-        style={
-          {
-            // shadcn/sidebar-style widths
-            ['--sidebar-width' as any]: `${fullWidth}px`
-          } as React.CSSProperties
-        }
-      >
-        <div className="flex shrink-0 flex-col items-center gap-1 border-r px-1.5 py-1.5">
-          <TabButton tab="generation" icon={<Sparkles />} label="Generate" />
-          <TabButton tab="timeline" icon={<Clock />} label="Timeline" />
-          <TabButton tab="import" icon={<Download />} label="Import" />
-        </div>
+    <SidebarProvider
+      open={open}
+      onOpenChange={setLeftPanelOpen}
+      style={
+        {
+          '--sidebar-width': `${fullWidth}px`,
+          '--sidebar-width-icon': '3.25rem'
+        } as React.CSSProperties
+      }
+    >
+      <Sidebar collapsible="icon" className="flex-row overflow-hidden border-r-0">
+        <Sidebar collapsible="none" className="border-r">
+          <SidebarContent>
+            <SidebarGroup className="p-1.5">
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {LEFT_PANEL_TABS.map((item) => (
+                    <SidebarMenuItem key={item.tab}>
+                      <SidebarMenuButton
+                        tooltip={{ children: item.label, side: 'right', hidden: false }}
+                        isActive={open && activeTab === item.tab}
+                        className="size-9 justify-center p-0"
+                        onClick={() => toggleLeftPanel(item.tab)}
+                        aria-label={item.label}
+                      >
+                        <item.icon />
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
 
-        {open ? (
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-hidden">
-              {tab === 'generation' ? <GenerationPanel /> : null}
-              {tab === 'timeline' ? <TimelinePanel /> : null}
-              {tab === 'import' ? <ImportPanel /> : null}
+        <Sidebar collapsible="none" className="min-w-0 flex-1 border-r-0">
+          <SidebarHeader className="border-b px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+                {tab === 'generation' ? 'GENERATION' : tab === 'timeline' ? 'TIMELINE' : 'IMPORT'}
+              </div>
+              {tab === 'timeline' ? <TimelineHeaderActions /> : null}
             </div>
+          </SidebarHeader>
+
+          <SidebarContent>
+            <SidebarGroup className="p-0">
+              <SidebarGroupContent className="px-3 py-3">
+                {tab === 'generation' ? <GenerationPanel /> : null}
+                {tab === 'timeline' ? <TimelinePanel /> : null}
+                {tab === 'import' ? <ImportPanel /> : null}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter className="border-t p-0">
             <LeftPanelStatusBar />
-          </div>
-        ) : null}
+          </SidebarFooter>
+        </Sidebar>
       </Sidebar>
-    </TooltipProvider>
+    </SidebarProvider>
   )
 }
