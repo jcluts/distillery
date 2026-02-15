@@ -23,6 +23,7 @@ import { registerQueueHandlers } from './ipc/handlers/queue'
 import { registerTimelineHandlers } from './ipc/handlers/timeline'
 import { registerSettingsHandlers } from './ipc/handlers/settings'
 import { registerModelHandlers } from './ipc/handlers/models'
+import { registerKeywordsHandlers } from './ipc/handlers/keywords'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
 import { ModelCatalogService } from './models/model-catalog-service'
@@ -262,6 +263,7 @@ app.whenReady().then(async () => {
   registerEngineHandlers(engineManager)
   registerQueueHandlers(workQueueManager)
   registerTimelineHandlers()
+  registerKeywordsHandlers()
   registerSettingsHandlers({
     engineManager,
     fileManager,

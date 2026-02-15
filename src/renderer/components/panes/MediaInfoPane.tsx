@@ -1,11 +1,17 @@
 import * as React from 'react'
-import { Star } from 'lucide-react'
+import { CircleCheck, CircleMinus, CircleX, Star, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useLibraryStore } from '@/stores/library-store'
 import { cn } from '@/lib/utils'
+
+// ---------------------------------------------------------------------------
+// StarRating
+// ---------------------------------------------------------------------------
 
 function StarRating({
   rating,
@@ -38,6 +44,87 @@ function StarRating({
   )
 }
 
+// ---------------------------------------------------------------------------
+// KeywordEditor
+// ---------------------------------------------------------------------------
+
+function KeywordEditor({
+  mediaId,
+  keywords,
+  onChanged
+}: {
+  mediaId: string
+  keywords: string[]
+  onChanged: () => void
+}): React.JSX.Element {
+  const [inputValue, setInputValue] = React.useState('')
+
+  const addKeyword = async (raw: string): Promise<void> => {
+    const keyword = raw.trim().toLowerCase()
+    if (!keyword || keywords.includes(keyword)) {
+      setInputValue('')
+      return
+    }
+    await window.api.keywords.addToMedia(mediaId, keyword)
+    setInputValue('')
+    onChanged()
+  }
+
+  const removeKeyword = async (keyword: string): Promise<void> => {
+    await window.api.keywords.removeFromMedia(mediaId, keyword)
+    onChanged()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      void addKeyword(inputValue)
+    } else if (e.key === 'Backspace' && inputValue === '' && keywords.length > 0) {
+      void removeKeyword(keywords[keywords.length - 1])
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {keywords.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {keywords.map((kw) => (
+            <Badge
+              key={kw}
+              variant="secondary"
+              className="gap-1 pr-1 text-xs"
+            >
+              {kw}
+              <button
+                type="button"
+                className="ml-0.5 rounded-sm p-0.5 hover:bg-muted-foreground/20"
+                onClick={() => void removeKeyword(kw)}
+                aria-label={`Remove keyword ${kw}`}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <Input
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          if (inputValue.trim()) void addKeyword(inputValue)
+        }}
+        placeholder="Add keyword…"
+        className="h-7 text-xs"
+      />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// MediaInfoPane
+// ---------------------------------------------------------------------------
+
 export function MediaInfoPane(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
@@ -47,19 +134,42 @@ export function MediaInfoPane(): React.JSX.Element {
 
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
 
+  // Keyword state fetched from the normalized tables
+  const [keywords, setKeywords] = React.useState<string[]>([])
+
+  const fetchKeywords = React.useCallback(async (mediaId: string) => {
+    const kws = await window.api.keywords.getForMedia(mediaId)
+    setKeywords(kws)
+  }, [])
+
+  React.useEffect(() => {
+    if (media?.id) {
+      void fetchKeywords(media.id)
+    } else {
+      setKeywords([])
+    }
+  }, [media?.id, fetchKeywords])
+
   const persistUpdate = React.useCallback(
     async (id: string, updates: { rating?: number; status?: any }) => {
       updateItem(id, updates as any)
       try {
         await window.api.updateMedia(id, updates as any)
       } finally {
-        // Re-query to ensure filters stay consistent (e.g. item might drop out of view)
         const page = await window.api.getMedia(buildQuery())
         setItems(page)
       }
     },
     [buildQuery, setItems, updateItem]
   )
+
+  const refreshAfterKeywordChange = React.useCallback(async () => {
+    if (!media?.id) return
+    await fetchKeywords(media.id)
+    // Re-query library in case search filter is active on keywords
+    const page = await window.api.getMedia(buildQuery())
+    setItems(page)
+  }, [media?.id, fetchKeywords, buildQuery, setItems])
 
   return (
     <div className="space-y-4">
@@ -86,15 +196,30 @@ export function MediaInfoPane(): React.JSX.Element {
               void persistUpdate(media.id, { status: v as any })
           }}
         >
-          <ToggleGroupItem value="selected" size="sm">
-            Selected
-          </ToggleGroupItem>
-          <ToggleGroupItem value="rejected" size="sm">
-            Rejected
-          </ToggleGroupItem>
-          <ToggleGroupItem value="unmarked" size="sm">
-            Clear
-          </ToggleGroupItem>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ToggleGroupItem value="selected" size="sm" aria-label="Selected">
+                <CircleCheck className="size-4" />
+              </ToggleGroupItem>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Selected</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ToggleGroupItem value="rejected" size="sm" aria-label="Rejected">
+                <CircleX className="size-4" />
+              </ToggleGroupItem>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Rejected</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ToggleGroupItem value="unmarked" size="sm" aria-label="Clear status">
+                <CircleMinus className="size-4" />
+              </ToggleGroupItem>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Clear</TooltipContent>
+          </Tooltip>
         </ToggleGroup>
       </div>
 
@@ -127,7 +252,15 @@ export function MediaInfoPane(): React.JSX.Element {
 
       <div className="space-y-2">
         <div className="text-xs font-semibold tracking-wider text-muted-foreground">KEYWORDS</div>
-        <div className="text-xs text-muted-foreground">(MVP: display-only)</div>
+        {media ? (
+          <KeywordEditor
+            mediaId={media.id}
+            keywords={keywords}
+            onChanged={refreshAfterKeywordChange}
+          />
+        ) : (
+          <div className="text-xs text-muted-foreground">No selection</div>
+        )}
       </div>
     </div>
   )
