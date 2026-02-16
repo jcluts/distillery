@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { type LucideIcon } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
 import {
   Sidebar,
   SidebarContent,
@@ -12,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider
-} from '@/components/ui/sidebar'
+} from '@renderer/components/ui/sidebar_new'
 
 // -----------------------------------------------------------------------------
 // Types
@@ -70,16 +71,17 @@ export function AppSidebar<T extends string>({
         side={side}
         collapsible="icon"
         className={
-          isLeft
-            ? 'flex-row overflow-hidden border-r-0'
-            : 'flex-row-reverse overflow-hidden border-l border-r-0'
+          isLeft ? '*:data-[sidebar=sidebar]:flex-row' : '*:data-[sidebar=sidebar]:flex-row-reverse'
         }
       >
-        {/* Icon rail */}
+        {/* Icon rail — always visible, never collapses */}
         <Sidebar
           side={side}
           collapsible="none"
-          className={isLeft ? 'border-r' : 'border-l border-r-0'}
+          className={cn(
+            'w-[calc(var(--sidebar-width-icon)+1px)]!',
+            isLeft ? 'border-r' : 'border-l border-r-0'
+          )}
         >
           <SidebarContent>
             <SidebarGroup className="p-1.5">
@@ -108,7 +110,7 @@ export function AppSidebar<T extends string>({
           </SidebarContent>
         </Sidebar>
 
-        {/* Content panel */}
+        {/* Content panel — fills remaining width, hidden when collapsed */}
         <Sidebar side={side} collapsible="none" className="min-w-0 flex-1 border-0">
           <SidebarHeader className="h-10 border-b px-3">
             <div className="flex h-full items-center justify-between gap-2">

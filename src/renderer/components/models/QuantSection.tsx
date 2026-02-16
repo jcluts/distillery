@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Progress } from '@/components/ui/progress'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { DownloadProgressEvent, QuantVariant } from '@/types'
 import { formatApproxSize, toPercent } from './utils'
 import { cn } from '@/lib/utils'
@@ -78,7 +78,6 @@ export function QuantSection({
 
       {/* Expanded quant picker */}
       <CollapsibleContent className="pt-2">
-        <TooltipProvider delayDuration={250}>
           <div className="space-y-1">
             {quants.map((quant) => (
               <QuantRow
@@ -94,7 +93,6 @@ export function QuantSection({
               />
             ))}
           </div>
-        </TooltipProvider>
       </CollapsibleContent>
     </Collapsible>
   )
