@@ -1,11 +1,10 @@
-import { useMemo, useEffect, useState, useRef } from 'react'
+import * as React from 'react'
+import { useMemo, useEffect, useRef } from 'react'
+import { ChevronRight } from 'lucide-react'
 import type { CanonicalEndpointDef } from '@/types'
-import {
-  schemaToFormFields,
-  getDefaultValues,
-  type FormFieldConfig,
-} from '@/lib/schema-to-form'
+import { schemaToFormFields, getDefaultValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import { FormField } from './FormField'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -33,9 +32,8 @@ export function DynamicForm({
   onChange,
   onSetDefaults,
   onFieldsChange,
-  disabled = false,
-}: DynamicFormProps) {
-  const [enabledHiddenFields, setEnabledHiddenFields] = useState<Set<string>>(new Set())
+  disabled = false
+}: DynamicFormProps): React.JSX.Element {
   const initializedRef = useRef<string | null>(null)
 
   // Build field configs from the endpoint schema
@@ -45,10 +43,19 @@ export function DynamicForm({
     return schemaToFormFields(schema.properties, schema.required || [], schema.order)
   }, [endpoint])
 
-  // Reset when endpoint changes
-  useEffect(() => {
-    setEnabledHiddenFields(new Set())
-  }, [endpoint.endpointKey])
+  // Split into visible and hidden (advanced) fields
+  const { visibleFields, advancedFields } = useMemo(() => {
+    const visible: FormFieldConfig[] = []
+    const advanced: FormFieldConfig[] = []
+    for (const field of fields) {
+      if (field.hidden) {
+        advanced.push(field)
+      } else {
+        visible.push(field)
+      }
+    }
+    return { visibleFields: visible, advancedFields: advanced }
+  }, [fields])
 
   // Set defaults when endpoint changes
   useEffect(() => {
@@ -69,19 +76,6 @@ export function DynamicForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fields, endpoint.endpointKey, onFieldsChange, onSetDefaults])
 
-  const toggleHiddenField = (fieldName: string) => {
-    setEnabledHiddenFields((prev) => {
-      const next = new Set(prev)
-      if (next.has(fieldName)) {
-        next.delete(fieldName)
-        onChange(fieldName, undefined)
-      } else {
-        next.add(fieldName)
-      }
-      return next
-    })
-  }
-
   if (fields.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -92,67 +86,46 @@ export function DynamicForm({
 
   return (
     <div className="space-y-4">
-      {fields.map((field) => {
-        // Hidden fields render as toggle-able sections
-        if (field.hidden) {
-          const isEnabled = enabledHiddenFields.has(field.name)
-          return (
-            <div key={field.name} className="space-y-2">
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => toggleHiddenField(field.name)}
-                  disabled={disabled}
-                  className={cn(
-                    'flex items-center gap-2 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-                    'border shadow-sm',
-                    isEnabled
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background hover:bg-muted border-input'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'w-2.5 h-2.5 rounded-full border-2 transition-colors',
-                      isEnabled
-                        ? 'bg-primary-foreground border-primary-foreground'
-                        : 'border-muted-foreground'
-                    )}
-                  />
-                  {field.label}
-                </button>
-                {field.description && !isEnabled && (
-                  <p className="text-xs text-muted-foreground">{field.description}</p>
-                )}
-              </div>
-              {isEnabled && (
-                <div className="pl-3 border-l-2 border-primary/50 ml-1.5">
-                  <FormField
-                    field={field}
-                    value={values[field.name]}
-                    onChange={(value) => onChange(field.name, value)}
-                    disabled={disabled}
-                    error={validationErrors[field.name]}
-                    hideLabel
-                  />
-                </div>
-              )}
-            </div>
-          )
-        }
+      {visibleFields.map((field) => (
+        <FormField
+          key={field.name}
+          field={field}
+          value={values[field.name]}
+          onChange={(value) => onChange(field.name, value)}
+          disabled={disabled}
+          error={validationErrors[field.name]}
+        />
+      ))}
 
-        // Regular visible fields
-        return (
-          <FormField
-            key={field.name}
-            field={field}
-            value={values[field.name]}
-            onChange={(value) => onChange(field.name, value)}
+      {advancedFields.length > 0 && (
+        <Collapsible defaultOpen={false}>
+          <CollapsibleTrigger
             disabled={disabled}
-            error={validationErrors[field.name]}
-          />
-        )
-      })}
+            className={cn(
+              'flex w-full items-center gap-1.5 py-1 text-xs text-muted-foreground',
+              'hover:text-foreground transition-colors',
+              '[&[data-state=open]>svg]:rotate-90'
+            )}
+          >
+            <ChevronRight className="size-3.5 transition-transform duration-200" />
+            Advanced
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-4 pt-2">
+              {advancedFields.map((field) => (
+                <FormField
+                  key={field.name}
+                  field={field}
+                  value={values[field.name]}
+                  onChange={(value) => onChange(field.name, value)}
+                  disabled={disabled}
+                  error={validationErrors[field.name]}
+                />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   )
 }

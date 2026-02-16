@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { validateFormValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import { useGenerationStore } from '@/stores/generation-store'
@@ -213,24 +214,9 @@ export function GenerationPane(): React.JSX.Element {
         </Button>
       </div>
 
-      {/* Dynamic form — prompt, size, steps, guidance, etc. */}
-      {endpoint ? (
-        <DynamicForm
-          endpoint={endpoint}
-          values={formValues}
-          validationErrors={validationErrors}
-          onChange={handleFieldChange}
-          onSetDefaults={handleSetDefaults}
-          onFieldsChange={handleFieldsChange}
-          disabled={false}
-        />
-      ) : (
-        <div className="py-4 text-center text-sm text-muted-foreground">Loading schema…</div>
-      )}
-
-      {/* Reference images */}
+{/* Reference images */}
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Reference images</div>
+        <div className="text-xs text-muted-foreground">Reference images</div>
         <div
           className={cn(
             'rounded-md border border-dashed bg-background p-3',
@@ -315,6 +301,45 @@ export function GenerationPane(): React.JSX.Element {
           )}
         </div>
       </div>
+
+      {/* Prompt */}
+      <div className="space-y-2">
+        <div className="text-xs text-muted-foreground">Prompt</div>
+        <Textarea
+          data-focus-prompt="true"
+          placeholder="Describe what you want to generate…"
+          value={prompt}
+          onChange={(e) => setFormValue('prompt', e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault()
+              handleSubmit()
+            }
+          }}
+          rows={3}
+          className="resize-none text-sm"
+        />
+        {validationErrors.prompt && (
+          <p className="text-xs text-destructive">{validationErrors.prompt}</p>
+        )}
+      </div>
+
+      {/* Dynamic form — size, steps, guidance, etc. */}
+      {endpoint ? (
+        <DynamicForm
+          endpoint={endpoint}
+          values={formValues}
+          validationErrors={validationErrors}
+          onChange={handleFieldChange}
+          onSetDefaults={handleSetDefaults}
+          onFieldsChange={handleFieldsChange}
+          disabled={false}
+        />
+      ) : (
+        <div className="py-4 text-center text-sm text-muted-foreground">Loading schema…</div>
+      )}
+
+      
 
       {/* Generate button */}
       <Button
