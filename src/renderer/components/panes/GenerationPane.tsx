@@ -1,20 +1,17 @@
 import * as React from 'react'
 import { X } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { validateFormValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useEngineStore } from '@/stores/engine-store'
-import { useQueueStore } from '@/stores/queue-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
 import { DynamicForm } from '@/components/generation/DynamicForm'
+import { GenerationStatus } from '@/components/generation/GenerationStatus'
 import { ModelSetupWizard } from '@/components/panes/ModelSetupWizard'
 import type { CanonicalEndpointDef } from '@/types'
 
@@ -47,7 +44,6 @@ function RefThumb({ src, label }: { src: string | null; label: string }): React.
 }
 
 export function GenerationPane(): React.JSX.Element {
-  const [isUnloadingModel, setIsUnloadingModel] = React.useState(false)
   const [endpoint, setEndpoint] = React.useState<CanonicalEndpointDef | null>(null)
   const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({})
   const fieldsRef = React.useRef<FormFieldConfig[]>([])
@@ -70,16 +66,7 @@ export function GenerationPane(): React.JSX.Element {
   const libraryItems = useLibraryStore((s) => s.items)
 
   const engineState = useEngineStore((s) => s.state)
-  const engineModelName = useEngineStore((s) => s.modelName)
-  const engineError = useEngineStore((s) => s.error)
   const engineCanGenerate = engineState === 'ready' || engineState === 'idle'
-
-  const queueItems = useQueueStore((s) => s.items)
-  const activePhase = useQueueStore((s) => s.activePhase)
-  const activeStep = useQueueStore((s) => s.activeStep)
-  const activeTotalSteps = useQueueStore((s) => s.activeTotalSteps)
-
-  const generations = useGenerationStore((s) => s.generations)
 
   // Fetch the endpoint schema on mount / when endpoint key changes
   React.useEffect(() => {
@@ -92,39 +79,6 @@ export function GenerationPane(): React.JSX.Element {
 
   const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
   const generateDisabled = !engineCanGenerate || !prompt.trim()
-
-  const visibleQueueItems = React.useMemo(
-    () => queueItems.filter((q) => q.status === 'pending' || q.status === 'processing'),
-    [queueItems]
-  )
-
-  const isModelLoading = engineState === 'loading'
-  const showQueue = (visibleQueueItems?.length ?? 0) > 0 || !!activePhase || isModelLoading
-
-  const isQueueProcessing = queueItems.some((q) => q.status === 'processing')
-  const canUnloadModel = engineState === 'ready' && !isQueueProcessing && !isUnloadingModel
-
-  const modelStatusLabel =
-    engineState === 'loading'
-      ? 'Loading model…'
-      : engineState === 'ready'
-        ? engineModelName
-          ? `Model ready: ${engineModelName}`
-          : 'Model ready'
-        : engineState === 'idle'
-          ? 'No model loaded'
-          : engineState === 'starting'
-            ? 'Starting engine…'
-            : engineState === 'error'
-              ? engineError
-                ? `Engine error: ${engineError}`
-                : 'Engine error'
-              : 'Engine stopped'
-
-  const progressValue =
-    activeStep != null && activeTotalSteps != null && activeTotalSteps > 0
-      ? Math.round((activeStep / activeTotalSteps) * 100)
-      : 0
 
   // Callbacks for DynamicForm
   const handleFieldChange = React.useCallback(
@@ -183,38 +137,7 @@ export function GenerationPane(): React.JSX.Element {
     <div className="space-y-4">
       <ModelSelector />
 
-      {/* Engine status */}
-      <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
-        <Badge
-          variant="secondary"
-          className={cn(
-            'max-w-[75%] truncate',
-            engineState === 'error' && 'border border-destructive text-destructive'
-          )}
-        >
-          {modelStatusLabel}
-        </Badge>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={!canUnloadModel}
-          onClick={async () => {
-            setIsUnloadingModel(true)
-            try {
-              await window.api.unloadModel()
-            } catch {
-              // status event drives UI error state
-            } finally {
-              setIsUnloadingModel(false)
-            }
-          }}
-        >
-          {isUnloadingModel ? 'Unloading…' : 'Unload model'}
-        </Button>
-      </div>
-
-{/* Reference images */}
+      {/* Reference images */}
       <div className="space-y-2">
         <div className="text-xs text-muted-foreground">Reference images</div>
         <div
@@ -351,62 +274,8 @@ export function GenerationPane(): React.JSX.Element {
         Generate
       </Button>
 
-      {/* Queue / progress */}
-      {showQueue ? (
-        <Card className="p-3">
-          {isModelLoading ? (
-            <>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Loading model…</span>
-              </div>
-              <div className="mt-2">
-                <Progress className="animate-pulse" />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{activePhase ? `Generating: ${activePhase}` : 'Queue'}</span>
-                {activeStep != null && activeTotalSteps != null ? (
-                  <span className="tabular-nums">
-                    {activeStep}/{activeTotalSteps}
-                  </span>
-                ) : null}
-              </div>
-              {activePhase ? (
-                <div className="mt-2">
-                  <Progress value={progressValue} />
-                </div>
-              ) : null}
-            </>
-          )}
-          <div className="mt-2 space-y-1">
-            {visibleQueueItems.slice(0, 3).map((q) => {
-              const generationId = q.correlation_id
-              return (
-                <div key={q.id} className="flex items-center justify-between text-xs">
-                  <span className="truncate text-muted-foreground">
-                    {generations.find((g) => g.id === generationId)?.prompt ?? generationId ?? q.id}
-                  </span>
-                  <div className="ml-2 flex items-center gap-2">
-                    <Badge variant="outline">{q.status}</Badge>
-                    {q.status === 'pending' && generationId ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => window.api.cancelGeneration(generationId)}
-                      >
-                        Cancel
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </Card>
-      ) : null}
+      {/* Generation status — model load, progress, pending items */}
+      <GenerationStatus />
     </div>
   )
 }
