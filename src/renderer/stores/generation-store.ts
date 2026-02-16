@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { GenerationRecord, GenerationSubmitInput } from '../types'
-import { GENERATION_DEFAULTS, ASPECT_RATIOS, type AspectRatioLabel } from '../lib/constants'
 
 // =============================================================================
 // Generation Store
@@ -8,15 +7,15 @@ import { GENERATION_DEFAULTS, ASPECT_RATIOS, type AspectRatioLabel } from '../li
 // =============================================================================
 
 interface GenerationState {
-  // Form state
-  prompt: string
+  // Dynamic form values keyed by schema property name
+  formValues: Record<string, unknown>
+
+  // Reference images (managed separately from the schema-driven form)
   refImageIds: string[]
-  refImagePaths: string[] // for external images
-  resolution: number
-  aspectRatio: AspectRatioLabel
-  steps: number
-  guidance: number
-  samplingMethod: string
+  refImagePaths: string[]
+
+  // Active endpoint key
+  endpointKey: string
 
   // Timeline
   generations: GenerationRecord[]
@@ -24,21 +23,18 @@ interface GenerationState {
   // UI
   detailGenerationId: string | null
 
-  // Actions - Form
-  setPrompt: (prompt: string) => void
+  // Actions — Form
+  setFormValue: (key: string, value: unknown) => void
+  setFormValues: (values: Record<string, unknown>) => void
+  resetFormValues: () => void
   addRefImage: (id: string) => void
   removeRefImage: (id: string) => void
   addRefImagePath: (path: string) => void
   removeRefImagePath: (path: string) => void
   clearRefImages: () => void
-  setResolution: (resolution: number) => void
-  setAspectRatio: (ratio: AspectRatioLabel) => void
-  setSteps: (steps: number) => void
-  setGuidance: (guidance: number) => void
-  setSamplingMethod: (method: string) => void
-  resetForm: () => void
+  setEndpointKey: (key: string) => void
 
-  // Actions - Timeline
+  // Actions — Timeline
   setGenerations: (generations: GenerationRecord[]) => void
   addGeneration: (generation: GenerationRecord) => void
   updateGeneration: (id: string, updates: Partial<GenerationRecord>) => void
@@ -52,15 +48,11 @@ interface GenerationState {
 }
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
-  // Form defaults
-  prompt: '',
+  // Form defaults — populated by DynamicForm's onSetDefaults
+  formValues: {},
   refImageIds: [],
   refImagePaths: [],
-  resolution: GENERATION_DEFAULTS.resolution,
-  aspectRatio: GENERATION_DEFAULTS.aspectRatio,
-  steps: GENERATION_DEFAULTS.steps,
-  guidance: GENERATION_DEFAULTS.guidance,
-  samplingMethod: GENERATION_DEFAULTS.sampling_method,
+  endpointKey: 'local.flux2-klein.image',
 
   // Timeline
   generations: [],
@@ -68,51 +60,51 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   detailGenerationId: null,
 
   // Form actions
-  setPrompt: (prompt) => set({ prompt }),
+  setFormValue: (key, value) =>
+    set((s) => ({ formValues: { ...s.formValues, [key]: value } })),
+
+  setFormValues: (values) =>
+    set((s) => ({ formValues: { ...s.formValues, ...values } })),
+
+  resetFormValues: () =>
+    set({ formValues: {}, refImageIds: [], refImagePaths: [] }),
+
   addRefImage: (id) =>
     set((s) => ({
       refImageIds: s.refImageIds.includes(id) ? s.refImageIds : [...s.refImageIds, id]
     })),
+
   removeRefImage: (id) =>
     set((s) => ({ refImageIds: s.refImageIds.filter((i) => i !== id) })),
+
   addRefImagePath: (path) =>
     set((s) => ({
       refImagePaths: s.refImagePaths.includes(path)
         ? s.refImagePaths
         : [...s.refImagePaths, path]
     })),
+
   removeRefImagePath: (path) =>
     set((s) => ({ refImagePaths: s.refImagePaths.filter((p) => p !== path) })),
+
   clearRefImages: () => set({ refImageIds: [], refImagePaths: [] }),
-  setResolution: (resolution) => set({ resolution }),
-  setAspectRatio: (aspectRatio) => set({ aspectRatio }),
-  setSteps: (steps) => set({ steps }),
-  setGuidance: (guidance) => set({ guidance }),
-  setSamplingMethod: (method) => set({ samplingMethod: method }),
-  resetForm: () =>
-    set({
-      prompt: '',
-      refImageIds: [],
-      refImagePaths: [],
-      resolution: GENERATION_DEFAULTS.resolution,
-      aspectRatio: GENERATION_DEFAULTS.aspectRatio,
-      steps: GENERATION_DEFAULTS.steps,
-      guidance: GENERATION_DEFAULTS.guidance,
-      samplingMethod: GENERATION_DEFAULTS.sampling_method
-    }),
+
+  setEndpointKey: (key) => set({ endpointKey: key }),
 
   // Timeline actions
   setGenerations: (generations) => set({ generations }),
+
   addGeneration: (generation) =>
     set((s) => ({ generations: [generation, ...s.generations] })),
+
   updateGeneration: (id, updates) =>
     set((s) => ({
-      generations: s.generations.map((g) =>
-        g.id === id ? { ...g, ...updates } : g
-      )
+      generations: s.generations.map((g) => (g.id === id ? { ...g, ...updates } : g))
     })),
+
   removeGeneration: (id) =>
     set((s) => ({ generations: s.generations.filter((g) => g.id !== id) })),
+
   clearCompleted: () =>
     set((s) => ({
       generations: s.generations.filter((g) => g.status !== 'completed')
@@ -120,36 +112,34 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   setDetailGenerationId: (id) => set({ detailGenerationId: id }),
 
-  // Build generation params
+  // Build generation params — decompose size field into width/height
   buildParams: (): GenerationSubmitInput => {
     const state = get()
-    const ratio = ASPECT_RATIOS.find(
-      (r) => r.label === state.aspectRatio
-    )
-    const ratioW = ratio?.width ?? 1
-    const ratioH = ratio?.height ?? 1
+    const values = { ...state.formValues }
 
-    let width: number, height: number
-    if (ratioW >= ratioH) {
-      width = state.resolution
-      height = Math.round((state.resolution * ratioH) / ratioW)
-    } else {
-      height = state.resolution
-      width = Math.round((state.resolution * ratioW) / ratioH)
+    // Decompose size → width + height
+    if (typeof values.size === 'string' && values.size.includes('*')) {
+      const [w, h] = values.size.split('*').map(Number)
+      values.width = Number.isFinite(w) ? w : 1024
+      values.height = Number.isFinite(h) ? h : 1024
+      delete values.size
+    }
+
+    // Default width/height if somehow missing
+    if (!values.width) values.width = 1024
+    if (!values.height) values.height = 1024
+
+    // Attach reference images
+    if (state.refImageIds.length > 0) {
+      values.ref_image_ids = state.refImageIds
+    }
+    if (state.refImagePaths.length > 0) {
+      values.ref_image_paths = state.refImagePaths
     }
 
     return {
-      endpointKey: 'local.flux2-klein.image',
-      params: {
-        prompt: state.prompt,
-        width,
-        height,
-        steps: state.steps,
-        guidance: state.guidance,
-        sampling_method: state.samplingMethod,
-        ref_image_ids: state.refImageIds.length > 0 ? state.refImageIds : undefined,
-        ref_image_paths: state.refImagePaths.length > 0 ? state.refImagePaths : undefined
-      }
+      endpointKey: state.endpointKey,
+      params: values as GenerationSubmitInput['params']
     }
   }
 }))

@@ -42,6 +42,7 @@ function normalizeProperty(key: string, input: unknown): CanonicalSchemaProperty
       component: typeof ui.component === 'string' ? ui.component : undefined,
       placeholder: typeof ui.placeholder === 'string' ? ui.placeholder : undefined,
       hidden: typeof ui.hidden === 'boolean' ? ui.hidden : undefined,
+      hideLabel: typeof ui.hideLabel === 'boolean' ? ui.hideLabel : undefined,
       transformMap:
         ui.transformMap && typeof ui.transformMap === 'object'
           ? (ui.transformMap as Record<string, unknown>)

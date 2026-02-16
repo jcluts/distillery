@@ -37,6 +37,7 @@ function getDefaults(): AppSettings {
     flash_attn: true,
     vae_on_cpu: false,
     llm_on_cpu: false,
+    confirm_before_delete: true,
     left_panel_open: true,
     left_panel_tab: 'generation',
     left_panel_width: 320,

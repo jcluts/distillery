@@ -4,30 +4,18 @@ import { X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import {
-  ASPECT_RATIOS,
-  RESOLUTION_PRESETS,
-  computeDimensions,
-  type AspectRatioLabel
-} from '@/lib/constants'
+import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
+import { validateFormValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useEngineStore } from '@/stores/engine-store'
 import { useQueueStore } from '@/stores/queue-store'
-import { Progress } from '@/components/ui/progress'
-import { cn } from '@/lib/utils'
 import { useLibraryStore } from '@/stores/library-store'
 import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
+import { DynamicForm } from '@/components/generation/DynamicForm'
 import { ModelSetupWizard } from '@/components/panes/ModelSetupWizard'
+import type { CanonicalEndpointDef } from '@/types'
 
 function extractDroppedFilePaths(e: React.DragEvent): string[] {
   type ElectronLikeFile = File & { path?: string }
@@ -35,10 +23,6 @@ function extractDroppedFilePaths(e: React.DragEvent): string[] {
   return files
     .map((f) => (f as ElectronLikeFile).path)
     .filter((p): p is string => typeof p === 'string' && p.length > 0)
-}
-
-function isAspectRatioLabel(value: string): value is AspectRatioLabel {
-  return ASPECT_RATIOS.some((ratio) => ratio.label === value)
 }
 
 function RefThumb({ src, label }: { src: string | null; label: string }): React.JSX.Element {
@@ -63,21 +47,22 @@ function RefThumb({ src, label }: { src: string | null; label: string }): React.
 
 export function GenerationPane(): React.JSX.Element {
   const [isUnloadingModel, setIsUnloadingModel] = React.useState(false)
+  const [endpoint, setEndpoint] = React.useState<CanonicalEndpointDef | null>(null)
+  const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({})
+  const fieldsRef = React.useRef<FormFieldConfig[]>([])
 
   const filesByModelId = useModelStore((s) => s.filesByModelId)
   const anyModelReady = Object.values(filesByModelId).some((f) => f.isReady)
 
-  const prompt = useGenerationStore((s) => s.prompt)
-  const setPrompt = useGenerationStore((s) => s.setPrompt)
+  const formValues = useGenerationStore((s) => s.formValues)
+  const setFormValue = useGenerationStore((s) => s.setFormValue)
+  const setFormValues = useGenerationStore((s) => s.setFormValues)
+  const endpointKey = useGenerationStore((s) => s.endpointKey)
   const refImageIds = useGenerationStore((s) => s.refImageIds)
   const addRefImage = useGenerationStore((s) => s.addRefImage)
   const removeRefImage = useGenerationStore((s) => s.removeRefImage)
   const refImagePaths = useGenerationStore((s) => s.refImagePaths)
   const removeRefImagePath = useGenerationStore((s) => s.removeRefImagePath)
-  const resolution = useGenerationStore((s) => s.resolution)
-  const setResolution = useGenerationStore((s) => s.setResolution)
-  const aspectRatio = useGenerationStore((s) => s.aspectRatio)
-  const setAspectRatio = useGenerationStore((s) => s.setAspectRatio)
   const buildParams = useGenerationStore((s) => s.buildParams)
   const addGeneration = useGenerationStore((s) => s.addGeneration)
 
@@ -95,11 +80,18 @@ export function GenerationPane(): React.JSX.Element {
 
   const generations = useGenerationStore((s) => s.generations)
 
-  const ratio = ASPECT_RATIOS.find((r) => r.label === aspectRatio) ?? ASPECT_RATIOS[0]
-  const dims = computeDimensions(resolution, ratio.width, ratio.height)
+  // Fetch the endpoint schema on mount / when endpoint key changes
+  React.useEffect(() => {
+    let cancelled = false
+    window.api.getGenerationEndpointSchema(endpointKey).then((ep) => {
+      if (!cancelled && ep) setEndpoint(ep)
+    })
+    return () => { cancelled = true }
+  }, [endpointKey])
 
-  const params = buildParams()
-  const generateDisabled = !engineCanGenerate || !params.params.prompt.trim()
+  const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
+  const generateDisabled = !engineCanGenerate || !prompt.trim()
+
   const visibleQueueItems = React.useMemo(
     () => queueItems.filter((q) => q.status === 'pending' || q.status === 'processing'),
     [queueItems]
@@ -133,6 +125,51 @@ export function GenerationPane(): React.JSX.Element {
       ? Math.round((activeStep / activeTotalSteps) * 100)
       : 0
 
+  // Callbacks for DynamicForm
+  const handleFieldChange = React.useCallback(
+    (key: string, value: unknown) => {
+      setFormValue(key, value)
+      setValidationErrors((prev) => {
+        if (!prev[key]) return prev
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+    },
+    [setFormValue]
+  )
+
+  const handleSetDefaults = React.useCallback(
+    (defaults: Record<string, unknown>) => {
+      setFormValues(defaults)
+    },
+    [setFormValues]
+  )
+
+  const handleFieldsChange = React.useCallback((fields: FormFieldConfig[]) => {
+    fieldsRef.current = fields
+  }, [])
+
+  const handleSubmit = React.useCallback(async () => {
+    // Validate
+    const errors = validateFormValues(fieldsRef.current, formValues)
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+
+    const built = buildParams()
+    if (!built.params.prompt?.trim()) return
+
+    const genId = await window.api.submitGeneration(built)
+    try {
+      const gen = await window.api.timeline.get(genId)
+      if (gen) addGeneration(gen)
+    } catch {
+      // ignore
+    }
+  }, [formValues, buildParams, addGeneration])
+
   if (!anyModelReady) {
     return (
       <div className="space-y-4">
@@ -145,6 +182,7 @@ export function GenerationPane(): React.JSX.Element {
     <div className="space-y-4">
       <ModelSelector />
 
+      {/* Engine status */}
       <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
         <Badge
           variant="secondary"
@@ -175,17 +213,22 @@ export function GenerationPane(): React.JSX.Element {
         </Button>
       </div>
 
-      <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Prompt</div>
-        <Textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Describe what you want to see..."
-          className="resize-y"
-          data-focus-prompt="true"
+      {/* Dynamic form — prompt, size, steps, guidance, etc. */}
+      {endpoint ? (
+        <DynamicForm
+          endpoint={endpoint}
+          values={formValues}
+          validationErrors={validationErrors}
+          onChange={handleFieldChange}
+          onSetDefaults={handleSetDefaults}
+          onFieldsChange={handleFieldsChange}
+          disabled={false}
         />
-      </div>
+      ) : (
+        <div className="py-4 text-center text-sm text-muted-foreground">Loading schema…</div>
+      )}
 
+      {/* Reference images */}
       <div className="space-y-2">
         <div className="text-xs font-medium text-muted-foreground">Reference images</div>
         <div
@@ -273,65 +316,17 @@ export function GenerationPane(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="text-xs font-medium text-muted-foreground">Resolution</div>
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={String(resolution)} onValueChange={(v) => setResolution(Number(v))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Resolution" />
-            </SelectTrigger>
-            <SelectContent>
-              {RESOLUTION_PRESETS.map((p) => (
-                <SelectItem key={p.value} value={String(p.value)}>
-                  {p.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex items-center justify-end">
-            <Badge variant="secondary" className="tabular-nums">
-              {dims.width} × {dims.height}
-            </Badge>
-          </div>
-        </div>
-
-        <div className="text-xs font-medium text-muted-foreground">Aspect ratio</div>
-        <ToggleGroup
-          type="single"
-          value={aspectRatio}
-          onValueChange={(v) => {
-            if (v && isAspectRatioLabel(v)) setAspectRatio(v)
-          }}
-          className="flex flex-wrap justify-start"
-        >
-          {ASPECT_RATIOS.map((r) => (
-            <ToggleGroupItem key={r.label} value={r.label} size="sm">
-              {r.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
-
+      {/* Generate button */}
       <Button
         type="button"
         className="w-full"
         disabled={generateDisabled}
-        onClick={async () => {
-          const built = buildParams()
-          if (!built.params.prompt.trim()) return
-          const genId = await window.api.submitGeneration(built)
-          try {
-            const gen = await window.api.timeline.get(genId)
-            if (gen) addGeneration(gen)
-          } catch {
-            // ignore
-          }
-        }}
+        onClick={handleSubmit}
       >
         Generate
       </Button>
 
+      {/* Queue / progress */}
       {showQueue ? (
         <Card className="p-3">
           {isModelLoading ? (

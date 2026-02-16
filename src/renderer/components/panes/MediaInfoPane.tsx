@@ -1,6 +1,26 @@
 import * as React from 'react'
-import { CircleCheck, CircleMinus, CircleX, ClipboardCopy, ExternalLink, FolderOpen, Star, Trash2, X } from 'lucide-react'
+import {
+  CircleCheck,
+  CircleMinus,
+  CircleX,
+  ClipboardCopy,
+  ExternalLink,
+  FolderOpen,
+  Star,
+  Trash2,
+  X
+} from 'lucide-react'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -90,11 +110,7 @@ function KeywordEditor({
       {keywords.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {keywords.map((kw) => (
-            <Badge
-              key={kw}
-              variant="secondary"
-              className="gap-1 pr-1 text-xs"
-            >
+            <Badge key={kw} variant="secondary" className="gap-1 pr-1 text-xs">
               {kw}
               <button
                 type="button"
@@ -133,8 +149,10 @@ export function MediaInfoPane(): React.JSX.Element {
   const buildQuery = useLibraryStore((s) => s.buildQuery)
   const setItems = useLibraryStore((s) => s.setItems)
   const removeItems = useLibraryStore((s) => s.removeItems)
+  const selectSingle = useLibraryStore((s) => s.selectSingle)
 
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
   // Keyword state fetched from the normalized tables
   const [keywords, setKeywords] = React.useState<string[]>([])
@@ -187,13 +205,32 @@ export function MediaInfoPane(): React.JSX.Element {
     if (media?.id) window.api.copyMediaToClipboard(media.id)
   }, [media?.id])
 
-  const handleDelete = React.useCallback(async () => {
+  const executeDelete = React.useCallback(async () => {
     if (!media?.id) return
+    // Determine next item to select before removing
+    const idx = items.findIndex((m) => m.id === media.id)
+    const nextItem = items[idx + 1] ?? items[idx - 1] ?? null
+
     await window.api.deleteMedia([media.id])
     removeItems([media.id])
+
+    if (nextItem) {
+      selectSingle(nextItem.id)
+    }
+
     const page = await window.api.getMedia(buildQuery())
     setItems(page)
-  }, [media?.id, removeItems, buildQuery, setItems])
+  }, [media?.id, items, removeItems, selectSingle, buildQuery, setItems])
+
+  const handleDelete = React.useCallback(async () => {
+    if (!media?.id) return
+    const settings = await window.api.getSettings()
+    if (settings.confirm_before_delete) {
+      setDeleteDialogOpen(true)
+    } else {
+      void executeDelete()
+    }
+  }, [media?.id, executeDelete])
 
   return (
     <div className="space-y-4">
@@ -277,11 +314,13 @@ export function MediaInfoPane(): React.JSX.Element {
           <Separator />
 
           <div className="space-y-2">
-            <div className="text-xs font-semibold tracking-wider text-muted-foreground">ACTIONS</div>
+            <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+              ACTIONS
+            </div>
             <div className="flex flex-wrap gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="size-7" onClick={handleShowInFolder}>
+                  <Button variant="outline" size="icon" onClick={handleShowInFolder}>
                     <FolderOpen className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
@@ -289,7 +328,7 @@ export function MediaInfoPane(): React.JSX.Element {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="size-7" onClick={handleOpenInApp}>
+                  <Button variant="outline" size="icon" onClick={handleOpenInApp}>
                     <ExternalLink className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
@@ -297,7 +336,7 @@ export function MediaInfoPane(): React.JSX.Element {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="size-7" onClick={handleCopyToClipboard}>
+                  <Button variant="outline" size="icon" onClick={handleCopyToClipboard}>
                     <ClipboardCopy className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
@@ -305,7 +344,12 @@ export function MediaInfoPane(): React.JSX.Element {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="size-7 text-destructive hover:bg-destructive/10" onClick={handleDelete}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => void handleDelete()}
+                  >
                     <Trash2 className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
@@ -315,6 +359,26 @@ export function MediaInfoPane(): React.JSX.Element {
           </div>
         </>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete image?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the file from disk. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void executeDelete()}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Separator />
 

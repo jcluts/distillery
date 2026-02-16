@@ -201,6 +201,7 @@ export interface CanonicalSchemaProperty {
     component?: string
     placeholder?: string
     hidden?: boolean
+    hideLabel?: boolean
     transformMap?: Record<string, unknown>
   }
 }
@@ -289,6 +290,7 @@ export interface AppSettings {
   flash_attn: boolean
   vae_on_cpu: boolean
   llm_on_cpu: boolean
+  confirm_before_delete: boolean
   left_panel_open: boolean
   left_panel_tab: string
   left_panel_width: number

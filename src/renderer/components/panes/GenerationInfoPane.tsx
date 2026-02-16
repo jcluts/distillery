@@ -8,36 +8,6 @@ import { useGenerationStore } from '@/stores/generation-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
 import type { GenerationInput, GenerationRecord } from '@/types'
-import { ASPECT_RATIOS, RESOLUTION_PRESETS, type AspectRatioLabel } from '@/lib/constants'
-
-function pickAspectRatioLabel(width: number, height: number): AspectRatioLabel {
-  const target = width / height
-  let best: (typeof ASPECT_RATIOS)[number] = ASPECT_RATIOS[0]!
-  let bestDiff = Infinity
-  for (const r of ASPECT_RATIOS) {
-    const ratio = r.width / r.height
-    const diff = Math.abs(ratio - target)
-    if (diff < bestDiff) {
-      best = r
-      bestDiff = diff
-    }
-  }
-  return best.label
-}
-
-function pickResolution(longEdge: number): number {
-  const values = RESOLUTION_PRESETS.map((p) => p.value)
-  let best = values[0] ?? longEdge
-  let bestDiff = Infinity
-  for (const v of values) {
-    const diff = Math.abs(v - longEdge)
-    if (diff < bestDiff) {
-      best = v
-      bestDiff = diff
-    }
-  }
-  return best
-}
 
 export function GenerationInfoPane(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
@@ -45,12 +15,7 @@ export function GenerationInfoPane(): React.JSX.Element {
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
 
   const generations = useGenerationStore((s) => s.generations)
-  const setPrompt = useGenerationStore((s) => s.setPrompt)
-  const setResolution = useGenerationStore((s) => s.setResolution)
-  const setAspectRatio = useGenerationStore((s) => s.setAspectRatio)
-  const setSteps = useGenerationStore((s) => s.setSteps)
-  const setGuidance = useGenerationStore((s) => s.setGuidance)
-  const setSamplingMethod = useGenerationStore((s) => s.setSamplingMethod)
+  const setFormValues = useGenerationStore((s) => s.setFormValues)
   const setDetailGenerationId = useGenerationStore((s) => s.setDetailGenerationId)
 
   const openModal = useUIStore((s) => s.openModal)
@@ -165,7 +130,8 @@ export function GenerationInfoPane(): React.JSX.Element {
       <div className="space-y-2">
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
+          size="sm"
           className="w-full"
           disabled={!gen}
           onClick={() => {
@@ -178,22 +144,20 @@ export function GenerationInfoPane(): React.JSX.Element {
         </Button>
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
+          size="sm"
           className="w-full"
           disabled={!gen}
           onClick={() => {
             if (!gen) return
             setLeftPanelTab('generation')
-            setPrompt(gen.prompt ?? '')
-
-            if (gen.width && gen.height) {
-              const longEdge = Math.max(gen.width, gen.height)
-              setResolution(pickResolution(longEdge))
-              setAspectRatio(pickAspectRatioLabel(gen.width, gen.height))
-            }
-            if (gen.steps != null) setSteps(gen.steps)
-            if (gen.guidance != null) setGuidance(gen.guidance)
-            if (gen.sampling_method) setSamplingMethod(gen.sampling_method)
+            const vals: Record<string, unknown> = {}
+            if (gen.prompt) vals.prompt = gen.prompt
+            if (gen.width && gen.height) vals.size = `${gen.width}*${gen.height}`
+            if (gen.steps != null) vals.steps = gen.steps
+            if (gen.guidance != null) vals.guidance = gen.guidance
+            if (gen.sampling_method) vals.sampling_method = gen.sampling_method
+            setFormValues(vals)
           }}
         >
           Reload Settings
