@@ -197,11 +197,15 @@ export function LocalSizeSelector({
             <Button
               key={preset.mp}
               type="button"
-              variant={resolution.mp === preset.mp ? 'secondary' : 'outline'}
+              variant="outline"
               size="sm"
               onClick={() => handleResolution(preset)}
               disabled={disabled}
-              className="h-8 px-0 text-xs w-full"
+              className={
+                resolution.mp === preset.mp
+                  ? 'h-8 px-0 text-xs w-full border-primary/50 bg-primary/10'
+                  : 'h-8 px-0 text-xs w-full'
+              }
             >
               {formatMP(preset.mp)} MP
             </Button>
@@ -217,13 +221,15 @@ export function LocalSizeSelector({
             <Button
               key={ar.label}
               type="button"
-              variant={
-                aspect.w === ar.w && aspect.h === ar.h ? 'secondary' : 'outline'
-              }
+              variant="outline"
               size="sm"
               onClick={() => handleAspect(ar)}
               disabled={disabled}
-              className="h-8 px-0 gap-1 text-xs w-full"
+              className={
+                aspect.w === ar.w && aspect.h === ar.h
+                  ? 'h-8 px-0 text-xs w-full border-primary/50 bg-primary/10'
+                  : 'h-8 px-0 text-xs w-full'
+              }
             >
               <AspectIcon ratio={ar.label} />
               {ar.label}
