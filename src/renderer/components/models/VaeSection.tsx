@@ -4,6 +4,7 @@ import { Check, Clock3, Download, Trash2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { SectionHeader } from '@/components/ui/section-header'
 import type { DownloadProgressEvent, ModelFileRef } from '@/types'
 import { formatApproxSize, toPercent } from './utils'
 
@@ -31,7 +32,7 @@ export function VaeSection({
 
   return (
     <div className="space-y-1.5">
-      <div className="text-xs font-semibold tracking-wider text-muted-foreground">VAE</div>
+      <SectionHeader>VAE</SectionHeader>
 
       <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-1.5">
         <span className="text-sm font-medium">{vae.file.split('/').pop() ?? vae.file}</span>

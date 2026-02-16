@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
+import { SectionLabel } from '@/components/ui/section-label'
 
 // ---------------------------------------------------------------------------
 // Aspect ratio icon — compact visual indicator
@@ -191,7 +192,7 @@ export function LocalSizeSelector({
     <div className="space-y-3">
       {/* Resolution presets */}
       <div>
-        <div className="text-xs text-muted-foreground mb-1.5">Resolution</div>
+        <SectionLabel className="mb-1.5">Resolution</SectionLabel>
         <div className="grid grid-cols-5 gap-1">
           {availableResolutions.map((preset) => (
             <Button
@@ -214,7 +215,7 @@ export function LocalSizeSelector({
 
       {/* Aspect ratio presets */}
       <div>
-        <div className="text-xs text-muted-foreground mb-1.5">Aspect Ratio</div>
+        <SectionLabel className="mb-1.5">Aspect Ratio</SectionLabel>
         <div className="grid grid-cols-5 gap-1">
           {ASPECT_RATIOS.map((ar) => (
             <Button

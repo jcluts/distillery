@@ -37,14 +37,14 @@ const LEFT_TABS: SidebarTabConfig<LeftPanelTab>[] = [
   {
     tab: 'generation',
     label: 'Generate',
-    title: 'GENERATION',
+    title: 'Generation',
     icon: Sparkles,
     content: <GenerationPane />
   },
   {
     tab: 'timeline',
     label: 'Timeline',
-    title: 'TIMELINE',
+    title: 'Timeline',
     icon: Clock,
     content: <TimelinePane />,
     headerActions: <TimelineHeaderActions />
@@ -52,7 +52,7 @@ const LEFT_TABS: SidebarTabConfig<LeftPanelTab>[] = [
   {
     tab: 'import',
     label: 'Import',
-    title: 'IMPORT',
+    title: 'Import',
     icon: Download,
     content: <ImportPane />
   }

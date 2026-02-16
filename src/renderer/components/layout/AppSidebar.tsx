@@ -1,6 +1,8 @@
 import * as React from 'react'
 import { type LucideIcon } from 'lucide-react'
 
+import { SectionHeader } from '@/components/ui/section-header'
+
 import {
   Sidebar,
   SidebarContent,
@@ -123,9 +125,7 @@ export function AppSidebar<T extends string>({
         <Sidebar side={side} collapsible="none" className="hidden min-w-0 flex-1 border-0 md:flex">
           <SidebarHeader className="h-10 border-b px-3">
             <div className="flex h-full items-center justify-between gap-2">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
-                {activeConfig?.title}
-              </div>
+              <SectionHeader>{activeConfig?.title}</SectionHeader>
               {activeConfig?.headerActions}
             </div>
           </SidebarHeader>

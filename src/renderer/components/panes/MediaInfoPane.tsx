@@ -27,6 +27,8 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SectionLabel } from '@/components/ui/section-label'
+import { InfoTable } from '@/components/ui/info-table'
 import { useLibraryStore } from '@/stores/library-store'
 import { cn } from '@/lib/utils'
 
@@ -235,7 +237,7 @@ export function MediaInfoPane(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Rating</div>
+        <SectionLabel>Rating</SectionLabel>
         <StarRating
           rating={media?.rating ?? 0}
           onChange={(r) => {
@@ -246,7 +248,7 @@ export function MediaInfoPane(): React.JSX.Element {
       </div>
 
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Status</div>
+        <SectionLabel>Status</SectionLabel>
         <ToggleGroup
           type="single"
           value={media?.status ?? 'unmarked'}
@@ -260,7 +262,7 @@ export function MediaInfoPane(): React.JSX.Element {
           <Tooltip>
             <TooltipTrigger asChild>
               <ToggleGroupItem value="selected" size="sm" aria-label="Selected">
-                <CircleCheck className="size-4" />
+                <CircleCheck className="size-6 text-muted-foreground" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Selected</TooltipContent>
@@ -268,7 +270,7 @@ export function MediaInfoPane(): React.JSX.Element {
           <Tooltip>
             <TooltipTrigger asChild>
               <ToggleGroupItem value="rejected" size="sm" aria-label="Rejected">
-                <CircleX className="size-4" />
+                <CircleX className="size-6 text-muted-foreground" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Rejected</TooltipContent>
@@ -276,7 +278,7 @@ export function MediaInfoPane(): React.JSX.Element {
           <Tooltip>
             <TooltipTrigger asChild>
               <ToggleGroupItem value="unmarked" size="sm" aria-label="Clear status">
-                <CircleMinus className="size-4" />
+                <CircleMinus className="size-6 text-muted-foreground" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Clear</TooltipContent>
@@ -284,39 +286,46 @@ export function MediaInfoPane(): React.JSX.Element {
         </ToggleGroup>
       </div>
 
-      <Separator />
-
       <div className="space-y-2">
-        <div className="text-xs font-semibold tracking-wider text-muted-foreground">FILE INFO</div>
-        <div className="space-y-1 text-sm">
-          <div className="truncate">{media?.file_name ?? 'No selection'}</div>
-          <div className="text-xs text-muted-foreground">
-            {media?.width && media?.height ? `${media.width} × ${media.height}` : '—'}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {media?.file_size ? `${(media.file_size / (1024 * 1024)).toFixed(1)} MB` : '—'}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {media?.created_at ? new Date(media.created_at).toLocaleString() : '—'}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {media?.origin ? (
-              <Badge variant="secondary">{media.origin}</Badge>
-            ) : (
-              <Badge variant="outline">—</Badge>
-            )}
-          </div>
-        </div>
+        <SectionLabel>File Info</SectionLabel>
+        <InfoTable
+          items={[
+            { label: 'Name', value: media?.file_name ?? '—' },
+            {
+              label: 'Date',
+              value: media?.created_at ? new Date(media.created_at).toLocaleString() : '—'
+            },
+            {
+              label: 'Size',
+              value: media?.file_size ? `${(media.file_size / (1024 * 1024)).toFixed(2)} MB` : '—'
+            },
+            {
+              label: 'Format',
+              value: media?.file_name
+                ? (media.file_name.split('.').pop()?.toUpperCase() ?? '—')
+                : '—'
+            },
+            {
+              label: 'Dimensions',
+              value: media?.width && media?.height ? `${media.width} × ${media.height}` : '—'
+            },
+            {
+              label: 'Megapixels',
+              value:
+                media?.width && media?.height
+                  ? `${((media.width * media.height) / 1_000_000).toFixed(1)} MP`
+                  : '—'
+            },
+            { label: 'Origin', value: media?.origin ?? '—' }
+          ]}
+        />
       </div>
 
       {media && (
         <>
-          <Separator />
 
           <div className="space-y-2">
-            <div className="text-xs font-semibold tracking-wider text-muted-foreground">
-              ACTIONS
-            </div>
+            <SectionLabel>Actions</SectionLabel>
             <div className="flex flex-wrap gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -380,10 +389,8 @@ export function MediaInfoPane(): React.JSX.Element {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Separator />
-
       <div className="space-y-2">
-        <div className="text-xs font-semibold tracking-wider text-muted-foreground">KEYWORDS</div>
+        <SectionLabel>Keywords</SectionLabel>
         {media ? (
           <KeywordEditor
             mediaId={media.id}
