@@ -52,7 +52,26 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
     }
   )
 
-  ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_MEDIA, (_event, ids: string[]) => {
+  ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_MEDIA, async (_event, ids: string[]) => {
+    // Collect file paths before deleting DB records
+    for (const id of ids) {
+      const media = mediaRepo.getMediaById(db, id)
+      if (!media) continue
+      const absFile = fileManager.resolve(media.file_path)
+      const absThumb = media.thumb_path ? fileManager.resolve(media.thumb_path) : null
+      try {
+        await fs.promises.unlink(absFile)
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') console.error('[Library] Failed to delete file:', absFile, err)
+      }
+      if (absThumb) {
+        try {
+          await fs.promises.unlink(absThumb)
+        } catch (err: any) {
+          if (err.code !== 'ENOENT') console.error('[Library] Failed to delete thumbnail:', absThumb, err)
+        }
+      }
+    }
     mediaRepo.deleteMedia(db, ids)
     onLibraryUpdated?.()
   })

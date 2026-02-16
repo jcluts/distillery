@@ -163,7 +163,8 @@ export function SettingsModal(): React.JSX.Element {
         offload_to_cpu: draft.offload_to_cpu,
         flash_attn: draft.flash_attn,
         vae_on_cpu: draft.vae_on_cpu,
-        llm_on_cpu: draft.llm_on_cpu
+        llm_on_cpu: draft.llm_on_cpu,
+        confirm_before_delete: draft.confirm_before_delete
       }
 
       await window.api.saveSettings(updates)
@@ -265,6 +266,20 @@ export function SettingsModal(): React.JSX.Element {
                 label="LLM on CPU"
                 value={draft?.llm_on_cpu ?? false}
                 onChange={(v) => update('llm_on_cpu', v)}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+                BEHAVIOR
+              </div>
+
+              <BoolField
+                label="Confirm before delete"
+                value={draft?.confirm_before_delete ?? true}
+                onChange={(v) => update('confirm_before_delete', v)}
               />
             </div>
 
