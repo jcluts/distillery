@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Progress } from '@/components/ui/progress'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SectionHeader } from '@/components/ui/section-header'
 import type { DownloadProgressEvent, QuantVariant } from '@/types'
 import { formatApproxSize, toPercent } from './utils'
 import { cn } from '@/lib/utils'
@@ -54,9 +55,9 @@ export function QuantSection({
       {/* Summary row — always visible */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold tracking-wider text-muted-foreground">
+          <SectionHeader>
             {label.toUpperCase()}
-          </span>
+          </SectionHeader>
           <CollapsibleTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs">
               {open ? 'Collapse' : 'Change'}

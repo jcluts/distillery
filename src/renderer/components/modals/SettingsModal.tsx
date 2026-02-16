@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { SectionHeader } from '@/components/ui/section-header'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui-store'
 import type { AppSettings, SettingsUpdate } from '@/types'
@@ -197,9 +198,9 @@ export function SettingsModal(): React.JSX.Element {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-4">
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+              <SectionHeader>
                 PATHS
-              </div>
+              </SectionHeader>
 
               <PathField
                 label="Library root"
@@ -240,9 +241,9 @@ export function SettingsModal(): React.JSX.Element {
 
           <div className="space-y-4">
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+              <SectionHeader>
                 ENGINE FLAGS
-              </div>
+              </SectionHeader>
 
               <BoolField
                 label="Offload to CPU"
@@ -272,9 +273,9 @@ export function SettingsModal(): React.JSX.Element {
             <Separator />
 
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+              <SectionHeader>
                 BEHAVIOR
-              </div>
+              </SectionHeader>
 
               <BoolField
                 label="Confirm before delete"

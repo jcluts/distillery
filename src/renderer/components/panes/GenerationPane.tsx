@@ -10,6 +10,7 @@ import { useEngineStore } from '@/stores/engine-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
+import { SectionLabel } from '@/components/ui/section-label'
 import { DynamicForm } from '@/components/generation/DynamicForm'
 import { GenerationStatus } from '@/components/generation/GenerationStatus'
 import { ModelSetupWizard } from '@/components/panes/ModelSetupWizard'
@@ -139,7 +140,7 @@ export function GenerationPane(): React.JSX.Element {
 
       {/* Reference images */}
       <div className="space-y-2">
-        <div className="text-xs text-muted-foreground">Reference images</div>
+        <SectionLabel>Reference images</SectionLabel>
         <div
           className={cn(
             'rounded-lg border border-dashed bg-background p-3',
@@ -227,7 +228,7 @@ export function GenerationPane(): React.JSX.Element {
 
       {/* Prompt */}
       <div className="space-y-2">
-        <div className="text-xs text-muted-foreground">Prompt</div>
+        <SectionLabel>Prompt</SectionLabel>
         <Textarea
           data-focus-prompt="true"
           placeholder="Describe what you want to generate…"

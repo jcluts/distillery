@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { SectionLabel } from '@/components/ui/section-label'
 import { useModelStore } from '@/stores/model-store'
 import { useUIStore } from '@/stores/ui-store'
 
@@ -30,7 +31,7 @@ export function ModelSelector(): React.JSX.Element {
 
   return (
     <div className="space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Model</div>
+      <SectionLabel>Model</SectionLabel>
       <Select
         value={activeModelId || undefined}
         onValueChange={(value) => {
