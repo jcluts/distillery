@@ -64,7 +64,7 @@ export function AppSidebar<T extends string>({
       style={
         {
           '--sidebar-width': `${width}px`,
-          '--sidebar-width-icon': '3.25rem'
+          '--sidebar-width-icon': '3rem'
         } as React.CSSProperties
       }
     >

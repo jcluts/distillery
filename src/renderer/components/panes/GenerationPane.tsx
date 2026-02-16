@@ -25,7 +25,7 @@ function extractDroppedFilePaths(e: React.DragEvent): string[] {
 
 function RefThumb({ src, label }: { src: string | null; label: string }): React.JSX.Element {
   return (
-    <div className="relative overflow-hidden rounded-md border bg-muted">
+    <div className="relative overflow-hidden rounded-lg border bg-muted">
       <div className="aspect-square w-16" />
       {src ? (
         <img
@@ -142,7 +142,7 @@ export function GenerationPane(): React.JSX.Element {
         <div className="text-xs text-muted-foreground">Reference images</div>
         <div
           className={cn(
-            'rounded-md border border-dashed bg-background p-3',
+            'rounded-lg border border-dashed bg-background p-3',
             refImagePaths.length === 0 && refImageIds.length === 0 ? 'text-muted-foreground' : ''
           )}
           onDragOver={(e) => e.preventDefault()}

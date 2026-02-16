@@ -183,7 +183,7 @@ export function SettingsModal(): React.JSX.Element {
         if (!next) close()
       }}
     >
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <SettingsIcon className="size-5" />
