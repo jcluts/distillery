@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { type LucideIcon } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider
-} from '@renderer/components/ui/sidebar_new'
+} from '@/components/ui/sidebar'
 
 // -----------------------------------------------------------------------------
 // Types
@@ -55,11 +54,13 @@ export function AppSidebar<T extends string>({
 }: AppSidebarProps<T>): React.JSX.Element {
   const isLeft = side === 'left'
   const activeConfig = tabs.find((t) => t.tab === activeTab)
+  const titlebarOffset = '2.5rem'
 
   return (
     <SidebarProvider
       open={open}
       onOpenChange={onOpenChange}
+      className="h-full min-h-0 w-auto shrink-0"
       style={
         {
           '--sidebar-width': `${width}px`,
@@ -70,18 +71,26 @@ export function AppSidebar<T extends string>({
       <Sidebar
         side={side}
         collapsible="icon"
+        style={{
+          top: titlebarOffset,
+          bottom: 'auto',
+          height: `calc(100svh - ${titlebarOffset})`
+        }}
         className={
-          isLeft ? '*:data-[sidebar=sidebar]:flex-row' : '*:data-[sidebar=sidebar]:flex-row-reverse'
+          isLeft
+            ? 'overflow-hidden *:data-[sidebar=sidebar]:flex-row border-r-0'
+            : 'overflow-hidden *:data-[sidebar=sidebar]:flex-row-reverse border-l border-r-0'
         }
       >
-        {/* Icon rail — always visible, never collapses */}
+        {/* Icon rail */}
         <Sidebar
           side={side}
           collapsible="none"
-          className={cn(
-            'w-[calc(var(--sidebar-width-icon)+1px)]!',
-            isLeft ? 'border-r' : 'border-l border-r-0'
-          )}
+          className={
+            isLeft
+              ? 'w-[calc(var(--sidebar-width-icon)+1px)]! border-r'
+              : 'w-[calc(var(--sidebar-width-icon)+1px)]! border-l border-r-0'
+          }
         >
           <SidebarContent>
             <SidebarGroup className="p-1.5">
@@ -110,8 +119,8 @@ export function AppSidebar<T extends string>({
           </SidebarContent>
         </Sidebar>
 
-        {/* Content panel — fills remaining width, hidden when collapsed */}
-        <Sidebar side={side} collapsible="none" className="min-w-0 flex-1 border-0">
+        {/* Content panel */}
+        <Sidebar side={side} collapsible="none" className="hidden min-w-0 flex-1 border-0 md:flex">
           <SidebarHeader className="h-10 border-b px-3">
             <div className="flex h-full items-center justify-between gap-2">
               <div className="text-xs font-semibold tracking-wider text-muted-foreground">

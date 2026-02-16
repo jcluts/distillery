@@ -68,7 +68,7 @@ export function TitleBar(): React.JSX.Element {
   return (
     <div
       className={cn(
-        'flex items-center border-b border-sidebar-border bg-sidebar pl-3 text-sidebar-foreground py-0.5'
+        'h-10 flex items-center border-b border-sidebar-border bg-sidebar pl-3 text-sidebar-foreground'
       )}
       style={
         {
