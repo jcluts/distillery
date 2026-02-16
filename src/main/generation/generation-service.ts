@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto'
 import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import Database from 'better-sqlite3'
@@ -53,6 +54,12 @@ export class GenerationService extends EventEmitter {
     }
 
     this.validateParams(input.params)
+
+    // Resolve seed upfront so it's captured in the generation record from the start.
+    // If the user left seed empty, generate a random one now rather than deferring
+    // to the engine — this makes the seed viewable and reloadable immediately.
+    const resolvedSeed = this.resolveOrGenerateSeed(input.params.seed)
+    input.params.seed = resolvedSeed
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
@@ -201,5 +208,20 @@ export class GenerationService extends EventEmitter {
     if (value === null || value === undefined) return null
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : null
+  }
+
+  /**
+   * If seed is null/undefined/empty, generate a random seed.
+   * Uses the range 0–2^31-1 for broad engine compatibility.
+   */
+  private resolveOrGenerateSeed(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+      return value
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed) && parsed >= 0) return parsed
+    }
+    return randomInt(0, 2_147_483_647)
   }
 }
