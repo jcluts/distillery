@@ -47,7 +47,6 @@ Distillery is a desktop application for local AI image generation and media mana
 
 **shadcn/ui config:** Radix Nova style, neutral base color, cyan theme (`oklch(0.71 0.13 215)`), `0.45rem` radius, Inter font.
 
-
 **Important:** Always use `npx shadcn@latest add [component]` for installing Shadcn components.
 
 **Path aliases:** `@` / `@renderer` → `src/renderer/`, `@main` → `src/main/`.
