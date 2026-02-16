@@ -48,7 +48,7 @@ export function ModelSelector(): React.JSX.Element {
           void setActiveModel(value)
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
         <SelectContent>
