@@ -42,6 +42,9 @@ const TEXTAREA_FIELDS = ['prompt', 'negative_prompt']
 // Internal fields that should never appear in the form
 const INTERNAL_FIELDS = ['ref_image_ids', 'ref_image_paths']
 
+// Fields managed outside the dynamic form (rendered directly by the pane)
+const PANE_MANAGED_FIELDS = ['prompt']
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -57,8 +60,8 @@ export function schemaToFormFields(
   const fields: FormFieldConfig[] = []
 
   for (const [name, prop] of Object.entries(properties)) {
-    // Skip fields marked as internal via ui.component
-    if (prop.ui?.component === 'internal' || INTERNAL_FIELDS.includes(name)) {
+    // Skip fields managed externally or marked as internal
+    if (prop.ui?.component === 'internal' || INTERNAL_FIELDS.includes(name) || PANE_MANAGED_FIELDS.includes(name)) {
       continue
     }
 
