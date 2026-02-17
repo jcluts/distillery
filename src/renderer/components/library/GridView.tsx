@@ -69,45 +69,48 @@ export function GridView(): React.JSX.Element {
 
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [columnCount, setColumnCount] = React.useState(0)
+  const [contentWidth, setContentWidth] = React.useState(0)
   const layoutReady = columnCount > 0
 
-  // Compute column count from container width + thumbnail size
+  // Compute column count and content width from container size + thumbnail size
   React.useEffect(() => {
     const el = scrollRef.current
     if (!el) return
 
-    const computeColumns = (): void => {
+    const measure = (): void => {
       const width = el.clientWidth - 24 // subtract p-3 padding (12px each side)
-      // CSS auto-fill minmax logic: how many columns of at least thumbnailSize fit?
       const cols = Math.max(1, Math.floor((width + GRID_GAP) / (thumbnailSize + GRID_GAP)))
+      setContentWidth(width)
       setColumnCount(cols)
     }
 
-    computeColumns()
+    measure()
 
-    const observer = new ResizeObserver(computeColumns)
+    const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
   }, [thumbnailSize])
 
   const rowCount = layoutReady ? Math.ceil(items.length / columnCount) : 0
 
-  // Each row height = the actual cell height (which is width-based due to aspect-square)
-  // With auto-fill minmax, each column is >= thumbnailSize. Compute actual column width:
-  const estimateRowHeight = React.useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return thumbnailSize + GRID_GAP
-    const width = el.clientWidth - 24
-    const colWidth = (width - GRID_GAP * (columnCount - 1)) / columnCount
+  // Row height derived purely from state — no DOM reads in estimateSize
+  const rowHeight = React.useMemo(() => {
+    if (!layoutReady || contentWidth <= 0) return thumbnailSize + GRID_GAP
+    const colWidth = (contentWidth - GRID_GAP * (columnCount - 1)) / columnCount
     return colWidth + GRID_GAP // aspect-square so height = width, plus gap
-  }, [thumbnailSize, columnCount])
+  }, [thumbnailSize, columnCount, contentWidth, layoutReady])
 
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollRef.current,
-    estimateSize: estimateRowHeight,
+    estimateSize: () => rowHeight,
     overscan: GRID_BUFFER_ROWS
   })
+
+  // Invalidate cached measurements when row height changes
+  React.useEffect(() => {
+    virtualizer.measure()
+  }, [rowHeight, virtualizer])
 
   // Scroll to the focused item's row on mount (e.g. returning from loupe view)
   const initialScrollDone = React.useRef(false)
