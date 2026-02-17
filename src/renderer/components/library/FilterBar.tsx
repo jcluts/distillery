@@ -23,7 +23,7 @@ export function FilterBar(): React.JSX.Element {
           : 'unmarked'
 
   return (
-    <div className="flex items-center gap-3 border-b bg-background px-3 h-10">
+    <div className="flex items-center gap-3 border-b bg-background px-3 h-12">
       <div className="flex items-center gap-2">
         <Select
           value={String(ratingFilter)}

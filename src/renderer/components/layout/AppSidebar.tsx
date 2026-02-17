@@ -123,7 +123,7 @@ export function AppSidebar<T extends string>({
 
         {/* Content panel */}
         <Sidebar side={side} collapsible="none" className="hidden min-w-0 flex-1 border-0 md:flex">
-          <SidebarHeader className="h-10 border-b px-3">
+          <SidebarHeader className="h-10 px-3">
             <div className="flex h-full items-center justify-between gap-2">
               <SectionHeader>{activeConfig?.title}</SectionHeader>
               {activeConfig?.headerActions}

@@ -21,7 +21,6 @@ export function GenerationStatus(): React.JSX.Element | null {
 
   // Engine
   const engineState = useEngineStore((s) => s.state)
-  const engineModelName = useEngineStore((s) => s.modelName)
   const engineError = useEngineStore((s) => s.error)
 
   // Queue / progress

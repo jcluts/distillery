@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import * as React from "react"
 import { Select as SelectPrimitive } from "radix-ui"
 
