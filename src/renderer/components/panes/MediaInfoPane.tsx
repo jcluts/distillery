@@ -372,10 +372,7 @@ export function MediaInfoPane(): React.JSX.Element {
                 value="unmarked"
                 size="sm"
                 aria-label="Clear status"
-                className={cn(
-                  'text-muted-foreground',
-                  currentStatus === 'unmarked' && 'bg-muted text-foreground ring-1 ring-border'
-                )}
+                className="text-muted-foreground"
               >
                 <CircleMinus className="size-5" />
               </ToggleGroupItem>
