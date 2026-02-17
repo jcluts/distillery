@@ -337,7 +337,7 @@ export function MediaInfoPane(): React.JSX.Element {
               <ToggleGroupItem
                 value="selected"
                 size="sm"
-                aria-label="Selected"
+                aria-label="Selected" 
                 className={cn(
                   'text-muted-foreground',
                   currentStatus === 'selected' &&
