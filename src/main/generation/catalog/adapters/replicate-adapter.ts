@@ -3,17 +3,27 @@ import type { AdapterInput } from './adapter-factory'
 
 export function transformReplicate(input: AdapterInput): CanonicalEndpointDef[] {
   const models =
-    (input.rawFeed as { models?: Array<{ slug: string; name?: string }> } | null)?.models ?? []
+    (input.rawFeed as { models?: Array<{ slug?: unknown; name?: unknown }> } | null)?.models ?? []
 
-  return models.map((model) => ({
-    endpointKey: `replicate.${model.slug}.image`,
-    providerId: input.providerConfig.providerId,
-    providerModelId: model.slug,
-    canonicalModelId: undefined,
-    displayName: model.name ?? model.slug,
-    modes: ['text-to-image'],
-    outputType: 'image',
-    executionMode: 'remote-async',
-    requestSchema: input.defaultRequestSchema
-  }))
+  return models.flatMap((model) => {
+    const slug = typeof model.slug === 'string' ? model.slug.trim() : ''
+    if (!slug) return []
+
+    const displayName =
+      typeof model.name === 'string' && model.name.trim().length > 0 ? model.name.trim() : slug
+
+    return [
+      {
+        endpointKey: `replicate.${slug}.image`,
+        providerId: input.providerConfig.providerId,
+        providerModelId: slug,
+        canonicalModelId: undefined,
+        displayName,
+        modes: ['text-to-image'],
+        outputType: 'image',
+        executionMode: 'remote-async',
+        requestSchema: input.defaultRequestSchema
+      }
+    ]
+  })
 }

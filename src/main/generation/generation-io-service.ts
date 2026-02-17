@@ -147,8 +147,11 @@ export class GenerationIOService {
         const refCacheRelPath = await this.getOrCreateRefCacheFile(input.original_path)
         generationInputRepo.updateGenerationInputRefCachePath(this.db, input.id, refCacheRelPath)
         refImages.push(this.fileManager.resolve(refCacheRelPath))
-      } catch {
-        // ignore failed input
+      } catch (error) {
+        console.warn(
+          `[GenerationIOService] Failed to prepare ref image for input ${input.id}; generation=${generationId}`,
+          error instanceof Error ? error.message : error
+        )
       }
     }
 
