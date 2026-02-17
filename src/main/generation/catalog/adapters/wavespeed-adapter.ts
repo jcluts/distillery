@@ -3,17 +3,29 @@ import type { AdapterInput } from './adapter-factory'
 
 export function transformWavespeed(input: AdapterInput): CanonicalEndpointDef[] {
   const models =
-    (input.rawFeed as { models?: Array<{ id: string; name?: string }> } | null)?.models ?? []
+    (input.rawFeed as { models?: Array<{ id?: unknown; name?: unknown }> } | null)?.models ?? []
 
-  return models.map((model) => ({
-    endpointKey: `wavespeed.${model.id}.image`,
-    providerId: input.providerConfig.providerId,
-    providerModelId: model.id,
-    canonicalModelId: undefined,
-    displayName: model.name ?? model.id,
-    modes: ['text-to-image'],
-    outputType: 'image',
-    executionMode: 'remote-async',
-    requestSchema: input.defaultRequestSchema
-  }))
+  return models.flatMap((model) => {
+    const modelId = typeof model.id === 'string' ? model.id.trim() : ''
+    if (!modelId) return []
+
+    const displayName =
+      typeof model.name === 'string' && model.name.trim().length > 0
+        ? model.name.trim()
+        : modelId
+
+    return [
+      {
+        endpointKey: `wavespeed.${modelId}.image`,
+        providerId: input.providerConfig.providerId,
+        providerModelId: modelId,
+        canonicalModelId: undefined,
+        displayName,
+        modes: ['text-to-image'],
+        outputType: 'image',
+        executionMode: 'remote-async',
+        requestSchema: input.defaultRequestSchema
+      }
+    ]
+  })
 }

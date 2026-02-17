@@ -9,7 +9,6 @@ import { AppSidebar, type SidebarTabConfig } from '@/components/layout/AppSideba
 import { GenerationPane } from '@/components/panes/GenerationPane'
 import { TimelinePane } from '@/components/panes/TimelinePane'
 import { ImportPane } from '@/components/panes/ImportPane'
-import { LeftSidebarStatusBar } from '@/components/layout/LeftSidebarStatusBar'
 
 function TimelineHeaderActions(): React.JSX.Element {
   const generations = useGenerationStore((s) => s.generations)
@@ -37,14 +36,14 @@ const LEFT_TABS: SidebarTabConfig<LeftPanelTab>[] = [
   {
     tab: 'generation',
     label: 'Generate',
-    title: 'GENERATION',
+    title: 'Generation',
     icon: Sparkles,
     content: <GenerationPane />
   },
   {
     tab: 'timeline',
     label: 'Timeline',
-    title: 'TIMELINE',
+    title: 'Timeline',
     icon: Clock,
     content: <TimelinePane />,
     headerActions: <TimelineHeaderActions />
@@ -52,7 +51,7 @@ const LEFT_TABS: SidebarTabConfig<LeftPanelTab>[] = [
   {
     tab: 'import',
     label: 'Import',
-    title: 'IMPORT',
+    title: 'Import',
     icon: Download,
     content: <ImportPane />
   }
@@ -74,7 +73,6 @@ export function LeftSidebar(): React.JSX.Element {
       onToggle={toggleLeftPanel}
       width={width}
       tabs={LEFT_TABS}
-      footer={<LeftSidebarStatusBar />}
     />
   )
 }

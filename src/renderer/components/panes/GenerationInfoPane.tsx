@@ -2,11 +2,12 @@ import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
+import { SectionLabel } from '@/components/ui/section-label'
+import { InfoTable } from '@/components/ui/info-table'
 import type { GenerationInput, GenerationRecord } from '@/types'
 
 export function GenerationInfoPane(): React.JSX.Element {
@@ -50,7 +51,7 @@ export function GenerationInfoPane(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Prompt</div>
+        <SectionLabel>Prompt</SectionLabel>
         <ScrollArea className="h-24 rounded-md border bg-background">
           <div className="p-2 text-sm">
             {gen?.prompt ?? (media?.origin === 'generation' ? '—' : 'Not a generated item')}
@@ -59,42 +60,32 @@ export function GenerationInfoPane(): React.JSX.Element {
       </div>
 
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Parameters</div>
-        <div className="space-y-1 text-xs text-muted-foreground">
-          <div>
-            Provider: <span className="text-foreground">{gen?.provider ?? '—'}</span>
-          </div>
-          <div>
-            Model: <span className="text-foreground">{gen?.model_file ?? '—'}</span>
-          </div>
-          <div>
-            Resolution:{' '}
-            <span className="text-foreground">
-              {gen?.width ?? '—'} × {gen?.height ?? '—'}
-            </span>
-          </div>
-          <div>
-            Seed: <span className="text-foreground">{gen?.seed ?? '—'}</span>
-          </div>
-          <div>
-            Steps: <span className="text-foreground">{gen?.steps ?? '—'}</span>
-          </div>
-          <div>
-            Guidance: <span className="text-foreground">{gen?.guidance ?? '—'}</span>
-          </div>
-          {gen?.total_time_ms ? (
-            <div>
-              Time:{' '}
-              <span className="text-foreground">{(gen.total_time_ms / 1000).toFixed(1)}s</span>
-            </div>
-          ) : null}
-        </div>
+        <SectionLabel>Parameters</SectionLabel>
+        <InfoTable
+          items={[
+            { label: 'Provider', value: gen?.provider ?? '—' },
+            { label: 'Model', value: gen?.model_file ?? '—' },
+            {
+              label: 'Resolution',
+              value: gen?.width && gen?.height ? `${gen.width} × ${gen.height}` : '—'
+            },
+            { label: 'Seed', value: gen?.seed ?? '—' },
+            { label: 'Steps', value: gen?.steps ?? '—' },
+            { label: 'Guidance', value: gen?.guidance ?? '—' },
+            ...(gen?.total_time_ms
+              ? [
+                  {
+                    label: 'Time',
+                    value: `${(gen.total_time_ms / 1000).toFixed(1)}s`
+                  }
+                ]
+              : [])
+          ]}
+        />
       </div>
 
-      <Separator />
-
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Reference images</div>
+        <SectionLabel>Reference images</SectionLabel>
         {inputs.length === 0 ? (
           <div className="text-xs text-muted-foreground">—</div>
         ) : (
@@ -124,8 +115,6 @@ export function GenerationInfoPane(): React.JSX.Element {
           </div>
         )}
       </div>
-
-      <Separator />
 
       <div className="space-y-2">
         <Button

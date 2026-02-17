@@ -10,14 +10,14 @@ const RIGHT_TABS: SidebarTabConfig<RightPanelTab>[] = [
   {
     tab: 'info',
     label: 'Info',
-    title: 'MEDIA INFO',
+    title: 'Media Info',
     icon: Info,
     content: <MediaInfoPane />
   },
   {
     tab: 'generation-info',
     label: 'Generation',
-    title: 'GENERATION INFO',
+    title: 'Generation Info',
     icon: SlidersHorizontal,
     content: <GenerationInfoPane />
   }

@@ -1,4 +1,5 @@
 import { app, shell, BrowserWindow, protocol } from 'electron'
+import * as fs from 'fs'
 import { join } from 'path'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -174,6 +175,78 @@ app.whenReady().then(async () => {
       }
     : initialSettings
 
+  if (is.dev) {
+    const modelBasePath = path.resolve(startupSettings.model_base_path || '')
+    const activeModelId = startupSettings.active_model_id
+    const activeSelections = startupSettings.model_quant_selections?.[activeModelId]
+
+    console.log('[ConfigDebug] ===== Model Path Diagnostics =====')
+    console.log(`[ConfigDebug] profile userData: ${profileInfo.profileUserDataPath}`)
+    console.log(`[ConfigDebug] settings.model_base_path: ${startupSettings.model_base_path}`)
+    console.log(`[ConfigDebug] resolved model_base_path: ${modelBasePath}`)
+    console.log(`[ConfigDebug] model base exists: ${fs.existsSync(modelBasePath)}`)
+
+    if (fs.existsSync(modelBasePath)) {
+      try {
+        const entries = fs
+          .readdirSync(modelBasePath, { withFileTypes: true })
+          .slice(0, 24)
+          .map((entry) => `${entry.isDirectory() ? 'dir' : 'file'}:${entry.name}`)
+        console.log(`[ConfigDebug] model base entries: ${entries.join(', ') || '(empty)'}`)
+      } catch (error) {
+        console.warn('[ConfigDebug] Failed to list model_base_path entries:', error)
+      }
+    }
+
+    console.log(`[ConfigDebug] active model: ${activeModelId}`)
+    console.log(
+      `[ConfigDebug] selected quants: diffusion=${activeSelections?.diffusionQuant || '(none)'} textEncoder=${activeSelections?.textEncoderQuant || '(none)'}`
+    )
+
+    const activeModel = modelCatalog.models.find((model) => model.id === activeModelId)
+
+    if (!activeModel) {
+      console.warn(`[ConfigDebug] Active model not found in catalog: ${activeModelId}`)
+    } else {
+      const expectedRelativePaths: string[] = [activeModel.vae.file]
+
+      if (activeSelections?.diffusionQuant) {
+        const diffusionQuant = activeModel.diffusion.quants.find(
+          (quant) => quant.id === activeSelections.diffusionQuant
+        )
+        if (diffusionQuant) {
+          expectedRelativePaths.push(diffusionQuant.file)
+        } else {
+          console.warn(
+            `[ConfigDebug] Diffusion quant not found for ${activeModel.id}: ${activeSelections.diffusionQuant}`
+          )
+        }
+      }
+
+      if (activeSelections?.textEncoderQuant) {
+        const textEncoderQuant = activeModel.textEncoder.quants.find(
+          (quant) => quant.id === activeSelections.textEncoderQuant
+        )
+        if (textEncoderQuant) {
+          expectedRelativePaths.push(textEncoderQuant.file)
+        } else {
+          console.warn(
+            `[ConfigDebug] Text encoder quant not found for ${activeModel.id}: ${activeSelections.textEncoderQuant}`
+          )
+        }
+      }
+
+      for (const relativePath of expectedRelativePaths) {
+        const absolutePath = path.join(modelBasePath, path.normalize(relativePath))
+        console.log(
+          `[ConfigDebug] file check: ${relativePath} -> ${absolutePath} exists=${fs.existsSync(absolutePath)}`
+        )
+      }
+    }
+
+    console.log('[ConfigDebug] ==================================')
+  }
+
   const modelDownloadManager = new ModelDownloadManager(startupSettings.model_base_path)
 
   // Initialize file manager (library root)
@@ -217,7 +290,7 @@ app.whenReady().then(async () => {
   })
 
   // Initialize engine manager
-  const enginePath = getSetting(db, 'engine_path')
+  const enginePath = startupSettings.engine_path
   engineManager = new EngineManager(enginePath || '')
   console.log('[Main] Engine manager created')
 

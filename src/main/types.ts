@@ -89,6 +89,7 @@ export interface GenerationInput {
   original_path: string | null
   original_filename: string | null
   thumb_path: string
+  ref_cache_path: string | null
   created_at: string
 }
 

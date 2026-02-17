@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
-
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -35,7 +35,7 @@
 	--chart-3: oklch(0.71 0.13 215);
 	--chart-4: oklch(0.61 0.11 222);
 	--chart-5: oklch(0.52 0.09 223);
-	--radius: 0.45rem;
+	--radius: 0.25rem;
 	--sidebar: oklch(0.985 0 0);
 	--sidebar-foreground: oklch(0.145 0 0);
 	--sidebar-primary: oklch(0.61 0.11 222);
@@ -44,24 +44,29 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+
+	/* --text-base: 0.8rem; */
+	--text-xs: 0.66rem; 
+	--text-sm: 0.75rem;
+	--text-base: 0.875rem;
 }
 
 .dark {
 	--background: oklch(0.145 0 0);
-	--foreground: oklch(0.985 0 0);
+	--foreground: oklch(0.8 0 0);
 	--card: oklch(0.205 0 0);
-	--card-foreground: oklch(0.985 0 0);
+	--card-foreground: var(--foreground);
 	--popover: oklch(0.205 0 0);
-	--popover-foreground: oklch(0.985 0 0);
+	--popover-foreground: var(--foreground);
 	--primary: oklch(0.71 0.13 215);
 	--primary-foreground: oklch(0.30 0.05 230);
 	--secondary: oklch(0.274 0.006 286.033);
-	--secondary-foreground: oklch(0.985 0 0);
+	--secondary-foreground: var(--foreground);
 
 	--muted: oklch(0.269 0 0);
 	--muted-foreground: oklch(0.708 0 0);
 	--accent: oklch(0.371 0 0);
-	--accent-foreground: oklch(0.985 0 0);
+	--accent-foreground: var(--foreground);
 	--destructive: oklch(0.704 0.191 22.216);
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
@@ -72,17 +77,18 @@
 	--chart-4: oklch(0.61 0.11 222);
 	--chart-5: oklch(0.52 0.09 223);
 	--sidebar: oklch(0.205 0 0);
-	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-foreground: var(--foreground);
 	--sidebar-primary: oklch(0.80 0.13 212);
 	--sidebar-primary-foreground: oklch(0.30 0.05 230);
 	--sidebar-accent: oklch(0.269 0 0);
-	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-accent-foreground: var(--foreground);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.556 0 0);
 }
 
 @theme inline {
-	--font-sans: 'Inter Variable', sans-serif;
+	--font-sans: 'Geist Variable', sans-serif;
+	--font-mono: 'Geist Mono Variable', sans-serif;
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -121,6 +127,7 @@
 	--radius-2xl: calc(var(--radius) + 8px);
 	--radius-3xl: calc(var(--radius) + 12px);
 	--radius-4xl: calc(var(--radius) + 16px);
+	--text-foreground: var(--foreground);
 }
 
 @layer base {
@@ -135,6 +142,14 @@
 	html {
 		@apply font-sans;
 	}
+
+	button {
+    	cursor: pointer;
+    
+    	&:is([disabled]) {
+      		cursor: not-allowed;
+    	}
+  	}
 }
 
 /* Dark scrollbars matching the app theme */

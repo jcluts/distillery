@@ -22,6 +22,7 @@ export function registerSettingsHandlers(options?: {
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, async (_event, updates: SettingsUpdate) => {
     settingsRepo.saveSettings(db, updates)
+    const effectiveSettings = settingsRepo.getAllSettings(db)
 
     const engineManager = options?.engineManager
     const fileManager = options?.fileManager
@@ -33,14 +34,17 @@ export function registerSettingsHandlers(options?: {
     }
 
     if (modelDownloadManager && typeof updates.model_base_path === 'string') {
-      modelDownloadManager.setModelBasePath(updates.model_base_path)
+      modelDownloadManager.setModelBasePath(effectiveSettings.model_base_path)
     }
 
     if (engineManager && typeof updates.engine_path === 'string') {
-      engineManager.setEnginePath(updates.engine_path)
+      engineManager.setEnginePath(effectiveSettings.engine_path)
 
       const status = engineManager.getStatus()
-      if ((status.state === 'stopped' || status.state === 'error') && updates.engine_path) {
+      if (
+        (status.state === 'stopped' || status.state === 'error') &&
+        effectiveSettings.engine_path
+      ) {
         try {
           await engineManager.start()
         } catch (err) {

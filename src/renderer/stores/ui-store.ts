@@ -13,6 +13,9 @@ import { THUMBNAIL_SIZE_DEFAULT } from '@/lib/constants'
 export type ViewMode = 'grid' | 'loupe'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
 export type RightPanelTab = 'info' | 'generation-info'
+export type ZoomLevel = 'fit' | 'actual'
+
+const ZOOM_LEVELS: ZoomLevel[] = ['fit', 'actual']
 
 interface UIState {
   // Left panel
@@ -28,6 +31,7 @@ interface UIState {
   // View
   viewMode: ViewMode
   thumbnailSize: number
+  loupeZoom: ZoomLevel
 
   // Modals
   activeModals: string[]
@@ -43,6 +47,8 @@ interface UIState {
   setRightPanelWidth: (width: number) => void
   setViewMode: (mode: ViewMode) => void
   setThumbnailSize: (size: number) => void
+  setLoupeZoom: (level: ZoomLevel) => void
+  cycleZoom: () => void
   openModal: (id: string) => void
   closeModal: (id: string) => void
   closeAllModals: () => void
@@ -58,6 +64,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   rightPanelWidth: RIGHT_PANEL_WIDTH_PX,
   viewMode: 'grid',
   thumbnailSize: THUMBNAIL_SIZE_DEFAULT,
+  loupeZoom: 'fit',
   activeModals: [],
 
   // Actions
@@ -87,8 +94,14 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
 
   setRightPanelWidth: (width) => set({ rightPanelWidth: width }),
-  setViewMode: (mode) => set({ viewMode: mode }),
+  setViewMode: (mode) => set({ viewMode: mode, loupeZoom: 'fit' }),
   setThumbnailSize: (size) => set({ thumbnailSize: size }),
+  setLoupeZoom: (level) => set({ loupeZoom: level }),
+  cycleZoom: () => {
+    const current = get().loupeZoom
+    const idx = ZOOM_LEVELS.indexOf(current)
+    set({ loupeZoom: ZOOM_LEVELS[(idx + 1) % ZOOM_LEVELS.length] })
+  },
 
   openModal: (id) =>
     set((state) => ({

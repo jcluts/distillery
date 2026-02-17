@@ -1,20 +1,20 @@
 import * as React from 'react'
 import { Grid2X2, Image as ImageIcon } from 'lucide-react'
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { THUMBNAIL_SIZE_MAX, THUMBNAIL_SIZE_MIN } from '@/lib/constants'
 import { useLibraryStore } from '@/stores/library-store'
-import { useUIStore } from '@/stores/ui-store'
+import { useUIStore, type ZoomLevel } from '@/stores/ui-store'
 
-type SortOption =
-  | 'date_desc'
-  | 'date_asc'
-  | 'rating_desc'
-  | 'rating_asc'
-  | 'name_asc'
-  | 'name_desc'
+type SortOption = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc'
 
 function getSortValue(field: string, dir: string): SortOption {
   if (field === 'rating' && dir === 'asc') return 'rating_asc'
@@ -30,10 +30,13 @@ export function LibraryStatusBar(): React.JSX.Element {
   const setThumbnailSize = useUIStore((s) => s.setThumbnailSize)
   const viewMode = useUIStore((s) => s.viewMode)
   const setViewMode = useUIStore((s) => s.setViewMode)
+  const loupeZoom = useUIStore((s) => s.loupeZoom)
+  const setLoupeZoom = useUIStore((s) => s.setLoupeZoom)
 
   const total = useLibraryStore((s) => s.total)
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
+  const selectedIds = useLibraryStore((s) => s.selectedIds)
   const sortField = useLibraryStore((s) => s.sortField)
   const sortDirection = useLibraryStore((s) => s.sortDirection)
   const setSortField = useLibraryStore((s) => s.setSortField)
@@ -52,11 +55,11 @@ export function LibraryStatusBar(): React.JSX.Element {
   }, [viewMode, focusedId, items, imageCount])
 
   return (
-    <div
-      className="flex shrink-0 items-center gap-3 border-t bg-background px-3 text-xs h-10"
-    >
-      {/* Left: image counter */}
-      <span className="tabular-nums text-muted-foreground">{counterText} images</span>
+    <div className="flex shrink-0 items-center gap-3 border-t bg-background px-3 py-2 text-xs">
+      {/* Left: image counter + selection count */}
+      <span className="tabular-nums text-muted-foreground">
+        {counterText} images{selectedIds.size > 1 && ` · ${selectedIds.size} selected`}
+      </span>
 
       {/* Spacer */}
       <div className="flex-1" />
@@ -88,7 +91,7 @@ export function LibraryStatusBar(): React.JSX.Element {
             }
           }}
         >
-          <SelectTrigger className="h-6 w-[140px] text-xs">
+          <SelectTrigger className="w-[140px] text-xs">
             <SelectValue placeholder="Sort" />
           </SelectTrigger>
           <SelectContent>
@@ -100,6 +103,18 @@ export function LibraryStatusBar(): React.JSX.Element {
             <SelectItem value="name_desc">Name (Z-A)</SelectItem>
           </SelectContent>
         </Select>
+
+        {viewMode === 'loupe' && (
+          <Select value={loupeZoom} onValueChange={(v) => setLoupeZoom(v as ZoomLevel)}>
+            <SelectTrigger className="w-[100px] text-xs">
+              <SelectValue placeholder="Zoom" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fit">Fit</SelectItem>
+              <SelectItem value="actual">Actual (1:1)</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         {viewMode === 'grid' && (
           <div className="flex w-28 items-center gap-1.5">
@@ -124,18 +139,10 @@ export function LibraryStatusBar(): React.JSX.Element {
           }}
           className="gap-0"
         >
-          <ToggleGroupItem
-            value="grid"
-            aria-label="Grid view"
-            className="h-6 w-6 p-0"
-          >
+          <ToggleGroupItem value="grid" aria-label="Grid view" className="w-6 p-0">
             <Grid2X2 className="size-3.5" />
           </ToggleGroupItem>
-          <ToggleGroupItem
-            value="loupe"
-            aria-label="Loupe view"
-            className="h-6 w-6 p-0"
-          >
+          <ToggleGroupItem value="loupe" aria-label="Loupe view" className="w-6 p-0">
             <ImageIcon className="size-3.5" />
           </ToggleGroupItem>
         </ToggleGroup>

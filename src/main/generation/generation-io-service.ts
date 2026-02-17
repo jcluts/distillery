@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
+import { createHash } from 'crypto'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 import { v4 as uuidv4 } from 'uuid'
@@ -22,6 +23,8 @@ import type {
 } from '../types'
 
 export class GenerationIOService {
+  private static readonly REF_CACHE_KEY_VERSION = 'v1'
+
   private db: Database.Database
   private fileManager: FileManager
 
@@ -49,53 +52,76 @@ export class GenerationIOService {
       if (!media) continue
 
       const originalAbs = this.fileManager.resolve(media.file_path)
-      const refImageAbs = await this.createRefCacheFile(originalAbs)
-      refImages.push(refImageAbs)
-
-      const persistedThumbAbs = path.join(refThumbsDirAbs, `${position}.jpg`)
-      await this.persistInputThumbnail(media, persistedThumbAbs)
-
-      const input: GenerationInput = {
-        id: uuidv4(),
-        generation_id: generationId,
-        media_id: media.id,
+      const { input, refImageAbs } = await this.prepareInputRecord({
+        generationId,
+        createdAtIso,
         position,
-        source_type: 'library',
-        original_path: originalAbs,
-        original_filename: media.file_name,
-        thumb_path: path.join('ref_thumbs', generationId, `${position}.jpg`),
-        created_at: createdAtIso
-      }
+        sourceType: 'library',
+        mediaId: media.id,
+        originalPath: originalAbs,
+        originalFilename: media.file_name,
+        persistThumb: async (outputAbsPath) => this.persistInputThumbnail(media, outputAbsPath)
+      })
 
       inputRecords.push(input)
+      refImages.push(refImageAbs)
       position += 1
     }
 
     const paths = Array.isArray(params.ref_image_paths) ? params.ref_image_paths : []
     for (const sourcePath of paths) {
-      const refImageAbs = await this.createRefCacheFile(sourcePath)
-      refImages.push(refImageAbs)
-
-      const persistedThumbAbs = path.join(refThumbsDirAbs, `${position}.jpg`)
-      await this.persistExternalThumbnail(sourcePath, persistedThumbAbs)
-
-      const input: GenerationInput = {
-        id: uuidv4(),
-        generation_id: generationId,
-        media_id: null,
+      const originalAbs = path.isAbsolute(sourcePath) ? sourcePath : path.resolve(sourcePath)
+      const { input, refImageAbs } = await this.prepareInputRecord({
+        generationId,
+        createdAtIso,
         position,
-        source_type: 'external',
-        original_path: sourcePath,
-        original_filename: path.basename(sourcePath),
-        thumb_path: path.join('ref_thumbs', generationId, `${position}.jpg`),
-        created_at: createdAtIso
-      }
+        sourceType: 'external',
+        mediaId: null,
+        originalPath: originalAbs,
+        originalFilename: path.basename(originalAbs),
+        persistThumb: async (outputAbsPath) =>
+          this.persistExternalThumbnail(originalAbs, outputAbsPath)
+      })
 
       inputRecords.push(input)
+      refImages.push(refImageAbs)
       position += 1
     }
 
     return { inputRecords, refImages }
+  }
+
+  private async prepareInputRecord(args: {
+    generationId: string
+    createdAtIso: string
+    position: number
+    sourceType: 'library' | 'external'
+    mediaId: string | null
+    originalPath: string
+    originalFilename: string
+    persistThumb: (outputAbsPath: string) => Promise<void>
+  }): Promise<{ input: GenerationInput; refImageAbs: string }> {
+    const thumbRelPath = path.join('ref_thumbs', args.generationId, `${args.position}.jpg`)
+    const thumbAbsPath = this.fileManager.resolve(thumbRelPath)
+    await args.persistThumb(thumbAbsPath)
+
+    const refCacheRelPath = await this.getOrCreateRefCacheFile(args.originalPath)
+    const refImageAbs = this.fileManager.resolve(refCacheRelPath)
+
+    const input: GenerationInput = {
+      id: uuidv4(),
+      generation_id: args.generationId,
+      media_id: args.mediaId,
+      position: args.position,
+      source_type: args.sourceType,
+      original_path: args.originalPath,
+      original_filename: args.originalFilename,
+      thumb_path: thumbRelPath,
+      ref_cache_path: refCacheRelPath,
+      created_at: args.createdAtIso
+    }
+
+    return { input, refImageAbs }
   }
 
   insertInputRecords(inputs: GenerationInput[]): void {
@@ -109,12 +135,23 @@ export class GenerationIOService {
     const refImages: string[] = []
 
     for (const input of inputs) {
-      if (!input.original_path) continue
       try {
-        const cached = await this.createRefCacheFile(input.original_path)
-        refImages.push(cached)
-      } catch {
-        // ignore failed input
+        const existingCachedAbs = await this.resolveExistingRefCachePath(input)
+        if (existingCachedAbs) {
+          refImages.push(existingCachedAbs)
+          continue
+        }
+
+        if (!input.original_path) continue
+
+        const refCacheRelPath = await this.getOrCreateRefCacheFile(input.original_path)
+        generationInputRepo.updateGenerationInputRefCachePath(this.db, input.id, refCacheRelPath)
+        refImages.push(this.fileManager.resolve(refCacheRelPath))
+      } catch (error) {
+        console.warn(
+          `[GenerationIOService] Failed to prepare ref image for input ${input.id}; generation=${generationId}`,
+          error instanceof Error ? error.message : error
+        )
       }
     }
 
@@ -147,8 +184,15 @@ export class GenerationIOService {
 
     const mediaRecords: MediaRecord[] = []
     for (const output of outputs) {
-      const resolvedPath = await this.resolveProviderOutputPath(result.generationId, output.providerPath)
-      const media = await this.ingestGenerationOutput(result.generationId, resolvedPath, output.mimeType)
+      const resolvedPath = await this.resolveProviderOutputPath(
+        result.generationId,
+        output.providerPath
+      )
+      const media = await this.ingestGenerationOutput(
+        result.generationId,
+        resolvedPath,
+        output.mimeType
+      )
       mediaRecords.push(media)
     }
 
@@ -164,7 +208,10 @@ export class GenerationIOService {
     return mediaRecords
   }
 
-  private async resolveProviderOutputPath(generationId: string, outputPath: string): Promise<string> {
+  private async resolveProviderOutputPath(
+    generationId: string,
+    outputPath: string
+  ): Promise<string> {
     const trimmed = outputPath.trim()
 
     let candidate = trimmed
@@ -208,7 +255,11 @@ export class GenerationIOService {
 
     const stat = await fs.promises.stat(absFilePath)
 
-    const thumbAbs = await createThumbnail(absFilePath, this.fileManager.getThumbnailsDir(), mediaId)
+    const thumbAbs = await createThumbnail(
+      absFilePath,
+      this.fileManager.getThumbnailsDir(),
+      mediaId
+    )
     const relThumbPath = thumbAbs ? path.join('thumbnails', `${mediaId}_thumb.jpg`) : null
 
     let width: number | null = null
@@ -274,7 +325,10 @@ export class GenerationIOService {
     await this.persistExternalThumbnail(originalAbs, outputAbsPath)
   }
 
-  private async persistExternalThumbnail(sourceAbsPath: string, outputAbsPath: string): Promise<void> {
+  private async persistExternalThumbnail(
+    sourceAbsPath: string,
+    outputAbsPath: string
+  ): Promise<void> {
     await fs.promises.mkdir(path.dirname(outputAbsPath), { recursive: true })
     const out = await createThumbnail(
       sourceAbsPath,
@@ -289,11 +343,75 @@ export class GenerationIOService {
     }
   }
 
-  private async createRefCacheFile(sourceAbsPath: string): Promise<string> {
-    const filename = `${uuidv4()}.png`
-    const outputAbs = path.join(this.fileManager.getRefCacheDir(), filename)
-    await createReferenceImageDerivative(sourceAbsPath, outputAbs, REFERENCE_IMAGE_MAX_PIXELS)
-    return outputAbs
+  private async resolveExistingRefCachePath(input: GenerationInput): Promise<string | null> {
+    if (!input.ref_cache_path) {
+      return null
+    }
+
+    const cachedAbs = this.fileManager.resolve(input.ref_cache_path)
+    try {
+      await fs.promises.access(cachedAbs, fs.constants.F_OK)
+      return cachedAbs
+    } catch {
+      return null
+    }
+  }
+
+  private async getOrCreateRefCacheFile(sourceAbsPath: string): Promise<string> {
+    const normalizedSourcePath = path.isAbsolute(sourceAbsPath)
+      ? sourceAbsPath
+      : path.resolve(sourceAbsPath)
+    const refCacheRelPath = await this.buildRefCacheRelativePath(normalizedSourcePath)
+    const outputAbs = this.fileManager.resolve(refCacheRelPath)
+
+    try {
+      await fs.promises.access(outputAbs, fs.constants.F_OK)
+      return refCacheRelPath
+    } catch {
+      await fs.promises.mkdir(path.dirname(outputAbs), { recursive: true })
+      await createReferenceImageDerivative(
+        normalizedSourcePath,
+        outputAbs,
+        REFERENCE_IMAGE_MAX_PIXELS
+      )
+      return refCacheRelPath
+    }
+  }
+
+  private async buildRefCacheRelativePath(sourceAbsPath: string): Promise<string> {
+    const stat = await fs.promises.stat(sourceAbsPath)
+
+    if (!stat.isFile()) {
+      throw new Error(`Reference source is not a file: ${sourceAbsPath}`)
+    }
+
+    const sourceDigest = await this.hashFileContents(sourceAbsPath)
+
+    const cacheFingerprint = [
+      GenerationIOService.REF_CACHE_KEY_VERSION,
+      String(REFERENCE_IMAGE_MAX_PIXELS),
+      sourceDigest,
+      String(stat.size)
+    ].join('|')
+
+    const key = createHash('sha256').update(cacheFingerprint).digest('hex')
+    return path.join('ref_cache', `${key}.png`)
+  }
+
+  private async hashFileContents(filePath: string): Promise<string> {
+    return await new Promise((resolve, reject) => {
+      const hash = createHash('sha256')
+      const stream = fs.createReadStream(filePath)
+
+      stream.on('data', (chunk) => {
+        hash.update(chunk)
+      })
+
+      stream.on('error', reject)
+      stream.on('end', () => {
+        resolve(hash.digest('hex'))
+      })
+    })
   }
 
   private async moveFile(from: string, to: string): Promise<void> {

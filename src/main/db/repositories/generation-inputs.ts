@@ -11,12 +11,22 @@ export function insertGenerationInput(
   db.prepare(
     `INSERT INTO generation_inputs (
       id, generation_id, media_id, position, source_type,
-      original_path, original_filename, thumb_path, created_at
+      original_path, original_filename, thumb_path, ref_cache_path, created_at
     ) VALUES (
       @id, @generation_id, @media_id, @position, @source_type,
-      @original_path, @original_filename, @thumb_path, @created_at
+      @original_path, @original_filename, @thumb_path, @ref_cache_path, @created_at
     )`
   ).run(input)
+}
+
+export function updateGenerationInputRefCachePath(
+  db: Database.Database,
+  inputId: string,
+  refCachePath: string
+): void {
+  db
+    .prepare('UPDATE generation_inputs SET ref_cache_path = ? WHERE id = ?')
+    .run(refCachePath, inputId)
 }
 
 /**
