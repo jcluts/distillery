@@ -38,6 +38,9 @@ interface LibraryState {
   removeItems: (ids: string[]) => void
   setSelection: (ids: Set<string>) => void
   selectSingle: (id: string) => void
+  toggleSelect: (id: string) => void
+  rangeSelect: (id: string) => void
+  selectAll: () => void
   setFocusedId: (id: string | null) => void
   setRatingFilter: (rating: number) => void
   setStatusFilter: (status: MediaStatus | 'unmarked' | 'all') => void
@@ -100,6 +103,42 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   setSelection: (ids) => set({ selectedIds: ids }),
   selectSingle: (id) => set({ selectedIds: new Set([id]), focusedId: id }),
+
+  toggleSelect: (id) =>
+    set((state) => {
+      const next = new Set(state.selectedIds)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return { selectedIds: next, focusedId: id }
+    }),
+
+  rangeSelect: (id) =>
+    set((state) => {
+      const { items, focusedId } = state
+      const anchorIndex = focusedId
+        ? items.findIndex((m) => m.id === focusedId)
+        : 0
+      const targetIndex = items.findIndex((m) => m.id === id)
+      if (anchorIndex === -1 || targetIndex === -1) {
+        return { selectedIds: new Set([id]), focusedId: id }
+      }
+      const start = Math.min(anchorIndex, targetIndex)
+      const end = Math.max(anchorIndex, targetIndex)
+      const next = new Set<string>()
+      for (let i = start; i <= end; i++) {
+        next.add(items[i].id)
+      }
+      return { selectedIds: next, focusedId: id }
+    }),
+
+  selectAll: () =>
+    set((state) => ({
+      selectedIds: new Set(state.items.map((m) => m.id))
+    })),
+
   setFocusedId: (id) => set({ focusedId: id }),
   setRatingFilter: (rating) => set({ ratingFilter: rating, page: 1 }),
   setStatusFilter: (status) => set({ statusFilter: status, page: 1 }),

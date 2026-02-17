@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
+import { useMediaItemHandlers } from '@/hooks/useMediaItemHandlers'
 import { CanvasViewer } from '@/components/library/canvas/CanvasViewer'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +14,7 @@ export function LoupeView(): React.JSX.Element {
   const focusedId = useLibraryStore((s) => s.focusedId)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
   const loupeZoom = useUIStore((s) => s.loupeZoom)
+  const { handleClick, handleDragStart, selectionClasses } = useMediaItemHandlers()
 
   const currentIndex = focusedId
     ? items.findIndex((m) => m.id === focusedId)
@@ -48,21 +50,17 @@ export function LoupeView(): React.JSX.Element {
         <ScrollArea className="h-full w-full">
           <div className="flex h-full items-center gap-2 p-2">
             {items.map((m, idx) => {
-              const isActive = m.id === focusedId
               return (
                 <button
                   key={m.id}
                   type="button"
                   className={cn(
                     'rounded-md outline-none',
-                    isActive && 'ring-2 ring-ring'
+                    selectionClasses(m.id)
                   )}
-                  onClick={() => selectSingle(m.id)}
+                  onClick={(e) => handleClick(e, m.id)}
                   draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('application/x-distillery-media-id', m.id)
-                    e.dataTransfer.setData('text/plain', m.id)
-                  }}
+                  onDragStart={(e) => handleDragStart(e, m.id)}
                 >
                   <div className="relative size-[86px] overflow-hidden rounded-md border bg-muted">
                     {m.thumb_path ? (

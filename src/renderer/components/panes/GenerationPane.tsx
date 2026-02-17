@@ -151,6 +151,14 @@ export function GenerationPane(): React.JSX.Element {
           onDragOver={(e) => e.preventDefault()}
           onDrop={async (e) => {
             e.preventDefault()
+            const multiIds = e.dataTransfer.getData('application/x-distillery-media-ids')
+            if (multiIds) {
+              try {
+                const ids = JSON.parse(multiIds) as string[]
+                for (const id of ids) addRefImage(id)
+              } catch { /* ignore parse error */ }
+              return
+            }
             const mediaId = e.dataTransfer.getData('application/x-distillery-media-id')
             if (mediaId) {
               addRefImage(mediaId)

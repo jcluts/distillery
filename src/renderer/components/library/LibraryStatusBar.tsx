@@ -36,6 +36,7 @@ export function LibraryStatusBar(): React.JSX.Element {
   const total = useLibraryStore((s) => s.total)
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
+  const selectedIds = useLibraryStore((s) => s.selectedIds)
   const sortField = useLibraryStore((s) => s.sortField)
   const sortDirection = useLibraryStore((s) => s.sortDirection)
   const setSortField = useLibraryStore((s) => s.setSortField)
@@ -55,8 +56,10 @@ export function LibraryStatusBar(): React.JSX.Element {
 
   return (
     <div className="flex shrink-0 items-center gap-3 border-t bg-background px-3 py-2 text-xs">
-      {/* Left: image counter */}
-      <span className="tabular-nums text-muted-foreground">{counterText} images</span>
+      {/* Left: image counter + selection count */}
+      <span className="tabular-nums text-muted-foreground">
+        {counterText} images{selectedIds.size > 1 && ` · ${selectedIds.size} selected`}
+      </span>
 
       {/* Spacer */}
       <div className="flex-1" />

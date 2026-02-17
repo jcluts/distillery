@@ -25,7 +25,9 @@ export function useKeyboardShortcuts(): void {
 
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
+  const selectedIds = useLibraryStore((s) => s.selectedIds)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
+  const selectAll = useLibraryStore((s) => s.selectAll)
   const updateItem = useLibraryStore((s) => s.updateItem)
 
   const setLeftPanelTab = useUIStore((s) => s.setLeftPanelTab)
@@ -64,6 +66,13 @@ export function useKeyboardShortcuts(): void {
         if (params.params.prompt.trim()) {
           void window.api.submitGeneration(params)
         }
+        return
+      }
+
+      // Select all
+      if (modKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        selectAll()
         return
       }
 
@@ -131,27 +140,36 @@ export function useKeyboardShortcuts(): void {
         }
       }
 
-      // Culling shortcuts (prototype)
+      // Culling shortcuts — apply to all selected items (or just focused)
       if (!focusedId) return
+      const targetIds = selectedIds.size > 0 ? [...selectedIds] : [focusedId]
       const digit = Number(e.key)
       if (digit >= 1 && digit <= 5) {
-        updateItem(focusedId, { rating: digit })
-        void window.api.updateMedia(focusedId, { rating: digit })
+        for (const id of targetIds) {
+          updateItem(id, { rating: digit })
+          void window.api.updateMedia(id, { rating: digit })
+        }
         return
       }
       if (e.key.toLowerCase() === 'p') {
-        updateItem(focusedId, { status: 'selected' })
-        void window.api.updateMedia(focusedId, { status: 'selected' })
+        for (const id of targetIds) {
+          updateItem(id, { status: 'selected' })
+          void window.api.updateMedia(id, { status: 'selected' })
+        }
         return
       }
       if (e.key.toLowerCase() === 'x') {
-        updateItem(focusedId, { status: 'rejected' })
-        void window.api.updateMedia(focusedId, { status: 'rejected' })
+        for (const id of targetIds) {
+          updateItem(id, { status: 'rejected' })
+          void window.api.updateMedia(id, { status: 'rejected' })
+        }
         return
       }
       if (e.key.toLowerCase() === 'u') {
-        updateItem(focusedId, { status: null })
-        void window.api.updateMedia(focusedId, { status: null })
+        for (const id of targetIds) {
+          updateItem(id, { status: null })
+          void window.api.updateMedia(id, { status: null })
+        }
         return
       }
     }
@@ -163,7 +181,9 @@ export function useKeyboardShortcuts(): void {
     cycleZoom,
     focusedId,
     items,
+    selectAll,
     selectSingle,
+    selectedIds,
     setLeftPanelTab,
     setViewMode,
     toggleLeftPanel,
