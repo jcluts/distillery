@@ -43,6 +43,7 @@ export function FilterBar(): React.JSX.Element {
         </Select>
 
         <Select
+          key={statusFilter}
           value={statusValue}
           onValueChange={(v) => {
             if (v === 'all') setStatusFilter('all')

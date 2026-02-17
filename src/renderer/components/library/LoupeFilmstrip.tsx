@@ -34,6 +34,11 @@ export function LoupeFilmstrip({
     overscan: FILMSTRIP_OVERSCAN
   })
 
+  // Invalidate cached measurements when item count changes
+  React.useEffect(() => {
+    virtualizer.measure()
+  }, [items.length, virtualizer])
+
   // Center on the current item on initial mount; keep visible on subsequent changes
   const isInitialScroll = React.useRef(true)
   React.useEffect(() => {
@@ -59,10 +64,7 @@ export function LoupeFilmstrip({
         <ChevronLeft />
       </Button>
 
-      <div
-        ref={scrollRef}
-        className="h-full w-full overflow-x-auto overflow-y-hidden"
-      >
+      <div ref={scrollRef} className="h-full w-full overflow-x-auto px-3 overflow-y-hidden">
         <div
           className="relative flex h-full items-center"
           style={{
