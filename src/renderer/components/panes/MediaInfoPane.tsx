@@ -59,7 +59,7 @@ function StarRating({
             onClick={() => onChange(value)}
             aria-label={`Set rating ${value}`}
           >
-            <Star className={cn('size-4', active && 'fill-current')} />
+            <Star className={cn('size-5', active && 'fill-current')} />
           </button>
         )
       })}
@@ -70,7 +70,7 @@ function StarRating({
           onClick={() => onChange(0)}
           aria-label="Clear rating"
         >
-          <X className="size-4" />
+          <X className="size-5" />
         </button>
       )}
     </div>
@@ -344,7 +344,7 @@ export function MediaInfoPane(): React.JSX.Element {
                     'bg-primary/10 text-primary ring-1 ring-primary/30'
                 )}
               >
-                <CircleCheck className="size-6" />
+                <CircleCheck className="size-5" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Selected</TooltipContent>
@@ -361,7 +361,7 @@ export function MediaInfoPane(): React.JSX.Element {
                     'bg-destructive/10 text-destructive ring-1 ring-destructive/30'
                 )}
               >
-                <CircleX className="size-6" />
+                <CircleX className="size-5" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Rejected</TooltipContent>
@@ -377,7 +377,7 @@ export function MediaInfoPane(): React.JSX.Element {
                   currentStatus === 'unmarked' && 'bg-muted text-foreground ring-1 ring-border'
                 )}
               >
-                <CircleMinus className="size-6" />
+                <CircleMinus className="size-5" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Clear</TooltipContent>
