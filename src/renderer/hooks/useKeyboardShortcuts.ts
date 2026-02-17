@@ -21,6 +21,7 @@ export function useKeyboardShortcuts(): void {
   const setViewMode = useUIStore((s) => s.setViewMode)
   const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
   const viewMode = useUIStore((s) => s.viewMode)
+  const cycleZoom = useUIStore((s) => s.cycleZoom)
 
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
@@ -96,6 +97,10 @@ export function useKeyboardShortcuts(): void {
       }
 
       if (viewMode === 'loupe') {
+        if (e.key.toLowerCase() === 'z') {
+          cycleZoom()
+          return
+        }
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
           e.preventDefault()
           const currentIndex = focusedId
@@ -155,6 +160,7 @@ export function useKeyboardShortcuts(): void {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
     buildParams,
+    cycleZoom,
     focusedId,
     items,
     selectSingle,

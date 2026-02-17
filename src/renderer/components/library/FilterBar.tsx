@@ -23,13 +23,13 @@ export function FilterBar(): React.JSX.Element {
           : 'unmarked'
 
   return (
-    <div className="flex items-center gap-3 border-b bg-background px-3 h-12">
+    <div className="flex items-center gap-3 border-b bg-background px-2 py-2">
       <div className="flex items-center gap-2">
         <Select
           value={String(ratingFilter)}
           onValueChange={(v) => setRatingFilter(Number(v))}
         >
-          <SelectTrigger className="h-7 w-[120px] text-xs">
+          <SelectTrigger className="w-[120px] text-xs">
             <SelectValue placeholder="Rating" />
           </SelectTrigger>
           <SelectContent>
@@ -51,7 +51,7 @@ export function FilterBar(): React.JSX.Element {
             else setStatusFilter('unmarked')
           }}
         >
-          <SelectTrigger className="h-7 w-[120px] text-xs">
+          <SelectTrigger className="w-[120px] text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -69,7 +69,7 @@ export function FilterBar(): React.JSX.Element {
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="Search name or keywords…"
-        className="h-7 w-[200px] text-xs"
+        className="w-[200px] text-xs"
       />
     </div>
   )

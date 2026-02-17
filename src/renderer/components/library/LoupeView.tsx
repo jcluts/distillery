@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useLibraryStore } from '@/stores/library-store'
+import { useUIStore } from '@/stores/ui-store'
 import { CanvasViewer } from '@/components/library/canvas/CanvasViewer'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +12,7 @@ export function LoupeView(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
+  const loupeZoom = useUIStore((s) => s.loupeZoom)
 
   const currentIndex = focusedId
     ? items.findIndex((m) => m.id === focusedId)
@@ -26,7 +28,7 @@ export function LoupeView(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-muted/10">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <CanvasViewer media={current} />
+        <CanvasViewer media={current} zoom={loupeZoom} />
       </div>
 
       <div className="flex h-[120px] shrink-0 items-center gap-2 border-t bg-background px-2">
