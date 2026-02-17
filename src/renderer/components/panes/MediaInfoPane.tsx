@@ -355,24 +355,24 @@ export function MediaInfoPane(): React.JSX.Element {
             <div className="flex flex-wrap gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={handleShowInFolder}>
-                    <FolderOpen className="size-3.5" />
+                  <Button variant="outline" size="icon-lg" onClick={handleShowInFolder}>
+                    <FolderOpen />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Show in folder</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={handleOpenInApp}>
-                    <ExternalLink className="size-3.5" />
+                  <Button variant="outline" size="icon-lg" onClick={handleOpenInApp}>
+                    <ExternalLink />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Open in default app</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={handleCopyToClipboard}>
-                    <ClipboardCopy className="size-3.5" />
+                  <Button variant="outline" size="icon-lg" onClick={handleCopyToClipboard}>
+                    <ClipboardCopy />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Copy to clipboard</TooltipContent>
@@ -381,11 +381,11 @@ export function MediaInfoPane(): React.JSX.Element {
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
-                    size="icon"
+                    size="icon-lg"
                     className="text-destructive hover:bg-destructive/10"
                     onClick={() => void handleDelete()}
                   >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Delete image</TooltipContent>

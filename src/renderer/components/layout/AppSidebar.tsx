@@ -90,8 +90,8 @@ export function AppSidebar<T extends string>({
           collapsible="none"
           className={
             isLeft
-              ? 'w-[calc(var(--sidebar-width-icon)+1px)]! border-r'
-              : 'w-[calc(var(--sidebar-width-icon)+1px)]! border-l border-r-0'
+              ? 'w-[var(--sidebar-width-icon)]! border-r'
+              : 'w-[var(--sidebar-width-icon)]! border-l border-r-0'
           }
         >
           <SidebarContent>
@@ -107,7 +107,12 @@ export function AppSidebar<T extends string>({
                           hidden: false
                         }}
                         isActive={open && activeTab === item.tab}
-                        className="size-9 justify-center p-0"
+                        // className="size-9 justify-center p-0"
+                        className={
+                          open && activeTab === item.tab
+                            ? 'size-9 justify-center p-0 bg-primary/10! ring-1 ring-primary/30! text-primary!'
+                            : 'size-9 justify-center p-0'
+                        }
                         onClick={() => onToggle(item.tab)}
                         aria-label={item.label}
                       >
