@@ -10,6 +10,7 @@ import { useEngineStore } from '@/stores/engine-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
+import { SectionLabel } from '@/components/ui/section-label'
 import { DynamicForm } from '@/components/generation/DynamicForm'
 import { GenerationStatus } from '@/components/generation/GenerationStatus'
 import { ModelSetupWizard } from '@/components/panes/ModelSetupWizard'
@@ -25,7 +26,7 @@ function extractDroppedFilePaths(e: React.DragEvent): string[] {
 
 function RefThumb({ src, label }: { src: string | null; label: string }): React.JSX.Element {
   return (
-    <div className="relative overflow-hidden rounded-md border bg-muted">
+    <div className="relative overflow-hidden rounded-lg border bg-muted">
       <div className="aspect-square w-16" />
       {src ? (
         <img
@@ -74,7 +75,9 @@ export function GenerationPane(): React.JSX.Element {
     window.api.getGenerationEndpointSchema(endpointKey).then((ep) => {
       if (!cancelled && ep) setEndpoint(ep)
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [endpointKey])
 
   const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
@@ -139,15 +142,23 @@ export function GenerationPane(): React.JSX.Element {
 
       {/* Reference images */}
       <div className="space-y-2">
-        <div className="text-xs text-muted-foreground">Reference images</div>
+        <SectionLabel>Reference images</SectionLabel>
         <div
           className={cn(
-            'rounded-md border border-dashed bg-background p-3',
+            'rounded-lg border border-dashed bg-background p-3',
             refImagePaths.length === 0 && refImageIds.length === 0 ? 'text-muted-foreground' : ''
           )}
           onDragOver={(e) => e.preventDefault()}
           onDrop={async (e) => {
             e.preventDefault()
+            const multiIds = e.dataTransfer.getData('application/x-distillery-media-ids')
+            if (multiIds) {
+              try {
+                const ids = JSON.parse(multiIds) as string[]
+                for (const id of ids) addRefImage(id)
+              } catch { /* ignore parse error */ }
+              return
+            }
             const mediaId = e.dataTransfer.getData('application/x-distillery-media-id')
             if (mediaId) {
               addRefImage(mediaId)
@@ -227,7 +238,7 @@ export function GenerationPane(): React.JSX.Element {
 
       {/* Prompt */}
       <div className="space-y-2">
-        <div className="text-xs text-muted-foreground">Prompt</div>
+        <SectionLabel>Prompt</SectionLabel>
         <Textarea
           data-focus-prompt="true"
           placeholder="Describe what you want to generate…"
@@ -262,15 +273,8 @@ export function GenerationPane(): React.JSX.Element {
         <div className="py-4 text-center text-sm text-muted-foreground">Loading schema…</div>
       )}
 
-      
-
       {/* Generate button */}
-      <Button
-        type="button"
-        className="w-full"
-        disabled={generateDisabled}
-        onClick={handleSubmit}
-      >
+      <Button type="button" className="w-full" disabled={generateDisabled} onClick={handleSubmit}>
         Generate
       </Button>
 

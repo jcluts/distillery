@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { SectionHeader } from '@/components/ui/section-header'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui-store'
 import type { AppSettings, SettingsUpdate } from '@/types'
@@ -127,17 +128,6 @@ export function SettingsModal(): React.JSX.Element {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev))
   }
 
-  const browseFile = async (title: string, extensions?: string[]): Promise<string | null> => {
-    const paths = await window.api.showOpenDialog({
-      title,
-      properties: ['openFile'],
-      filters: extensions && extensions.length > 0 ? [{ name: 'Files', extensions }] : undefined
-    })
-
-    if (!paths || paths.length === 0) return null
-    return paths[0] ?? null
-  }
-
   const browseFolder = async (title: string): Promise<string | null> => {
     const paths = await window.api.showOpenDialog({
       title,
@@ -183,7 +173,7 @@ export function SettingsModal(): React.JSX.Element {
         if (!next) close()
       }}
     >
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <SettingsIcon className="size-5" />
@@ -197,9 +187,9 @@ export function SettingsModal(): React.JSX.Element {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-4">
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+              <SectionHeader>
                 PATHS
-              </div>
+              </SectionHeader>
 
               <PathField
                 label="Library root"
@@ -214,12 +204,12 @@ export function SettingsModal(): React.JSX.Element {
 
               {showEnginePath ? (
                 <PathField
-                  label="Engine path (dev)"
+                  label="Engine base path (dev)"
                   value={draft?.engine_path ?? ''}
-                  placeholder="C:\\path\\to\\cn-engine.exe"
+                  placeholder="C:\\path\\to\\resources\\cn-engine\\win32\\vulkan"
                   onChange={(v) => update('engine_path', v)}
                   onBrowse={async () => {
-                    const selected = await browseFile('Choose engine binary', ['exe'])
+                    const selected = await browseFolder('Choose cn-engine directory')
                     if (selected) update('engine_path', selected)
                   }}
                 />
@@ -240,9 +230,9 @@ export function SettingsModal(): React.JSX.Element {
 
           <div className="space-y-4">
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+              <SectionHeader>
                 ENGINE FLAGS
-              </div>
+              </SectionHeader>
 
               <BoolField
                 label="Offload to CPU"
@@ -272,9 +262,9 @@ export function SettingsModal(): React.JSX.Element {
             <Separator />
 
             <div className="space-y-3">
-              <div className="text-xs font-semibold tracking-wider text-muted-foreground">
+              <SectionHeader>
                 BEHAVIOR
-              </div>
+              </SectionHeader>
 
               <BoolField
                 label="Confirm before delete"

@@ -1,21 +1,18 @@
 import * as React from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useLibraryStore } from '@/stores/library-store'
+import { useUIStore } from '@/stores/ui-store'
 import { CanvasViewer } from '@/components/library/canvas/CanvasViewer'
-import { cn } from '@/lib/utils'
+import { LoupeFilmstrip } from '@/components/library/LoupeFilmstrip'
 
 export function LoupeView(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
+  const loupeZoom = useUIStore((s) => s.loupeZoom)
 
-  const currentIndex = focusedId
-    ? items.findIndex((m) => m.id === focusedId)
-    : -1
-  const current = currentIndex >= 0 ? items[currentIndex] : items[0] ?? null
+  const currentIndex = focusedId ? items.findIndex((m) => m.id === focusedId) : -1
+  const current = currentIndex >= 0 ? items[currentIndex] : (items[0] ?? null)
 
   React.useEffect(() => {
     if (!focusedId && items[0]) {
@@ -26,79 +23,10 @@ export function LoupeView(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-muted/10">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <CanvasViewer media={current} />
+        <CanvasViewer media={current} zoom={loupeZoom} />
       </div>
 
-      <div className="flex h-[120px] shrink-0 items-center gap-2 border-t bg-background px-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (currentIndex > 0) selectSingle(items[currentIndex - 1]!.id)
-          }}
-          disabled={currentIndex <= 0}
-          aria-label="Previous"
-        >
-          <ChevronLeft />
-        </Button>
-
-        <ScrollArea className="h-full w-full">
-          <div className="flex h-full items-center gap-2 p-2">
-            {items.map((m, idx) => {
-              const isActive = m.id === focusedId
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={cn(
-                    'rounded-md outline-none',
-                    isActive && 'ring-2 ring-ring'
-                  )}
-                  onClick={() => selectSingle(m.id)}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('application/x-distillery-media-id', m.id)
-                    e.dataTransfer.setData('text/plain', m.id)
-                  }}
-                >
-                  <div className="relative size-[86px] overflow-hidden rounded-md border bg-muted">
-                    {m.thumb_path ? (
-                      <img
-                        src={m.thumb_path}
-                        alt={m.file_name}
-                        className="absolute inset-0 h-full w-full object-cover"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-                        {String(idx + 1)}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (currentIndex >= 0 && currentIndex < items.length - 1) {
-              selectSingle(items[currentIndex + 1]!.id)
-            }
-          }}
-          disabled={currentIndex < 0 || currentIndex >= items.length - 1}
-          aria-label="Next"
-        >
-          <ChevronRight />
-        </Button>
-      </div>
+      <LoupeFilmstrip items={items} currentIndex={currentIndex} onSelect={selectSingle} />
     </div>
   )
 }

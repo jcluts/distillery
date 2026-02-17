@@ -52,6 +52,12 @@ export class ProviderCatalogService {
 
     const deduped = new Map<string, CanonicalEndpointDef>()
     for (const endpoint of endpoints) {
+      if (deduped.has(endpoint.endpointKey)) {
+        const existing = deduped.get(endpoint.endpointKey)
+        console.warn(
+          `[ProviderCatalogService] Duplicate endpointKey "${endpoint.endpointKey}" from provider "${endpoint.providerId}"; overriding previous provider "${existing?.providerId}".`
+        )
+      }
       deduped.set(endpoint.endpointKey, endpoint)
     }
 

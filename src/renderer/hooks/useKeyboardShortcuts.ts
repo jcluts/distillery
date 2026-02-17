@@ -21,10 +21,13 @@ export function useKeyboardShortcuts(): void {
   const setViewMode = useUIStore((s) => s.setViewMode)
   const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
   const viewMode = useUIStore((s) => s.viewMode)
+  const cycleZoom = useUIStore((s) => s.cycleZoom)
 
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
+  const selectedIds = useLibraryStore((s) => s.selectedIds)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
+  const selectAll = useLibraryStore((s) => s.selectAll)
   const updateItem = useLibraryStore((s) => s.updateItem)
 
   const setLeftPanelTab = useUIStore((s) => s.setLeftPanelTab)
@@ -66,6 +69,13 @@ export function useKeyboardShortcuts(): void {
         return
       }
 
+      // Select all
+      if (modKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        selectAll()
+        return
+      }
+
       // View navigation
       if (e.key.toLowerCase() === 'g') {
         setViewMode('grid')
@@ -96,6 +106,10 @@ export function useKeyboardShortcuts(): void {
       }
 
       if (viewMode === 'loupe') {
+        if (e.key.toLowerCase() === 'z') {
+          cycleZoom()
+          return
+        }
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
           e.preventDefault()
           const currentIndex = focusedId
@@ -106,8 +120,9 @@ export function useKeyboardShortcuts(): void {
             e.key === 'ArrowLeft' ? currentIndex - 1 : currentIndex + 1
           const next = items[nextIndex]
           if (next) selectSingle(next.id)
+          return
         }
-        return
+        // Fall through to culling shortcuts (ratings, status) below
       }
 
       // Grid selection navigation (simple linear prev/next for prototype)
@@ -126,27 +141,36 @@ export function useKeyboardShortcuts(): void {
         }
       }
 
-      // Culling shortcuts (prototype)
+      // Culling shortcuts — apply to all selected items (or just focused)
       if (!focusedId) return
+      const targetIds = selectedIds.size > 0 ? [...selectedIds] : [focusedId]
       const digit = Number(e.key)
-      if (digit >= 1 && digit <= 5) {
-        updateItem(focusedId, { rating: digit })
-        void window.api.updateMedia(focusedId, { rating: digit })
+      if (digit >= 0 && digit <= 5) {
+        for (const id of targetIds) {
+          updateItem(id, { rating: digit })
+          void window.api.updateMedia(id, { rating: digit })
+        }
         return
       }
       if (e.key.toLowerCase() === 'p') {
-        updateItem(focusedId, { status: 'selected' })
-        void window.api.updateMedia(focusedId, { status: 'selected' })
+        for (const id of targetIds) {
+          updateItem(id, { status: 'selected' })
+          void window.api.updateMedia(id, { status: 'selected' })
+        }
         return
       }
       if (e.key.toLowerCase() === 'x') {
-        updateItem(focusedId, { status: 'rejected' })
-        void window.api.updateMedia(focusedId, { status: 'rejected' })
+        for (const id of targetIds) {
+          updateItem(id, { status: 'rejected' })
+          void window.api.updateMedia(id, { status: 'rejected' })
+        }
         return
       }
       if (e.key.toLowerCase() === 'u') {
-        updateItem(focusedId, { status: null })
-        void window.api.updateMedia(focusedId, { status: null })
+        for (const id of targetIds) {
+          updateItem(id, { status: null })
+          void window.api.updateMedia(id, { status: null })
+        }
         return
       }
     }
@@ -155,9 +179,12 @@ export function useKeyboardShortcuts(): void {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
     buildParams,
+    cycleZoom,
     focusedId,
     items,
+    selectAll,
     selectSingle,
+    selectedIds,
     setLeftPanelTab,
     setViewMode,
     toggleLeftPanel,

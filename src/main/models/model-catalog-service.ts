@@ -1,7 +1,7 @@
-import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
 import type { ModelCatalog, ModelDefinition } from './types'
+import { loadEditableJsonConfig } from '../config/config-file-utils'
 
 const bundledCatalogModules = import.meta.glob('../config/model-catalog.json', {
   eager: true,
@@ -30,44 +30,20 @@ export class ModelCatalogService {
     return path.join(app.getPath('userData'), 'model-catalog.json')
   }
 
-  ensureRuntimeCatalogFile(): string {
-    const runtimePath = this.getRuntimeCatalogPath()
-    if (fs.existsSync(runtimePath)) {
-      return runtimePath
-    }
-
-    const bundled = getBundledCatalog()
-    fs.mkdirSync(path.dirname(runtimePath), { recursive: true })
-    fs.writeFileSync(runtimePath, JSON.stringify(bundled, null, 2), 'utf8')
-    return runtimePath
-  }
-
   loadCatalog(forceRefresh = false): ModelCatalog {
     if (this.cache && !forceRefresh) {
       return this.cache
     }
 
-    const runtimePath = this.ensureRuntimeCatalogFile()
+    const bundled = getBundledCatalog()
+    this.cache = loadEditableJsonConfig<ModelCatalog>({
+      configName: 'model-catalog',
+      bundledDefault: bundled,
+      runtimePath: this.getRuntimeCatalogPath(),
+      isValid: isModelCatalog
+    })
 
-    try {
-      const raw = fs.readFileSync(runtimePath, 'utf8')
-      const parsed = JSON.parse(raw) as unknown
-      if (!isModelCatalog(parsed)) {
-        throw new Error('Invalid model catalog shape')
-      }
-
-      this.cache = parsed
-      return this.cache
-    } catch (error) {
-      console.warn(
-        '[ModelCatalogService] Failed to read runtime catalog, re-seeding from bundled default:',
-        error
-      )
-      const bundled = getBundledCatalog()
-      fs.writeFileSync(runtimePath, JSON.stringify(bundled, null, 2), 'utf8')
-      this.cache = bundled
-      return this.cache
-    }
+    return this.cache
   }
 
   getModel(modelId: string): ModelDefinition | undefined {

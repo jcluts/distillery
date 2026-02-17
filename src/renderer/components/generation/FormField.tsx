@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { FormFieldConfig } from '@/lib/schema-to-form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -36,7 +36,7 @@ interface FormFieldProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const generateRandomSeed = () => Math.floor(Math.random() * 2147483648)
+const generateRandomSeed = (): number => Math.floor(Math.random() * 2147483648)
 
 // ---------------------------------------------------------------------------
 // FormField
@@ -48,8 +48,8 @@ export function FormField({
   onChange,
   disabled = false,
   error,
-  hideLabel = false,
-}: FormFieldProps) {
+  hideLabel = false
+}: FormFieldProps): React.JSX.Element {
   const isSeedField = field.name.toLowerCase() === 'seed'
   const isNumericField = field.type === 'number' || field.type === 'slider'
   const isNumberField = field.type === 'number'
@@ -58,7 +58,7 @@ export function FormField({
   const numericFallback =
     value !== undefined && value !== null
       ? Number(value)
-      : (field.default as number | undefined) ?? field.min ?? 0
+      : ((field.default as number | undefined) ?? field.min ?? 0)
 
   const [numericInput, setNumericInput] = useState(() => {
     if (!isNumericField) return ''
@@ -66,27 +66,31 @@ export function FormField({
     return String(numericFallback)
   })
 
-  useEffect(() => {
-    if (!isNumericField) return
-    if (allowEmptyNumber && (value === undefined || value === null)) {
-      setNumericInput('')
-      return
+  // Synchronize numericInput with external value prop
+  const [prevPropValue, setPrevPropValue] = useState(value)
+  if (value !== prevPropValue) {
+    setPrevPropValue(value)
+    if (isNumericField) {
+      if (allowEmptyNumber && (value === undefined || value === null)) {
+        setNumericInput('')
+      } else {
+        const next =
+          value !== undefined && value !== null
+            ? Number(value)
+            : ((field.default as number | undefined) ?? field.min ?? 0)
+        setNumericInput(String(next))
+      }
     }
-    const next =
-      value !== undefined && value !== null
-        ? Number(value)
-        : (field.default as number | undefined) ?? field.min ?? 0
-    setNumericInput(String(next))
-  }, [isNumericField, value, field.default, field.min, allowEmptyNumber])
+  }
 
-  const clampNumeric = (n: number) => {
+  const clampNumeric = (n: number): number => {
     let next = n
     if (field.min !== undefined) next = Math.max(field.min, next)
     if (field.max !== undefined) next = Math.min(field.max, next)
     return next
   }
 
-  const commitNumeric = (raw: string) => {
+  const commitNumeric = (raw: string): void => {
     if (raw.trim() === '' || Number.isNaN(Number(raw))) {
       if (allowEmptyNumber) {
         onChange(undefined)
@@ -109,7 +113,7 @@ export function FormField({
   // Render input based on field type
   // -------------------------------------------------------------------------
 
-  const renderInput = () => {
+  const renderInput = (): React.JSX.Element => {
     switch (field.type) {
       case 'text':
         return (
@@ -118,7 +122,9 @@ export function FormField({
             type="text"
             value={(value as string) || ''}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder || field.description || `Enter ${field.label.toLowerCase()}`}
+            placeholder={
+              field.placeholder || field.description || `Enter ${field.label.toLowerCase()}`
+            }
             disabled={disabled}
           />
         )
@@ -129,7 +135,9 @@ export function FormField({
             id={field.name}
             value={(value as string) || ''}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder || field.description || `Enter ${field.label.toLowerCase()}`}
+            placeholder={
+              field.placeholder || field.description || `Enter ${field.label.toLowerCase()}`
+            }
             disabled={disabled}
             rows={4}
             className="resize-y"
@@ -143,7 +151,7 @@ export function FormField({
         const currentValue =
           value !== undefined && value !== null
             ? Number(value)
-            : (field.default as number) ?? field.min ?? 0
+            : ((field.default as number) ?? field.min ?? 0)
 
         if (hasSliderRange) {
           return (
@@ -204,11 +212,7 @@ export function FormField({
               min={field.min}
               max={field.max}
               step={field.step}
-              placeholder={
-                field.default !== undefined
-                  ? `Default: ${field.default}`
-                  : 'Random'
-              }
+              placeholder={field.default !== undefined ? `Default: ${field.default}` : 'Random'}
               disabled={disabled}
               className={isSeedField ? 'flex-1' : undefined}
             />
@@ -243,7 +247,7 @@ export function FormField({
         const currentValue =
           value !== undefined && value !== null
             ? Number(value)
-            : (field.default as number) ?? field.min ?? 0
+            : ((field.default as number) ?? field.min ?? 0)
         return (
           <div className="flex items-center gap-3">
             <Slider
@@ -381,22 +385,28 @@ export function FormField({
           >
             {field.label}
           </Label>
-          {field.min !== undefined && field.max !== undefined && field.type !== 'size' && field.type !== 'local-size' && (
-            <span className="text-xs text-muted-foreground">
-              ({field.min}–{field.max})
-            </span>
-          )}
+          {field.min !== undefined &&
+            field.max !== undefined &&
+            field.type !== 'size' &&
+            field.type !== 'local-size' && (
+              <span className="text-xs text-muted-foreground">
+                ({field.min}–{field.max})
+              </span>
+            )}
         </div>
       )}
-      <div
-        className={cn(error && '[&_input]:border-destructive [&_textarea]:border-destructive')}
-      >
+      <div className={cn(error && '[&_input]:border-destructive [&_textarea]:border-destructive')}>
         {renderInput()}
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
-      {!error && field.description && field.type !== 'text' && field.type !== 'textarea' && field.type !== 'size' && field.type !== 'local-size' && (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      )}
+      {!error &&
+        field.description &&
+        field.type !== 'text' &&
+        field.type !== 'textarea' &&
+        field.type !== 'size' &&
+        field.type !== 'local-size' && (
+          <p className="text-xs text-muted-foreground">{field.description}</p>
+        )}
     </div>
   )
 }

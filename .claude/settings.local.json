@@ -5,7 +5,10 @@
       "WebSearch",
       "WebFetch(domain:blog.mohitnagaraj.in)",
       "Bash(dir:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

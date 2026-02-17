@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
 import { ModelManagerModal } from '@/components/modals/ModelManagerModal'
 import { SettingsModal } from '@/components/modals/SettingsModal'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { useModelCatalog } from '@/hooks/useModelCatalog'
 import { useModelDownload } from '@/hooks/useModelDownload'
 import { useEngineStore } from './stores/engine-store'
@@ -200,12 +201,12 @@ function App(): React.JSX.Element {
   }, [activeJobId, activePhase, activeStep, activeTotalSteps, setActiveProgress])
 
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <AppLayout />
       <GenerationDetailModal />
       <SettingsModal />
       <ModelManagerModal />
-    </>
+    </TooltipProvider>
   )
 }
 

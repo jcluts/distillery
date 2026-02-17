@@ -53,13 +53,14 @@ export class GenerationService extends EventEmitter {
       throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
 
-    this.validateParams(input.params)
+    if (endpoint.executionMode !== 'queued-local') {
+      throw new Error(
+        `Execution mode "${endpoint.executionMode}" is not yet supported (endpoint: ${endpoint.endpointKey})`
+      )
+    }
 
-    // Resolve seed upfront so it's captured in the generation record from the start.
-    // If the user left seed empty, generate a random one now rather than deferring
-    // to the engine — this makes the seed viewable and reloadable immediately.
-    const resolvedSeed = this.resolveOrGenerateSeed(input.params.seed)
-    input.params.seed = resolvedSeed
+    const params = this.withResolvedSeed(input.params)
+    this.validateParams(params)
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
@@ -75,7 +76,7 @@ export class GenerationService extends EventEmitter {
       : undefined
 
     const paramsWithModel = {
-      ...input.params,
+      ...params,
       model: {
         id: activeModelId,
         diffusionQuant: activeSelections?.diffusionQuant ?? null,
@@ -85,7 +86,7 @@ export class GenerationService extends EventEmitter {
 
     const { inputRecords } = await this.generationIOService.prepareInputs(
       generationId,
-      input.params,
+      params,
       now
     )
 
@@ -95,14 +96,14 @@ export class GenerationService extends EventEmitter {
       base_model_id: activeModelId,
       provider: endpoint.providerId,
       model_file: activeModelId,
-      prompt: this.asString(input.params.prompt),
-      width: this.asNumber(input.params.width),
-      height: this.asNumber(input.params.height),
-      seed: this.asOptionalNumber(input.params.seed),
-      steps: this.asOptionalNumber(input.params.steps) ?? 4,
-      guidance: this.asOptionalNumber(input.params.guidance) ?? 3.5,
+      prompt: this.asString(params.prompt),
+      width: this.asNumber(params.width),
+      height: this.asNumber(params.height),
+      seed: this.asOptionalNumber(params.seed),
+      steps: this.asOptionalNumber(params.steps) ?? 4,
+      guidance: this.asOptionalNumber(params.guidance) ?? 3.5,
       sampling_method:
-        typeof input.params.sampling_method === 'string' ? input.params.sampling_method : 'euler',
+        typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
       params_json: JSON.stringify(paramsWithModel),
       status: 'pending',
       error: null,
@@ -115,16 +116,18 @@ export class GenerationService extends EventEmitter {
       completed_at: null
     }
 
-    generationRepo.insertGeneration(this.db, generationRecord)
-    this.generationIOService.insertInputRecords(inputRecords)
+    this.db.transaction(() => {
+      generationRepo.insertGeneration(this.db, generationRecord)
+      this.generationIOService.insertInputRecords(inputRecords)
+    })()
 
-    if (endpoint.executionMode === 'queued-local') {
-      const payload: QueuedLocalTaskPayload = {
-        generationId,
-        endpointKey: endpoint.endpointKey,
-        params: input.params
-      }
+    const payload: QueuedLocalTaskPayload = {
+      generationId,
+      endpointKey: endpoint.endpointKey,
+      params
+    }
 
+    try {
       await this.workQueueManager.enqueue({
         task_type: WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE,
         priority: 0,
@@ -133,15 +136,16 @@ export class GenerationService extends EventEmitter {
         owner_module: 'generation',
         max_attempts: 1
       })
-
-      return generationId
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      generationRepo.updateGenerationComplete(this.db, generationId, {
+        status: 'failed',
+        error: `Failed to enqueue generation task: ${message}`
+      })
+      throw error
     }
 
-    // Remote-async providers are not yet implemented.
-    // Fail explicitly rather than silently running a stub.
-    throw new Error(
-      `Execution mode "${endpoint.executionMode}" is not yet supported (endpoint: ${endpoint.endpointKey})`
-    )
+    return generationId
   }
 
   cancel(generationId: string): void {
@@ -223,5 +227,12 @@ export class GenerationService extends EventEmitter {
       if (Number.isFinite(parsed) && parsed >= 0) return parsed
     }
     return randomInt(0, 2_147_483_647)
+  }
+
+  private withResolvedSeed(params: CanonicalGenerationParams): CanonicalGenerationParams {
+    return {
+      ...params,
+      seed: this.resolveOrGenerateSeed(params.seed)
+    }
   }
 }

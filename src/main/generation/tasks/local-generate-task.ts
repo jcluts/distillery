@@ -90,7 +90,12 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
     }
 
     const generationId = payload.generationId
-    if (!generationId || !payload.endpointKey || !payload.params) {
+    if (
+      !generationId ||
+      !payload.endpointKey ||
+      !payload.params ||
+      typeof payload.params !== 'object'
+    ) {
       return {
         success: false,
         error: 'Malformed payload: requires generationId, endpointKey, and params'
@@ -98,15 +103,19 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
     }
 
     try {
-      // Lazy-load model if not already in memory
-      await this.ensureModelLoaded()
-
-      generationRepo.markGenerationStarted(this.db, generationId)
-
       const endpoint = await this.providerCatalogService.getEndpoint(payload.endpointKey)
       if (!endpoint) {
         throw new Error(`Unknown endpointKey: ${payload.endpointKey}`)
       }
+
+      if (endpoint.executionMode !== 'queued-local' || endpoint.providerId !== 'local') {
+        throw new Error(`Unsupported endpoint for local task handler: ${payload.endpointKey}`)
+      }
+
+      // Lazy-load model if not already in memory
+      await this.ensureModelLoaded()
+
+      generationRepo.markGenerationStarted(this.db, generationId)
 
       const refImages = await this.generationIOService.getRefImagesForProvider(generationId)
       const outputPath = await this.generationIOService.getTempOutputPath(generationId)

@@ -63,7 +63,7 @@ export function GenerationDetailModal(): React.JSX.Element {
         if (!next) close()
       }}
     >
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
             {gen ? `Generation #${gen.number}` : 'Generation'}
