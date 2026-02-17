@@ -39,7 +39,7 @@ const overlayClassBySize: Record<
   }
 }
 
-export function MediaThumbnail({
+export const MediaThumbnail = React.memo(function MediaThumbnail({
   media,
   fallbackLabel,
   className,
@@ -92,4 +92,4 @@ export function MediaThumbnail({
       )}
     </div>
   )
-}
+})
