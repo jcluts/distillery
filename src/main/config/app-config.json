@@ -1,0 +1,5 @@
+{
+  "configVersion": 1,
+  "model_base_path": "$USER_DATA/models",
+  "cn_engine_base_path": "$RESOURCES/cn-engine/win32/vulkan"
+}

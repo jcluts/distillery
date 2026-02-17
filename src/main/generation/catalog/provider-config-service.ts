@@ -1,6 +1,10 @@
-import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
+import {
+  readJsonConfigsFromDirectory,
+  seedRuntimeJsonDirectory,
+  shouldUseProfileConfigFiles
+} from '../../config/config-file-utils'
 
 export interface ProviderEndpointConfig {
   endpointKey: string
@@ -32,6 +36,12 @@ const builtInProviderModules = import.meta.glob('../../config/providers/*.json',
   import: 'default'
 }) as Record<string, ProviderConfig>
 
+function isProviderConfig(value: unknown): value is ProviderConfig {
+  if (!value || typeof value !== 'object') return false
+  const maybe = value as Partial<ProviderConfig>
+  return typeof maybe.providerId === 'string' && maybe.providerId.trim().length > 0
+}
+
 function mergeProviderConfig(base: ProviderConfig, override: ProviderConfig): ProviderConfig {
   return {
     ...base,
@@ -57,39 +67,52 @@ export class ProviderConfigService {
     return path.join(app.getPath('userData'), 'api-providers')
   }
 
+  private getBuiltInConfigsByFileName(): Record<string, ProviderConfig> {
+    const defaultsByFileName: Record<string, ProviderConfig> = {}
+
+    for (const [modulePath, config] of Object.entries(builtInProviderModules)) {
+      if (!isProviderConfig(config)) continue
+
+      const fileName = modulePath.split('/').pop() ?? `${config.providerId}.json`
+      defaultsByFileName[fileName] = config
+    }
+
+    return defaultsByFileName
+  }
+
+  private seedProfileProviderFiles(): void {
+    if (!shouldUseProfileConfigFiles()) {
+      return
+    }
+
+    const defaultsByFileName = this.getBuiltInConfigsByFileName()
+    seedRuntimeJsonDirectory(defaultsByFileName, this.getProviderOverridesDir())
+  }
+
   loadBuiltInConfigs(): ProviderConfig[] {
-    return Object.values(builtInProviderModules).filter(
-      (config) => !!config.providerId
-    )
+    return Object.values(builtInProviderModules).filter((config) => isProviderConfig(config))
   }
 
   loadProfileOverrides(): ProviderConfig[] {
-    const dir = this.getProviderOverridesDir()
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
+    if (!shouldUseProfileConfigFiles()) {
       return []
     }
 
-    const files = fs.readdirSync(dir).filter((name) => name.endsWith('.json'))
-    const configs: ProviderConfig[] = []
-
-    for (const file of files) {
-      const abs = path.join(dir, file)
-      try {
-        const parsed = JSON.parse(fs.readFileSync(abs, 'utf8')) as ProviderConfig
-        if (parsed.providerId) {
-          configs.push(parsed)
-        }
-      } catch (error) {
-        console.warn(`[ProviderConfigService] Failed to read provider override ${abs}`, error)
-      }
-    }
-
-    return configs
+    this.seedProfileProviderFiles()
+    return readJsonConfigsFromDirectory<ProviderConfig>({
+      dirPath: this.getProviderOverridesDir(),
+      configName: 'provider-config',
+      isValid: isProviderConfig
+    })
   }
 
   loadMergedProviderConfigs(): ProviderConfig[] {
     const builtIns = this.loadBuiltInConfigs()
+
+    if (!shouldUseProfileConfigFiles()) {
+      return builtIns.filter((config) => config.enabled !== false)
+    }
+
     const overrides = this.loadProfileOverrides()
 
     const map = new Map<string, ProviderConfig>()
@@ -100,10 +123,7 @@ export class ProviderConfigService {
 
     for (const override of overrides) {
       const existing = map.get(override.providerId)
-      map.set(
-        override.providerId,
-        existing ? mergeProviderConfig(existing, override) : override
-      )
+      map.set(override.providerId, existing ? mergeProviderConfig(existing, override) : override)
     }
 
     return Array.from(map.values()).filter((config) => config.enabled !== false)
