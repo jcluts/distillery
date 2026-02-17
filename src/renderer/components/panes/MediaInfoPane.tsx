@@ -63,6 +63,16 @@ function StarRating({
           </button>
         )
       })}
+      {rating > 0 && (
+        <button
+          type="button"
+          className="ml-1 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent"
+          onClick={() => onChange(0)}
+          aria-label="Clear rating"
+        >
+          <X className="size-4" />
+        </button>
+      )}
     </div>
   )
 }

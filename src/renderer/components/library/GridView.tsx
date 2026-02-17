@@ -1,15 +1,16 @@
 import * as React from 'react'
-import { Star, Check, X } from 'lucide-react'
 
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
 import { useMediaItemHandlers } from '@/hooks/useMediaItemHandlers'
 import { cn } from '@/lib/utils'
+import { MediaThumbnail } from '@/components/library/MediaThumbnail'
 
 function extractDroppedFilePaths(e: React.DragEvent): string[] {
+  type FileWithPath = File & { path?: string }
   const files = Array.from(e.dataTransfer.files ?? [])
   const paths = files
-    .map((f) => (f as any).path as string | undefined)
+    .map((f) => (f as FileWithPath).path)
     .filter((p): p is string => typeof p === 'string' && p.length > 0)
   return paths
 }
@@ -61,41 +62,7 @@ export function GridView(): React.JSX.Element {
               draggable
               onDragStart={(e) => handleDragStart(e, m.id)}
             >
-              <div className="relative h-full w-full overflow-hidden rounded-md border bg-muted">
-                {m.thumb_path ? (
-                  <img
-                    src={m.thumb_path}
-                    alt={m.file_name}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    loading="lazy"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-                    {String(index + 1)}
-                  </div>
-                )}
-
-                {/* Status badge — top left */}
-                {m.status && (
-                  <div className="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                    {m.status === 'selected' ? (
-                      <Check className="h-3 w-3" strokeWidth={3} />
-                    ) : (
-                      <X className="h-3 w-3" strokeWidth={3} />
-                    )}
-                  </div>
-                )}
-
-                {/* Rating stars — top right */}
-                {m.rating > 0 && (
-                  <div className="absolute top-1.5 right-1.5 flex items-center gap-px drop-shadow-sm">
-                    {Array.from({ length: m.rating }, (_, i) => (
-                      <Star key={i} className="h-3 w-3 fill-primary text-primary" />
-                    ))}
-                  </div>
-                )}
-              </div>
+              <MediaThumbnail media={m} fallbackLabel={String(index + 1)} />
             </button>
           )
         })}

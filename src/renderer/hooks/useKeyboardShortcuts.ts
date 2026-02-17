@@ -120,8 +120,9 @@ export function useKeyboardShortcuts(): void {
             e.key === 'ArrowLeft' ? currentIndex - 1 : currentIndex + 1
           const next = items[nextIndex]
           if (next) selectSingle(next.id)
+          return
         }
-        return
+        // Fall through to culling shortcuts (ratings, status) below
       }
 
       // Grid selection navigation (simple linear prev/next for prototype)
@@ -144,7 +145,7 @@ export function useKeyboardShortcuts(): void {
       if (!focusedId) return
       const targetIds = selectedIds.size > 0 ? [...selectedIds] : [focusedId]
       const digit = Number(e.key)
-      if (digit >= 1 && digit <= 5) {
+      if (digit >= 0 && digit <= 5) {
         for (const id of targetIds) {
           updateItem(id, { rating: digit })
           void window.api.updateMedia(id, { rating: digit })
