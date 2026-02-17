@@ -40,8 +40,5 @@ npm run build:linux  # Linux
 
 ## Status
 
-Early-stage / active development. This is a personal project — functional but evolving. Contributions and feedback are welcome.
+Early-stage / active development. This is a personal project — functional but evolving. Feedback welcome.
 
-## License
-
-MIT
