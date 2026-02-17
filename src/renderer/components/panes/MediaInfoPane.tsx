@@ -154,6 +154,7 @@ export function MediaInfoPane(): React.JSX.Element {
   const selectSingle = useLibraryStore((s) => s.selectSingle)
 
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
+  const currentStatus = media?.status ?? 'unmarked'
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
   // Keyword state fetched from the normalized tables
@@ -251,7 +252,7 @@ export function MediaInfoPane(): React.JSX.Element {
         <SectionLabel>Status</SectionLabel>
         <ToggleGroup
           type="single"
-          value={media?.status ?? 'unmarked'}
+          value={currentStatus}
           onValueChange={(v: string) => {
             if (!media || !v) return
             if (v === 'unmarked') void persistUpdate(media.id, { status: null })
@@ -261,24 +262,50 @@ export function MediaInfoPane(): React.JSX.Element {
         >
           <Tooltip>
             <TooltipTrigger asChild>
-              <ToggleGroupItem value="selected" size="sm" aria-label="Selected">
-                <CircleCheck className="size-6 text-muted-foreground" />
+              <ToggleGroupItem
+                value="selected"
+                size="sm"
+                aria-label="Selected"
+                className={cn(
+                  'text-muted-foreground',
+                  currentStatus === 'selected' &&
+                    'bg-primary/10 text-primary ring-1 ring-primary/30'
+                )}
+              >
+                <CircleCheck className="size-6" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Selected</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <ToggleGroupItem value="rejected" size="sm" aria-label="Rejected">
-                <CircleX className="size-6 text-muted-foreground" />
+              <ToggleGroupItem
+                value="rejected"
+                size="sm"
+                aria-label="Rejected"
+                className={cn(
+                  'text-muted-foreground',
+                  currentStatus === 'rejected' &&
+                    'bg-destructive/10 text-destructive ring-1 ring-destructive/30'
+                )}
+              >
+                <CircleX className="size-6" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Rejected</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <ToggleGroupItem value="unmarked" size="sm" aria-label="Clear status">
-                <CircleMinus className="size-6 text-muted-foreground" />
+              <ToggleGroupItem
+                value="unmarked"
+                size="sm"
+                aria-label="Clear status"
+                className={cn(
+                  'text-muted-foreground',
+                  currentStatus === 'unmarked' && 'bg-muted text-foreground ring-1 ring-border'
+                )}
+              >
+                <CircleMinus className="size-6" />
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom">Clear</TooltipContent>

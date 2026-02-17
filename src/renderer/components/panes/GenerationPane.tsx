@@ -75,7 +75,9 @@ export function GenerationPane(): React.JSX.Element {
     window.api.getGenerationEndpointSchema(endpointKey).then((ep) => {
       if (!cancelled && ep) setEndpoint(ep)
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [endpointKey])
 
   const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
@@ -263,15 +265,8 @@ export function GenerationPane(): React.JSX.Element {
         <div className="py-4 text-center text-sm text-muted-foreground">Loading schema…</div>
       )}
 
-      
-
       {/* Generate button */}
-      <Button
-        type="button"
-        className="w-full"
-        disabled={generateDisabled}
-        onClick={handleSubmit}
-      >
+      <Button type="button" className="w-full" disabled={generateDisabled} onClick={handleSubmit}>
         Generate
       </Button>
 
