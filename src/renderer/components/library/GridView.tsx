@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Star, Check, X } from 'lucide-react'
 
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
@@ -75,6 +76,26 @@ export function GridView(): React.JSX.Element {
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
                     {String(index + 1)}
+                  </div>
+                )}
+
+                {/* Status badge — top left */}
+                {m.status && (
+                  <div className="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                    {m.status === 'selected' ? (
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                    ) : (
+                      <X className="h-3 w-3" strokeWidth={3} />
+                    )}
+                  </div>
+                )}
+
+                {/* Rating stars — top right */}
+                {m.rating > 0 && (
+                  <div className="absolute top-1.5 right-1.5 flex items-center gap-px drop-shadow-sm">
+                    {Array.from({ length: m.rating }, (_, i) => (
+                      <Star key={i} className="h-3 w-3 fill-primary text-primary" />
+                    ))}
                   </div>
                 )}
               </div>
