@@ -7,6 +7,7 @@ import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
 import { useMediaItemHandlers } from '@/hooks/useMediaItemHandlers'
 import { CanvasViewer } from '@/components/library/canvas/CanvasViewer'
+import { MediaThumbnail } from '@/components/library/MediaThumbnail'
 import { cn } from '@/lib/utils'
 
 export function LoupeView(): React.JSX.Element {
@@ -62,21 +63,12 @@ export function LoupeView(): React.JSX.Element {
                   draggable
                   onDragStart={(e) => handleDragStart(e, m.id)}
                 >
-                  <div className="relative size-[86px] overflow-hidden rounded-md border bg-muted">
-                    {m.thumb_path ? (
-                      <img
-                        src={m.thumb_path}
-                        alt={m.file_name}
-                        className="absolute inset-0 h-full w-full object-cover"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-                        {String(idx + 1)}
-                      </div>
-                    )}
-                  </div>
+                  <MediaThumbnail
+                    media={m}
+                    fallbackLabel={String(idx + 1)}
+                    className="size-[86px]"
+                    overlaySize="filmstrip"
+                  />
                 </button>
               )
             })}
