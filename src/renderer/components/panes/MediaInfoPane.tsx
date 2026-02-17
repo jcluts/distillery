@@ -24,13 +24,13 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SectionLabel } from '@/components/ui/section-label'
 import { InfoTable } from '@/components/ui/info-table'
 import { useLibraryStore } from '@/stores/library-store'
 import { cn } from '@/lib/utils'
+import type { MediaStatus, MediaUpdate } from '@/types'
 
 // ---------------------------------------------------------------------------
 // StarRating
@@ -173,10 +173,10 @@ export function MediaInfoPane(): React.JSX.Element {
   }, [media?.id, fetchKeywords])
 
   const persistUpdate = React.useCallback(
-    async (id: string, updates: { rating?: number; status?: any }) => {
-      updateItem(id, updates as any)
+    async (id: string, updates: MediaUpdate) => {
+      updateItem(id, updates)
       try {
-        await window.api.updateMedia(id, updates as any)
+        await window.api.updateMedia(id, updates)
       } finally {
         const page = await window.api.getMedia(buildQuery())
         setItems(page)
@@ -252,11 +252,11 @@ export function MediaInfoPane(): React.JSX.Element {
         <ToggleGroup
           type="single"
           value={media?.status ?? 'unmarked'}
-          onValueChange={(v) => {
+          onValueChange={(v: string) => {
             if (!media || !v) return
             if (v === 'unmarked') void persistUpdate(media.id, { status: null })
             else if (v === 'selected' || v === 'rejected')
-              void persistUpdate(media.id, { status: v as any })
+              void persistUpdate(media.id, { status: v as MediaStatus })
           }}
         >
           <Tooltip>
@@ -323,7 +323,6 @@ export function MediaInfoPane(): React.JSX.Element {
 
       {media && (
         <>
-
           <div className="space-y-2">
             <SectionLabel>Actions</SectionLabel>
             <div className="flex flex-wrap gap-1">

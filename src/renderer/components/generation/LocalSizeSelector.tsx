@@ -6,8 +6,8 @@ import { SectionLabel } from '@/components/ui/section-label'
 // Aspect ratio icon — compact visual indicator
 // ---------------------------------------------------------------------------
 
-function AspectIcon({ ratio }: { ratio: string }) {
-  const getDimensions = () => {
+function AspectIcon({ ratio }: { ratio: string }): React.JSX.Element {
+  const getDimensions = (): { w: number; h: number } => {
     switch (ratio) {
       case '1:1':
         return { w: 10, h: 10 }
@@ -28,12 +28,7 @@ function AspectIcon({ ratio }: { ratio: string }) {
     }
   }
   const { w, h } = getDimensions()
-  return (
-    <div
-      className="border border-current rounded-[1px]"
-      style={{ width: w, height: h }}
-    />
-  )
+  return <div className="border border-current rounded-[1px]" style={{ width: w, height: h }} />
 }
 
 // ---------------------------------------------------------------------------
@@ -47,7 +42,7 @@ const ASPECT_RATIOS = [
   { label: '4:3', w: 4, h: 3 },
   { label: '3:4', w: 3, h: 4 },
   { label: '3:2', w: 3, h: 2 },
-  { label: '2:3', w: 2, h: 3 },
+  { label: '2:3', w: 2, h: 3 }
 ]
 
 type AspectRatioPreset = (typeof ASPECT_RATIOS)[number]
@@ -61,7 +56,7 @@ const RESOLUTION_PRESETS: { mp: number; baseSize: number }[] = [
   { mp: 0.5, baseSize: 720 },
   { mp: 1.0, baseSize: 1024 },
   { mp: 1.5, baseSize: 1248 },
-  { mp: 2.0, baseSize: 1456 },
+  { mp: 2.0, baseSize: 1456 }
 ]
 
 // ---------------------------------------------------------------------------
@@ -143,8 +138,8 @@ export function LocalSizeSelector({
   disabled,
   min = 256,
   max = 2048,
-  showComputed = false,
-}: LocalSizeSelectorProps) {
+  showComputed = false
+}: LocalSizeSelectorProps): React.JSX.Element {
   // Parse current size value → infer closest resolution and aspect ratio presets
   const { resolution, aspect } = useMemo(() => {
     const parts = (value || '1024*1024').split('*')
@@ -152,7 +147,7 @@ export function LocalSizeSelector({
     const h = parseInt(parts[1], 10) || 1024
     return {
       resolution: inferResolution(w, h),
-      aspect: inferAspectRatio(w, h),
+      aspect: inferAspectRatio(w, h)
     }
   }, [value])
 

@@ -4,10 +4,7 @@ import { cn } from '@/lib/utils'
 function SectionHeader({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
-      className={cn(
-        'text-xs font-semibold tracking-wider text-muted-foreground uppercase',
-        className
-      )}
+      className={cn('text-sm font-semibold tracking-wider text-foreground uppercase', className)}
       {...props}
     />
   )

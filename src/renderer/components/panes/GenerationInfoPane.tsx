@@ -2,7 +2,6 @@ import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useLibraryStore } from '@/stores/library-store'
