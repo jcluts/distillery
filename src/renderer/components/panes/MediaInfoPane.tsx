@@ -74,11 +74,15 @@ function StarRating({
 function KeywordEditor({
   mediaId,
   keywords,
-  onChanged
+  onChanged,
+  onAdd,
+  hideRemove
 }: {
   mediaId: string
   keywords: string[]
   onChanged: () => void
+  onAdd?: (keyword: string) => Promise<void>
+  hideRemove?: boolean
 }): React.JSX.Element {
   const [inputValue, setInputValue] = React.useState('')
 
@@ -88,7 +92,11 @@ function KeywordEditor({
       setInputValue('')
       return
     }
-    await window.api.keywords.addToMedia(mediaId, keyword)
+    if (onAdd) {
+      await onAdd(keyword)
+    } else {
+      await window.api.keywords.addToMedia(mediaId, keyword)
+    }
     setInputValue('')
     onChanged()
   }
@@ -112,16 +120,18 @@ function KeywordEditor({
       {keywords.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {keywords.map((kw) => (
-            <Badge key={kw} variant="secondary" className="gap-1 pr-1 text-xs">
+            <Badge key={kw} variant="secondary" className={cn('text-xs', !hideRemove && 'gap-1 pr-1')}>
               {kw}
-              <button
-                type="button"
-                className="ml-0.5 rounded-sm p-0.5 hover:bg-muted-foreground/20"
-                onClick={() => void removeKeyword(kw)}
-                aria-label={`Remove keyword ${kw}`}
-              >
-                <X className="size-3" />
-              </button>
+              {!hideRemove && (
+                <button
+                  type="button"
+                  className="ml-0.5 rounded-sm p-0.5 hover:bg-muted-foreground/20"
+                  onClick={() => void removeKeyword(kw)}
+                  aria-label={`Remove keyword ${kw}`}
+                >
+                  <X className="size-3" />
+                </button>
+              )}
             </Badge>
           ))}
         </div>
@@ -147,12 +157,15 @@ function KeywordEditor({
 export function MediaInfoPane(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
+  const selectedIds = useLibraryStore((s) => s.selectedIds)
   const updateItem = useLibraryStore((s) => s.updateItem)
   const buildQuery = useLibraryStore((s) => s.buildQuery)
   const setItems = useLibraryStore((s) => s.setItems)
   const removeItems = useLibraryStore((s) => s.removeItems)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
+  const setSelection = useLibraryStore((s) => s.setSelection)
 
+  const isMulti = selectedIds.size > 1
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
   const currentStatus = media?.status ?? 'unmarked'
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
@@ -186,13 +199,37 @@ export function MediaInfoPane(): React.JSX.Element {
     [buildQuery, setItems, updateItem]
   )
 
+  const persistUpdateBulk = React.useCallback(
+    async (ids: string[], updates: MediaUpdate) => {
+      for (const id of ids) updateItem(id, updates)
+      try {
+        await Promise.all(ids.map((id) => window.api.updateMedia(id, updates)))
+      } finally {
+        const page = await window.api.getMedia(buildQuery())
+        setItems(page)
+      }
+    },
+    [buildQuery, setItems, updateItem]
+  )
+
   const refreshAfterKeywordChange = React.useCallback(async () => {
     if (!media?.id) return
     await fetchKeywords(media.id)
-    // Re-query library in case search filter is active on keywords
     const page = await window.api.getMedia(buildQuery())
     setItems(page)
   }, [media?.id, fetchKeywords, buildQuery, setItems])
+
+  // Bulk keyword add: add a keyword to all selected items
+  const addKeywordToAll = React.useCallback(
+    async (keyword: string) => {
+      const ids = [...selectedIds]
+      await Promise.all(ids.map((id) => window.api.keywords.addToMedia(id, keyword)))
+      if (media?.id) await fetchKeywords(media.id)
+      const page = await window.api.getMedia(buildQuery())
+      setItems(page)
+    },
+    [selectedIds, media?.id, fetchKeywords, buildQuery, setItems]
+  )
 
   // -- Media file actions --
 
@@ -201,49 +238,70 @@ export function MediaInfoPane(): React.JSX.Element {
   }, [media?.id])
 
   const handleOpenInApp = React.useCallback(() => {
-    if (media?.id) window.api.openMediaInApp(media.id)
-  }, [media?.id])
+    if (isMulti) {
+      for (const id of selectedIds) window.api.openMediaInApp(id)
+    } else if (media?.id) {
+      window.api.openMediaInApp(media.id)
+    }
+  }, [media?.id, isMulti, selectedIds])
 
   const handleCopyToClipboard = React.useCallback(() => {
     if (media?.id) window.api.copyMediaToClipboard(media.id)
   }, [media?.id])
 
   const executeDelete = React.useCallback(async () => {
-    if (!media?.id) return
-    // Determine next item to select before removing
-    const idx = items.findIndex((m) => m.id === media.id)
-    const nextItem = items[idx + 1] ?? items[idx - 1] ?? null
+    const idsToDelete = isMulti ? [...selectedIds] : media?.id ? [media.id] : []
+    if (idsToDelete.length === 0) return
 
-    await window.api.deleteMedia([media.id])
-    removeItems([media.id])
+    // Determine next item to select after removal
+    const deleteSet = new Set(idsToDelete)
+    const remaining = items.filter((m) => !deleteSet.has(m.id))
+    const nextItem = remaining[0] ?? null
+
+    await window.api.deleteMedia(idsToDelete)
+    removeItems(idsToDelete)
 
     if (nextItem) {
       selectSingle(nextItem.id)
+    } else {
+      setSelection(new Set())
     }
 
     const page = await window.api.getMedia(buildQuery())
     setItems(page)
-  }, [media?.id, items, removeItems, selectSingle, buildQuery, setItems])
+  }, [isMulti, selectedIds, media?.id, items, removeItems, selectSingle, setSelection, buildQuery, setItems])
 
   const handleDelete = React.useCallback(async () => {
-    if (!media?.id) return
+    const hasItems = isMulti ? selectedIds.size > 0 : !!media?.id
+    if (!hasItems) return
     const settings = await window.api.getSettings()
     if (settings.confirm_before_delete) {
       setDeleteDialogOpen(true)
     } else {
       void executeDelete()
     }
-  }, [media?.id, executeDelete])
+  }, [isMulti, selectedIds, media?.id, executeDelete])
+
+  const deleteCount = isMulti ? selectedIds.size : 1
 
   return (
     <div className="space-y-4">
+      {isMulti && (
+        <div className="text-sm font-medium text-muted-foreground">
+          {selectedIds.size} items selected
+        </div>
+      )}
+
       <div className="space-y-2">
         <SectionLabel>Rating</SectionLabel>
         <StarRating
           rating={media?.rating ?? 0}
           onChange={(r) => {
-            if (!media) return
-            void persistUpdate(media.id, { rating: r })
+            if (isMulti) {
+              void persistUpdateBulk([...selectedIds], { rating: r })
+            } else if (media) {
+              void persistUpdate(media.id, { rating: r })
+            }
           }}
         />
       </div>
@@ -254,10 +312,14 @@ export function MediaInfoPane(): React.JSX.Element {
           type="single"
           value={currentStatus}
           onValueChange={(v: string) => {
-            if (!media || !v) return
-            if (v === 'unmarked') void persistUpdate(media.id, { status: null })
-            else if (v === 'selected' || v === 'rejected')
-              void persistUpdate(media.id, { status: v as MediaStatus })
+            if (!v) return
+            const updates: MediaUpdate =
+              v === 'unmarked' ? { status: null } : { status: v as MediaStatus }
+            if (isMulti) {
+              void persistUpdateBulk([...selectedIds], updates)
+            } else if (media) {
+              void persistUpdate(media.id, updates)
+            }
           }}
         >
           <Tooltip>
@@ -313,54 +375,60 @@ export function MediaInfoPane(): React.JSX.Element {
         </ToggleGroup>
       </div>
 
-      <div className="space-y-2">
-        <SectionLabel>File Info</SectionLabel>
-        <InfoTable
-          items={[
-            { label: 'Name', value: media?.file_name ?? '—' },
-            {
-              label: 'Date',
-              value: media?.created_at ? new Date(media.created_at).toLocaleString() : '—'
-            },
-            {
-              label: 'Size',
-              value: media?.file_size ? `${(media.file_size / (1024 * 1024)).toFixed(2)} MB` : '—'
-            },
-            {
-              label: 'Format',
-              value: media?.file_name
-                ? (media.file_name.split('.').pop()?.toUpperCase() ?? '—')
-                : '—'
-            },
-            {
-              label: 'Dimensions',
-              value: media?.width && media?.height ? `${media.width} × ${media.height}` : '—'
-            },
-            {
-              label: 'Megapixels',
-              value:
-                media?.width && media?.height
-                  ? `${((media.width * media.height) / 1_000_000).toFixed(1)} MP`
+      {!isMulti && (
+        <div className="space-y-2">
+          <SectionLabel>File Info</SectionLabel>
+          <InfoTable
+            items={[
+              { label: 'Name', value: media?.file_name ?? '—' },
+              {
+                label: 'Date',
+                value: media?.created_at ? new Date(media.created_at).toLocaleString() : '—'
+              },
+              {
+                label: 'Size',
+                value: media?.file_size
+                  ? `${(media.file_size / (1024 * 1024)).toFixed(2)} MB`
                   : '—'
-            },
-            { label: 'Origin', value: media?.origin ?? '—' }
-          ]}
-        />
-      </div>
+              },
+              {
+                label: 'Format',
+                value: media?.file_name
+                  ? (media.file_name.split('.').pop()?.toUpperCase() ?? '—')
+                  : '—'
+              },
+              {
+                label: 'Dimensions',
+                value: media?.width && media?.height ? `${media.width} × ${media.height}` : '—'
+              },
+              {
+                label: 'Megapixels',
+                value:
+                  media?.width && media?.height
+                    ? `${((media.width * media.height) / 1_000_000).toFixed(1)} MP`
+                    : '—'
+              },
+              { label: 'Origin', value: media?.origin ?? '—' }
+            ]}
+          />
+        </div>
+      )}
 
-      {media && (
+      {(media || isMulti) && (
         <>
           <div className="space-y-2">
             <SectionLabel>Actions</SectionLabel>
             <div className="flex flex-wrap gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon-lg" onClick={handleShowInFolder}>
-                    <FolderOpen />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Show in folder</TooltipContent>
-              </Tooltip>
+              {!isMulti && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon-lg" onClick={handleShowInFolder}>
+                      <FolderOpen />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Show in folder</TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="icon-lg" onClick={handleOpenInApp}>
@@ -369,14 +437,16 @@ export function MediaInfoPane(): React.JSX.Element {
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Open in default app</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon-lg" onClick={handleCopyToClipboard}>
-                    <ClipboardCopy />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Copy to clipboard</TooltipContent>
-              </Tooltip>
+              {!isMulti && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon-lg" onClick={handleCopyToClipboard}>
+                      <ClipboardCopy />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Copy to clipboard</TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -388,7 +458,9 @@ export function MediaInfoPane(): React.JSX.Element {
                     <Trash2 />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Delete image</TooltipContent>
+                <TooltipContent side="bottom">
+                  {isMulti ? `Delete ${deleteCount} images` : 'Delete image'}
+                </TooltipContent>
               </Tooltip>
             </div>
           </div>
@@ -398,9 +470,13 @@ export function MediaInfoPane(): React.JSX.Element {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete image?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isMulti ? `Delete ${deleteCount} images?` : 'Delete image?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the file from disk. This action cannot be undone.
+              {isMulti
+                ? `This will permanently delete ${deleteCount} files from disk. This action cannot be undone.`
+                : 'This will permanently delete the file from disk. This action cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -422,6 +498,8 @@ export function MediaInfoPane(): React.JSX.Element {
             mediaId={media.id}
             keywords={keywords}
             onChanged={refreshAfterKeywordChange}
+            onAdd={isMulti ? addKeywordToAll : undefined}
+            hideRemove={isMulti}
           />
         ) : (
           <div className="text-xs text-muted-foreground">No selection</div>

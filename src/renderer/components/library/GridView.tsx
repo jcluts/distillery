@@ -3,6 +3,7 @@ import { Star, Check, X } from 'lucide-react'
 
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
+import { useMediaItemHandlers } from '@/hooks/useMediaItemHandlers'
 import { cn } from '@/lib/utils'
 
 function extractDroppedFilePaths(e: React.DragEvent): string[] {
@@ -15,10 +16,10 @@ function extractDroppedFilePaths(e: React.DragEvent): string[] {
 
 export function GridView(): React.JSX.Element {
   const items = useLibraryStore((s) => s.items)
-  const focusedId = useLibraryStore((s) => s.focusedId)
   const selectSingle = useLibraryStore((s) => s.selectSingle)
   const thumbnailSize = useUIStore((s) => s.thumbnailSize)
   const setViewMode = useUIStore((s) => s.setViewMode)
+  const { handleClick, handleDragStart, selectionClasses } = useMediaItemHandlers()
 
   const gridStyle = React.useMemo<React.CSSProperties>(
     () => ({
@@ -44,25 +45,21 @@ export function GridView(): React.JSX.Element {
     >
       <div className="grid gap-3" style={gridStyle}>
         {items.map((m, index) => {
-          const selected = m.id === focusedId
           return (
             <button
               key={m.id}
               type="button"
               className={cn(
                 'group relative aspect-square rounded-lg outline-none',
-                selected && 'ring-2 ring-ring'
+                selectionClasses(m.id)
               )}
-              onClick={() => selectSingle(m.id)}
+              onClick={(e) => handleClick(e, m.id)}
               onDoubleClick={() => {
                 selectSingle(m.id)
                 setViewMode('loupe')
               }}
               draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('application/x-distillery-media-id', m.id)
-                e.dataTransfer.setData('text/plain', m.id)
-              }}
+              onDragStart={(e) => handleDragStart(e, m.id)}
             >
               <div className="relative h-full w-full overflow-hidden rounded-md border bg-muted">
                 {m.thumb_path ? (
