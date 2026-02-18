@@ -16,7 +16,7 @@ export function GenerationInfoPane(): React.JSX.Element {
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
 
   const generations = useGenerationStore((s) => s.generations)
-  const setFormValues = useGenerationStore((s) => s.setFormValues)
+  const reloadFromGeneration = useGenerationStore((s) => s.reloadFromGeneration)
   const setDetailGenerationId = useGenerationStore((s) => s.setDetailGenerationId)
 
   const openModal = useUIStore((s) => s.openModal)
@@ -119,7 +119,7 @@ export function GenerationInfoPane(): React.JSX.Element {
       <div className="space-y-2">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="w-full"
           disabled={!gen}
@@ -133,20 +133,14 @@ export function GenerationInfoPane(): React.JSX.Element {
         </Button>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="w-full"
           disabled={!gen}
           onClick={() => {
             if (!gen) return
             setLeftPanelTab('generation')
-            const vals: Record<string, unknown> = {}
-            if (gen.prompt) vals.prompt = gen.prompt
-            if (gen.width && gen.height) vals.size = `${gen.width}*${gen.height}`
-            if (gen.steps != null) vals.steps = gen.steps
-            if (gen.guidance != null) vals.guidance = gen.guidance
-            if (gen.sampling_method) vals.sampling_method = gen.sampling_method
-            setFormValues(vals)
+            void reloadFromGeneration(gen.id)
           }}
         >
           Reload Settings
