@@ -1,48 +1,18 @@
 import * as React from 'react'
-import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { validateFormValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useEngineStore } from '@/stores/engine-store'
-import { useLibraryStore } from '@/stores/library-store'
 import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
+import { RefImageDropzone } from '@/components/generation/RefImageDropzone'
 import { SectionLabel } from '@/components/ui/section-label'
 import { DynamicForm } from '@/components/generation/DynamicForm'
 import { GenerationStatus } from '@/components/generation/GenerationStatus'
 import { ModelSetupWizard } from '@/components/panes/ModelSetupWizard'
 import type { CanonicalEndpointDef } from '@/types'
-
-function extractDroppedFilePaths(e: React.DragEvent): string[] {
-  type ElectronLikeFile = File & { path?: string }
-  const files = Array.from(e.dataTransfer.files ?? [])
-  return files
-    .map((f) => (f as ElectronLikeFile).path)
-    .filter((p): p is string => typeof p === 'string' && p.length > 0)
-}
-
-function RefThumb({ src, label }: { src: string | null; label: string }): React.JSX.Element {
-  return (
-    <div className="relative overflow-hidden rounded-lg border bg-muted">
-      <div className="aspect-square w-16" />
-      {src ? (
-        <img
-          src={src}
-          alt={label}
-          className="absolute inset-0 h-full w-full object-cover"
-          draggable={false}
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
-          {label}
-        </div>
-      )}
-    </div>
-  )
-}
 
 export function GenerationPane(): React.JSX.Element {
   const [endpoint, setEndpoint] = React.useState<CanonicalEndpointDef | null>(null)
@@ -56,15 +26,8 @@ export function GenerationPane(): React.JSX.Element {
   const setFormValue = useGenerationStore((s) => s.setFormValue)
   const setFormValues = useGenerationStore((s) => s.setFormValues)
   const endpointKey = useGenerationStore((s) => s.endpointKey)
-  const refImageIds = useGenerationStore((s) => s.refImageIds)
-  const addRefImage = useGenerationStore((s) => s.addRefImage)
-  const removeRefImage = useGenerationStore((s) => s.removeRefImage)
-  const refImagePaths = useGenerationStore((s) => s.refImagePaths)
-  const removeRefImagePath = useGenerationStore((s) => s.removeRefImagePath)
   const buildParams = useGenerationStore((s) => s.buildParams)
   const addGeneration = useGenerationStore((s) => s.addGeneration)
-
-  const libraryItems = useLibraryStore((s) => s.items)
 
   const engineState = useEngineStore((s) => s.state)
   const engineCanGenerate = engineState === 'ready' || engineState === 'idle'
@@ -143,97 +106,7 @@ export function GenerationPane(): React.JSX.Element {
       {/* Reference images */}
       <div className="space-y-2">
         <SectionLabel>Reference images</SectionLabel>
-        <div
-          className={cn(
-            'rounded-lg border border-dashed bg-background p-3',
-            refImagePaths.length === 0 && refImageIds.length === 0 ? 'text-muted-foreground' : ''
-          )}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={async (e) => {
-            e.preventDefault()
-            const multiIds = e.dataTransfer.getData('application/x-distillery-media-ids')
-            if (multiIds) {
-              try {
-                const ids = JSON.parse(multiIds) as string[]
-                for (const id of ids) addRefImage(id)
-              } catch { /* ignore parse error */ }
-              return
-            }
-            const mediaId = e.dataTransfer.getData('application/x-distillery-media-id')
-            if (mediaId) {
-              addRefImage(mediaId)
-              return
-            }
-
-            const filePaths = extractDroppedFilePaths(e)
-            if (filePaths.length > 0) {
-              const imported = await window.api.importMedia(filePaths)
-              for (const m of imported) addRefImage(m.id)
-            }
-          }}
-          onClick={async () => {
-            const paths = await window.api.showOpenDialog({
-              title: 'Choose reference images',
-              properties: ['openFile', 'multiSelections'],
-              filters: [
-                {
-                  name: 'Images',
-                  extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff']
-                }
-              ]
-            })
-            if (!paths) return
-            const imported = await window.api.importMedia(paths)
-            for (const m of imported) addRefImage(m.id)
-          }}
-        >
-          {refImagePaths.length === 0 && refImageIds.length === 0 ? (
-            <div className="text-sm">Drag images here, or click to browse</div>
-          ) : (
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {refImageIds.map((id, idx) => {
-                const media = libraryItems.find((m) => m.id === id) ?? null
-                return (
-                  <div key={id} className="relative">
-                    <RefThumb src={media?.thumb_path ?? null} label={`Ref ${idx + 1}`} />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="secondary"
-                      className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeRefImage(id)
-                      }}
-                      aria-label="Remove reference"
-                    >
-                      <X className="size-3" />
-                    </Button>
-                  </div>
-                )
-              })}
-
-              {refImagePaths.map((p, idx) => (
-                <div key={p} className="relative">
-                  <RefThumb src={null} label={`Ext ${idx + 1}`} />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="secondary"
-                    className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeRefImagePath(p)
-                    }}
-                    aria-label="Remove reference"
-                  >
-                    <X className="size-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <RefImageDropzone />
       </div>
 
       {/* Prompt */}
