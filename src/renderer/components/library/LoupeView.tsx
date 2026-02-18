@@ -22,7 +22,7 @@ export function LoupeView(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden pt-4 px-4 pb-2">
         <CanvasViewer media={current} zoom={loupeZoom} />
       </div>
 

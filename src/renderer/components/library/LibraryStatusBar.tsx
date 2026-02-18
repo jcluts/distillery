@@ -55,7 +55,7 @@ export function LibraryStatusBar(): React.JSX.Element {
   }, [viewMode, focusedId, items, imageCount])
 
   return (
-    <div className="flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2 text-xs">
+    <div className="flex shrink-0 items-center gap-3 border-t bg-sidebar px-3 py-2 text-xs">
       {/* Left: image counter + selection count */}
       <span className="tabular-nums text-muted-foreground">
         {counterText} images{selectedIds.size > 1 && ` · ${selectedIds.size} selected`}

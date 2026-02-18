@@ -90,8 +90,8 @@ export function AppSidebar<T extends string>({
           collapsible="none"
           className={
             isLeft
-              ? 'w-[var(--sidebar-width-icon)]! border-r'
-              : 'w-[var(--sidebar-width-icon)]! border-l border-r-0'
+              ? 'w-[var(--sidebar-width-icon)]! border-r bg-card!'
+              : 'w-[var(--sidebar-width-icon)]! border-l border-r-0 bg-card!'
           }
         >
           <SidebarContent>
@@ -130,7 +130,11 @@ export function AppSidebar<T extends string>({
         <Sidebar
           side={side}
           collapsible="none"
-          className="hidden min-w-0 flex-1 border-0 md:flex bg-card!"
+          className={
+            isLeft
+              ? 'hidden min-w-0 flex-1 border-r-1 md:flex'
+              : 'hidden min-w-0 flex-1 border-l-1 md:flex'
+          }
         >
           <SidebarHeader className="h-10 px-3">
             <div className="flex h-full items-center justify-between gap-2">

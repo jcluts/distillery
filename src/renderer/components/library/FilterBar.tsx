@@ -29,7 +29,7 @@ export function FilterBar(): React.JSX.Element {
           : 'unmarked'
 
   return (
-    <div className="flex items-center gap-3 px-2 py-2 bg-card">
+    <div className="flex items-center gap-3 px-2 py-2 bg-sidebar border-b">
       <div className="flex items-center gap-2">
         <Select value={String(ratingFilter)} onValueChange={(v) => setRatingFilter(Number(v))}>
           <SelectTrigger className="w-[120px] text-xs">
