@@ -91,6 +91,10 @@ export function registerTimelineHandlers(): void {
       return inputs.map((i) => ({
         ...i,
         thumb_path: toLibraryUrl(i.thumb_path)
+        // ref_cache_path is intentionally left as a raw relative path.
+        // It is an internal main-process implementation detail used only by
+        // the generation pipeline.  The renderer does not need it and must
+        // not pass it back as a ref_image_path.
       }))
     }
   )

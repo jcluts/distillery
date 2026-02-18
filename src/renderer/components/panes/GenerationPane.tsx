@@ -147,7 +147,13 @@ export function GenerationPane(): React.JSX.Element {
       )}
 
       {/* Generate button */}
-      <Button type="button" className="w-full" disabled={generateDisabled} onClick={handleSubmit}>
+      <Button
+        type="button"
+        size="lg"
+        className="w-full"
+        disabled={generateDisabled}
+        onClick={handleSubmit}
+      >
         Generate
       </Button>
 
