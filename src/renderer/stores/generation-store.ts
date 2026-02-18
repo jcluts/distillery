@@ -6,13 +6,15 @@ import type { GenerationRecord, GenerationSubmitInput } from '../types'
 // Generation form state + timeline history.
 // =============================================================================
 
+/** A reference image entry — either a library media item or an external file path. */
+export type RefImage = { kind: 'id'; id: string } | { kind: 'path'; path: string }
+
 interface GenerationState {
   // Dynamic form values keyed by schema property name
   formValues: Record<string, unknown>
 
-  // Reference images (managed separately from the schema-driven form)
-  refImageIds: string[]
-  refImagePaths: string[]
+  // Reference images — unified ordered list (library items and/or external paths)
+  refImages: RefImage[]
 
   // Active endpoint key
   endpointKey: string
@@ -27,10 +29,10 @@ interface GenerationState {
   setFormValue: (key: string, value: unknown) => void
   setFormValues: (values: Record<string, unknown>) => void
   resetFormValues: () => void
-  addRefImage: (id: string) => void
-  removeRefImage: (id: string) => void
-  addRefImagePath: (path: string) => void
-  removeRefImagePath: (path: string) => void
+  addRefImage: (image: RefImage) => void
+  removeRefImageAt: (index: number) => void
+  replaceRefImageAt: (index: number, image: RefImage) => void
+  reorderRefImages: (from: number, to: number) => void
   clearRefImages: () => void
   setEndpointKey: (key: string) => void
 
@@ -50,8 +52,7 @@ interface GenerationState {
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   // Form defaults — populated by DynamicForm's onSetDefaults
   formValues: {},
-  refImageIds: [],
-  refImagePaths: [],
+  refImages: [],
   endpointKey: 'local.flux2-klein.image',
 
   // Timeline
@@ -67,27 +68,36 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     set((s) => ({ formValues: { ...s.formValues, ...values } })),
 
   resetFormValues: () =>
-    set({ formValues: {}, refImageIds: [], refImagePaths: [] }),
+    set({ formValues: {}, refImages: [] }),
 
-  addRefImage: (id) =>
-    set((s) => ({
-      refImageIds: s.refImageIds.includes(id) ? s.refImageIds : [...s.refImageIds, id]
-    })),
+  addRefImage: (image) =>
+    set((s) => {
+      // Deduplicate by id for library items
+      if (image.kind === 'id' && s.refImages.some((r) => r.kind === 'id' && r.id === image.id)) {
+        return s
+      }
+      return { refImages: [...s.refImages, image] }
+    }),
 
-  removeRefImage: (id) =>
-    set((s) => ({ refImageIds: s.refImageIds.filter((i) => i !== id) })),
+  removeRefImageAt: (index) =>
+    set((s) => ({ refImages: s.refImages.filter((_, i) => i !== index) })),
 
-  addRefImagePath: (path) =>
-    set((s) => ({
-      refImagePaths: s.refImagePaths.includes(path)
-        ? s.refImagePaths
-        : [...s.refImagePaths, path]
-    })),
+  replaceRefImageAt: (index, image) =>
+    set((s) => {
+      const next = [...s.refImages]
+      next[index] = image
+      return { refImages: next }
+    }),
 
-  removeRefImagePath: (path) =>
-    set((s) => ({ refImagePaths: s.refImagePaths.filter((p) => p !== path) })),
+  reorderRefImages: (from, to) =>
+    set((s) => {
+      const next = [...s.refImages]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return { refImages: next }
+    }),
 
-  clearRefImages: () => set({ refImageIds: [], refImagePaths: [] }),
+  clearRefImages: () => set({ refImages: [] }),
 
   setEndpointKey: (key) => set({ endpointKey: key }),
 
@@ -129,13 +139,11 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     if (!values.width) values.width = 1024
     if (!values.height) values.height = 1024
 
-    // Attach reference images
-    if (state.refImageIds.length > 0) {
-      values.ref_image_ids = state.refImageIds
-    }
-    if (state.refImagePaths.length > 0) {
-      values.ref_image_paths = state.refImagePaths
-    }
+    // Attach reference images — split unified list back into ids/paths
+    const refImageIds = state.refImages.filter((r) => r.kind === 'id').map((r) => r.id)
+    const refImagePaths = state.refImages.filter((r) => r.kind === 'path').map((r) => r.path)
+    if (refImageIds.length > 0) values.ref_image_ids = refImageIds
+    if (refImagePaths.length > 0) values.ref_image_paths = refImagePaths
 
     return {
       endpointKey: state.endpointKey,
