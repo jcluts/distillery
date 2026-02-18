@@ -2,20 +2,7 @@ import * as path from 'path'
 import { app } from 'electron'
 import type { ModelCatalog, ModelDefinition } from './types'
 import { loadEditableJsonConfig } from '../config/config-file-utils'
-
-const bundledCatalogModules = import.meta.glob('../config/model-catalog.json', {
-  eager: true,
-  import: 'default'
-}) as Record<string, ModelCatalog>
-
-function getBundledCatalog(): ModelCatalog {
-  const catalog = Object.values(bundledCatalogModules)[0]
-  if (!catalog || !Array.isArray(catalog.models)) {
-    throw new Error('Bundled model catalog is missing or invalid')
-  }
-
-  return catalog
-}
+import bundledModelCatalog from '../defaults/model-catalog.json'
 
 function isModelCatalog(value: unknown): value is ModelCatalog {
   if (!value || typeof value !== 'object') return false
@@ -35,10 +22,9 @@ export class ModelCatalogService {
       return this.cache
     }
 
-    const bundled = getBundledCatalog()
     this.cache = loadEditableJsonConfig<ModelCatalog>({
       configName: 'model-catalog',
-      bundledDefault: bundled,
+      bundledDefault: bundledModelCatalog as unknown as ModelCatalog,
       runtimePath: this.getRuntimeCatalogPath(),
       isValid: isModelCatalog
     })

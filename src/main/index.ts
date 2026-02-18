@@ -16,7 +16,6 @@ import { LocalCnEngineProvider } from './generation/providers/local-cn-provider'
 import { ProviderCatalogService } from './generation/catalog/provider-catalog-service'
 import { LocalGenerateTaskHandler } from './generation/tasks/local-generate-task'
 import { IPC_CHANNELS } from './ipc/channels'
-import { applyActiveProfileUserDataPath } from './profiles'
 import { registerLibraryHandlers } from './ipc/handlers/library'
 import { registerGenerationHandlers } from './ipc/handlers/generation'
 import { registerEngineHandlers } from './ipc/handlers/engine'
@@ -137,10 +136,7 @@ function setupGenerationEventForwarding(service: GenerationService): void {
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.distillery')
 
-  const profileInfo = applyActiveProfileUserDataPath()
-  console.log(
-    `[Main] Active profile: ${profileInfo.activeProfile} (userData: ${profileInfo.profileUserDataPath})`
-  )
+  console.log(`[Main] userData: ${app.getPath('userData')}`)
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -181,7 +177,7 @@ app.whenReady().then(async () => {
     const activeSelections = startupSettings.model_quant_selections?.[activeModelId]
 
     console.log('[ConfigDebug] ===== Model Path Diagnostics =====')
-    console.log(`[ConfigDebug] profile userData: ${profileInfo.profileUserDataPath}`)
+    console.log(`[ConfigDebug] userData: ${app.getPath('userData')}`)
     console.log(`[ConfigDebug] settings.model_base_path: ${startupSettings.model_base_path}`)
     console.log(`[ConfigDebug] resolved model_base_path: ${modelBasePath}`)
     console.log(`[ConfigDebug] model base exists: ${fs.existsSync(modelBasePath)}`)
