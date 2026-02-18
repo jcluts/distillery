@@ -51,14 +51,15 @@ export class GenerationIOService {
       const media = mediaRepo.getMediaById(this.db, mediaId)
       if (!media) continue
 
-      const originalAbs = this.fileManager.resolve(media.file_path)
       const { input, refImageAbs } = await this.prepareInputRecord({
         generationId,
         createdAtIso,
         position,
         sourceType: 'library',
         mediaId: media.id,
-        originalPath: originalAbs,
+        // Store the relative library path — stays valid if library root moves.
+        // The media_id is the durable reload identifier; this is a fallback.
+        originalPath: media.file_path,
         originalFilename: media.file_name,
         persistThumb: async (outputAbsPath) => this.persistInputThumbnail(media, outputAbsPath)
       })
@@ -70,6 +71,7 @@ export class GenerationIOService {
 
     const paths = Array.isArray(params.ref_image_paths) ? params.ref_image_paths : []
     for (const sourcePath of paths) {
+      // ref_image_paths contains absolute paths to external (non-library) files.
       const originalAbs = path.isAbsolute(sourcePath) ? sourcePath : path.resolve(sourcePath)
       const { input, refImageAbs } = await this.prepareInputRecord({
         generationId,
@@ -105,7 +107,14 @@ export class GenerationIOService {
     const thumbAbsPath = this.fileManager.resolve(thumbRelPath)
     await args.persistThumb(thumbAbsPath)
 
-    const refCacheRelPath = await this.getOrCreateRefCacheFile(args.originalPath)
+    // Resolve to absolute for derivative creation.
+    // Library inputs store a relative path; external inputs store an absolute path.
+    const sourceAbsPath =
+      args.sourceType === 'library'
+        ? this.fileManager.resolve(args.originalPath)
+        : args.originalPath
+
+    const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath)
     const refImageAbs = this.fileManager.resolve(refCacheRelPath)
 
     const input: GenerationInput = {
@@ -144,7 +153,13 @@ export class GenerationIOService {
 
         if (!input.original_path) continue
 
-        const refCacheRelPath = await this.getOrCreateRefCacheFile(input.original_path)
+        // Library inputs store a relative path; resolve to absolute.
+        const sourceAbsPath =
+          input.source_type === 'library'
+            ? this.fileManager.resolve(input.original_path)
+            : input.original_path
+
+        const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath)
         generationInputRepo.updateGenerationInputRefCachePath(this.db, input.id, refCacheRelPath)
         refImages.push(this.fileManager.resolve(refCacheRelPath))
       } catch (error) {

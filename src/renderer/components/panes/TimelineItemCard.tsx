@@ -61,7 +61,9 @@ export function TimelineItemCard({
           ) : null}
         </div>
 
-        {generation.error ? <div className="truncate text-xs text-destructive">{generation.error}</div> : null}
+        {generation.error ? (
+          <div className="truncate text-xs text-destructive">{generation.error}</div>
+        ) : null}
 
         {thumbnailSrc ? (
           <div className="flex justify-start">

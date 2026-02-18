@@ -24,7 +24,7 @@ export function GenerationDetailModal(): React.JSX.Element {
   const detailGenerationId = useGenerationStore((s) => s.detailGenerationId)
   const setDetailGenerationId = useGenerationStore((s) => s.setDetailGenerationId)
   const setGenerations = useGenerationStore((s) => s.setGenerations)
-  const setFormValues = useGenerationStore((s) => s.setFormValues)
+  const reloadFromGeneration = useGenerationStore((s) => s.reloadFromGeneration)
 
   const open = activeModals.includes('generation-detail')
 
@@ -166,13 +166,7 @@ export function GenerationDetailModal(): React.JSX.Element {
             onClick={async () => {
               if (!gen) return
               setLeftPanelTab('generation')
-              const vals: Record<string, unknown> = {}
-              if (gen.prompt) vals.prompt = gen.prompt
-              if (gen.width && gen.height) vals.size = `${gen.width}*${gen.height}`
-              if (gen.steps != null) vals.steps = gen.steps
-              if (gen.guidance != null) vals.guidance = gen.guidance
-              if (gen.sampling_method) vals.sampling_method = gen.sampling_method
-              setFormValues(vals)
+              await reloadFromGeneration(gen.id)
               close()
             }}
           >

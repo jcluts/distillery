@@ -84,6 +84,13 @@ export class GenerationService extends EventEmitter {
       }
     }
 
+    // ref_image_ids / ref_image_paths are not stored in params_json —
+    // the generation_inputs table is the authoritative source for inputs.
+    // Storing them here would cause double-processing on reload.
+    const paramsForStorage = { ...paramsWithModel }
+    delete paramsForStorage.ref_image_ids
+    delete paramsForStorage.ref_image_paths
+
     const { inputRecords } = await this.generationIOService.prepareInputs(
       generationId,
       params,
@@ -104,7 +111,7 @@ export class GenerationService extends EventEmitter {
       guidance: this.asOptionalNumber(params.guidance) ?? 3.5,
       sampling_method:
         typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
-      params_json: JSON.stringify(paramsWithModel),
+      params_json: JSON.stringify(paramsForStorage),
       status: 'pending',
       error: null,
       total_time_ms: null,

@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import type { GenerationRecord, GenerationSubmitInput } from '../types'
 
+// Populated lazily by App.tsx after the window.api bridge is available.
+// The store must not import from the renderer module graph to stay side-effect
+// free, so callers that use reloadFromGeneration() need the bridge present.
+declare const window: Window & { api: import('../types').DistilleryAPI }
+
 // =============================================================================
 // Generation Store
 // Generation form state + timeline history.
@@ -35,6 +40,15 @@ interface GenerationState {
   reorderRefImages: (from: number, to: number) => void
   clearRefImages: () => void
   setEndpointKey: (key: string) => void
+  /**
+   * Fetch generation record + inputs for `id`, then atomically replace
+   * formValues and refImages with the original settings.
+   *
+   * For library-sourced inputs the already-downsized ref_cache_path is used
+   * so the engine re-uses the cached pre-processed image.  External inputs
+   * fall back to original_path.  If neither is available the input is skipped.
+   */
+  reloadFromGeneration: (id: string) => Promise<void>
 
   // Actions — Timeline
   setGenerations: (generations: GenerationRecord[]) => void
@@ -63,7 +77,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   // Form actions
   setFormValue: (key, value) =>
     set((s) => ({ formValues: { ...s.formValues, [key]: value } })),
-
+ 
   setFormValues: (values) =>
     set((s) => ({ formValues: { ...s.formValues, ...values } })),
 
@@ -101,7 +115,50 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   setEndpointKey: (key) => set({ endpointKey: key }),
 
-  // Timeline actions
+  reloadFromGeneration: async (id) => {
+    const [gen, inputs] = await Promise.all([
+      window.api.timeline.get(id),
+      window.api.timeline.getGenerationInputs(id).catch(() => [])
+    ])
+
+    if (!gen) return
+
+    // ── Form values ─────────────────────────────────────────────────────────
+    // The canonical top-level fields on GenerationRecord are the source of
+    // truth for form values.  params_json may contain provider-specific extras
+    // (e.g. model config) that should not bleed into the form, so we do NOT
+    // spread it.  We only use it to recover extra user-facing keys that have no
+    // canonical column — currently none, but this keeps the door open.
+    const vals: Record<string, unknown> = {}
+    if (gen.prompt != null) vals.prompt = gen.prompt
+    if (gen.width && gen.height) vals.size = `${gen.width}*${gen.height}`
+    if (gen.steps != null) vals.steps = gen.steps
+    if (gen.guidance != null) vals.guidance = gen.guidance
+    if (gen.sampling_method != null) vals.sampling_method = gen.sampling_method
+
+    // ── Reference images ────────────────────────────────────────────────────
+    // Always restore user intent only:
+    //   - Library items  → kind:'id' using media_id  (durable, portable)
+    //   - External items → kind:'path' using original_path (original file)
+    //
+    // ref_cache_path is intentionally ignored here.  The main-process pipeline
+    // knows how to find/create cache files from the inputs table; the renderer
+    // does not need to carry that path.
+    const refImages: RefImage[] = inputs
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .flatMap((input): RefImage[] => {
+        if (input.source_type === 'library' && input.media_id) {
+          return [{ kind: 'id', id: input.media_id }]
+        }
+        if (input.source_type === 'external' && input.original_path) {
+          return [{ kind: 'path', path: input.original_path }]
+        }
+        return []
+      })
+
+    set({ formValues: vals, refImages })
+  },
   setGenerations: (generations) => set({ generations }),
 
   addGeneration: (generation) =>
