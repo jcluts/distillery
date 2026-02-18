@@ -50,7 +50,7 @@ export function LoupeFilmstrip({
   }, [currentIndex, items.length, virtualizer])
 
   return (
-    <div className="flex h-[120px] shrink-0 items-center gap-2 border-t px-2">
+    <div className="flex h-[120px] shrink-0 items-center gap-2 px-2">
       <Button
         type="button"
         variant="ghost"
