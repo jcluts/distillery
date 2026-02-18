@@ -50,7 +50,7 @@ export function LoupeFilmstrip({
   }, [currentIndex, items.length, virtualizer])
 
   return (
-    <div className="flex h-[120px] shrink-0 items-center gap-2 border-t bg-background px-2">
+    <div className="flex h-[120px] shrink-0 items-center gap-2 border-t px-2">
       <Button
         type="button"
         variant="ghost"
@@ -80,7 +80,10 @@ export function LoupeFilmstrip({
               <button
                 key={m.id}
                 type="button"
-                className={cn('absolute top-1/2 -translate-y-1/2 rounded-md outline-none', selectionClasses(m.id))}
+                className={cn(
+                  'absolute top-1/2 -translate-y-1/2 rounded-md outline-none',
+                  selectionClasses(m.id)
+                )}
                 style={{
                   left: virtualItem.start,
                   width: FILMSTRIP_ITEM_SIZE,

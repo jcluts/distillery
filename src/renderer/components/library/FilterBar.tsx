@@ -1,7 +1,13 @@
 import * as React from 'react'
 
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { useLibraryStore } from '@/stores/library-store'
 
 export function FilterBar(): React.JSX.Element {
@@ -23,12 +29,9 @@ export function FilterBar(): React.JSX.Element {
           : 'unmarked'
 
   return (
-    <div className="flex items-center gap-3 border-b bg-background px-2 py-2">
+    <div className="flex items-center gap-3 px-2 py-2 bg-card">
       <div className="flex items-center gap-2">
-        <Select
-          value={String(ratingFilter)}
-          onValueChange={(v) => setRatingFilter(Number(v))}
-        >
+        <Select value={String(ratingFilter)} onValueChange={(v) => setRatingFilter(Number(v))}>
           <SelectTrigger className="w-[120px] text-xs">
             <SelectValue placeholder="Rating" />
           </SelectTrigger>

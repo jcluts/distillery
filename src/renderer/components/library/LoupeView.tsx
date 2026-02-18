@@ -21,7 +21,7 @@ export function LoupeView(): React.JSX.Element {
   }, [focusedId, items, selectSingle])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-muted/10">
+    <div className="flex h-full flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-hidden">
         <CanvasViewer media={current} zoom={loupeZoom} />
       </div>

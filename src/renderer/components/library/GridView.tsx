@@ -135,7 +135,7 @@ export function GridView(): React.JSX.Element {
   return (
     <div
       ref={scrollRef}
-      className="h-full overflow-auto bg-muted/20 p-3"
+      className="h-full overflow-auto p-4"
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDropImport}
     >

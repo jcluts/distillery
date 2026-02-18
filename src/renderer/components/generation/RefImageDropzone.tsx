@@ -316,7 +316,7 @@ export function RefImageDropzone(): React.JSX.Element {
           isEmpty ? 'cursor-pointer' : '',
           isDragOver && isExternalDrag
             ? 'border-primary bg-primary/5'
-            : 'border-border bg-background hover:border-muted-foreground/40'
+            : 'border-border bg-input/30 hover:border-muted-foreground/40'
         )}
         onDragOver={handleZoneDragOver}
         onDragLeave={handleZoneDragLeave}
