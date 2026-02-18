@@ -218,7 +218,7 @@ export function SettingsModal(): React.JSX.Element {
               <PathField
                 label="Model directory"
                 value={draft?.model_base_path ?? ''}
-                placeholder="C:\\Users\\...\\distillery\\profiles\\Default\\models"
+                placeholder="C:\\Users\\...\\AppData\\Roaming\\distillery\\models"
                 onChange={(v) => update('model_base_path', v)}
                 onBrowse={async () => {
                   const selected = await browseFolder('Choose model directory')

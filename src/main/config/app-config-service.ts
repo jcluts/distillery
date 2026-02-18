@@ -1,11 +1,7 @@
 import * as path from 'path'
 import { app } from 'electron'
-import {
-  cloneJson,
-  loadEditableJsonConfig,
-  shouldUseProfileConfigFiles,
-  writeJsonFile
-} from './config-file-utils'
+import { cloneJson, loadEditableJsonConfig, writeJsonFile } from './config-file-utils'
+import bundledAppConfig from '../defaults/app-config.json'
 
 interface AppConfigFile {
   configVersion: number
@@ -19,19 +15,6 @@ export interface ResolvedAppConfigPaths {
   cnEngineExecutablePath: string
 }
 
-const bundledAppConfigModules = import.meta.glob('./app-config.json', {
-  eager: true,
-  import: 'default'
-}) as Record<string, AppConfigFile>
-
-function getBundledAppConfig(): AppConfigFile {
-  const config = Object.values(bundledAppConfigModules)[0]
-  if (!config || !isAppConfigFile(config)) {
-    throw new Error('Bundled app config is missing or invalid')
-  }
-  return cloneJson(config)
-}
-
 function isAppConfigFile(value: unknown): value is AppConfigFile {
   if (!value || typeof value !== 'object') return false
   const maybe = value as Partial<AppConfigFile>
@@ -43,23 +26,15 @@ function isAppConfigFile(value: unknown): value is AppConfigFile {
 }
 
 function getResourcesRoot(): string {
-  if (app.isPackaged) {
-    return process.resourcesPath
-  }
-
-  return path.join(app.getAppPath(), 'resources')
+  return app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), 'resources')
 }
 
 function expandPathToken(input: string, token: string, replacement: string): string {
   const normalizedInput = input.replace(/\\/g, '/')
-  if (normalizedInput === token) {
-    return replacement
-  }
+  if (normalizedInput === token) return replacement
 
   const prefix = `${token}/`
-  if (!normalizedInput.startsWith(prefix)) {
-    return input
-  }
+  if (!normalizedInput.startsWith(prefix)) return input
 
   const suffix = normalizedInput.slice(prefix.length)
   const segments = suffix.length > 0 ? suffix.split('/').filter(Boolean) : []
@@ -71,19 +46,16 @@ function resolveConfigPath(rawPath: string): string {
   if (!trimmed) return ''
 
   const userDataPath = app.getPath('userData')
-  const appPath = app.getAppPath()
   const resourcesPath = getResourcesRoot()
 
   let expanded = trimmed
   expanded = expandPathToken(expanded, '$USER_DATA', userDataPath)
-  expanded = expandPathToken(expanded, '$APP', appPath)
+  expanded = expandPathToken(expanded, '$APP', app.getAppPath())
   expanded = expandPathToken(expanded, '$RESOURCES', resourcesPath)
 
-  if (path.isAbsolute(expanded)) {
-    return path.normalize(expanded)
-  }
-
-  return path.normalize(path.join(userDataPath, expanded))
+  return path.isAbsolute(expanded)
+    ? path.normalize(expanded)
+    : path.normalize(path.join(userDataPath, expanded))
 }
 
 function getCnEngineExecutableName(): string {
@@ -103,10 +75,9 @@ export class AppConfigService {
       return cloneJson(this.rawCache)
     }
 
-    const bundledDefault = getBundledAppConfig()
     const loaded = loadEditableJsonConfig<AppConfigFile>({
       configName: 'app-config',
-      bundledDefault,
+      bundledDefault: bundledAppConfig as AppConfigFile,
       runtimePath: this.getRuntimeConfigPath(),
       isValid: isAppConfigFile
     })
@@ -150,7 +121,7 @@ export class AppConfigService {
     this.rawCache = next
     this.resolvedCache = null
 
-    if (shouldUseProfileConfigFiles()) {
+    if (app.isPackaged) {
       writeJsonFile(this.getRuntimeConfigPath(), next)
     }
 

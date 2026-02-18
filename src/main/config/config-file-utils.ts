@@ -2,16 +2,6 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
 
-export type ConfigSourceMode = 'bundled-dev' | 'runtime-profile'
-
-export function getConfigSourceMode(): ConfigSourceMode {
-  return app.isPackaged ? 'runtime-profile' : 'bundled-dev'
-}
-
-export function shouldUseProfileConfigFiles(): boolean {
-  return getConfigSourceMode() === 'runtime-profile'
-}
-
 export function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
@@ -36,7 +26,7 @@ export function loadEditableJsonConfig<T>(options: {
 }): T {
   const { configName, bundledDefault, runtimePath, isValid } = options
 
-  if (!shouldUseProfileConfigFiles()) {
+  if (!app.isPackaged) {
     return cloneJson(bundledDefault)
   }
 

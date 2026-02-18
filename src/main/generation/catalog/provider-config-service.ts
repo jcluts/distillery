@@ -2,8 +2,7 @@ import * as path from 'path'
 import { app } from 'electron'
 import {
   readJsonConfigsFromDirectory,
-  seedRuntimeJsonDirectory,
-  shouldUseProfileConfigFiles
+  seedRuntimeJsonDirectory
 } from '../../config/config-file-utils'
 
 export interface ProviderEndpointConfig {
@@ -31,7 +30,7 @@ export interface ProviderConfig {
   asyncStrategy?: Record<string, unknown>
 }
 
-const builtInProviderModules = import.meta.glob('../../config/providers/*.json', {
+const builtInProviderModules = import.meta.glob('../../defaults/providers/*.json', {
   eager: true,
   import: 'default'
 }) as Record<string, ProviderConfig>
@@ -81,7 +80,7 @@ export class ProviderConfigService {
   }
 
   private seedProfileProviderFiles(): void {
-    if (!shouldUseProfileConfigFiles()) {
+    if (!app.isPackaged) {
       return
     }
 
@@ -94,7 +93,7 @@ export class ProviderConfigService {
   }
 
   loadProfileOverrides(): ProviderConfig[] {
-    if (!shouldUseProfileConfigFiles()) {
+    if (!app.isPackaged) {
       return []
     }
 
@@ -109,7 +108,7 @@ export class ProviderConfigService {
   loadMergedProviderConfigs(): ProviderConfig[] {
     const builtIns = this.loadBuiltInConfigs()
 
-    if (!shouldUseProfileConfigFiles()) {
+    if (!app.isPackaged) {
       return builtIns.filter((config) => config.enabled !== false)
     }
 
