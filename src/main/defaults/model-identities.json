@@ -1,0 +1,16 @@
+{
+  "flux-2-klein-9b": {
+    "id": "flux-2-klein-9b",
+    "name": "Flux 2 Klein 9B",
+    "description": "FLUX.2 [klein] 9B text-to-image with enhanced realism",
+    "providerMapping": {
+      "fal": ["fal-ai/flux-2/klein/9b/edit"],
+      "replicate": ["black-forest-labs/flux-2-klein-9b"],
+      "wavespeed": [
+        "wavespeed-ai/flux-2-klein-9b/text-to-image",
+        "wavespeed-ai/flux-2-klein-9b/edit"
+      ],
+      "local": ["flux2-klein"]
+    }
+  }
+}

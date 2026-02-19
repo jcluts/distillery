@@ -1,31 +1,111 @@
 import type { CanonicalEndpointDef } from '../../../types'
+import type { SearchResultModel, ProviderModel } from '../../api/types'
+import type { ProviderConfig } from '../provider-config-service'
 import type { AdapterInput } from './adapter-factory'
+import {
+  asRecord,
+  fallbackRequestSchema,
+  getString,
+  inferModeInfo,
+  normalizeObjectSchema,
+  toEndpointKey,
+  toOptionalNumber
+} from './adapter-utils'
 
 export function transformWavespeed(input: AdapterInput): CanonicalEndpointDef[] {
-  const models =
-    (input.rawFeed as { models?: Array<{ id?: unknown; name?: unknown }> } | null)?.models ?? []
+  const models = extractModelList(input.rawFeed)
 
   return models.flatMap((model) => {
-    const modelId = typeof model.id === 'string' ? model.id.trim() : ''
+    const normalized = normalizeWavespeedSearchResult(model, input.providerConfig)
+    const modelId = normalized.modelId
     if (!modelId) return []
 
-    const displayName =
-      typeof model.name === 'string' && model.name.trim().length > 0
-        ? model.name.trim()
-        : modelId
+    const modeInfo = inferModeInfo(normalized.type, normalized.modelId)
 
     return [
       {
-        endpointKey: `wavespeed.${modelId}.image`,
+        endpointKey: toEndpointKey(input.providerConfig.providerId, modelId, modeInfo.outputType),
         providerId: input.providerConfig.providerId,
         providerModelId: modelId,
         canonicalModelId: undefined,
-        displayName,
-        modes: ['text-to-image'],
-        outputType: 'image',
+        displayName: normalized.name,
+        modes: modeInfo.modes,
+        outputType: modeInfo.outputType,
         executionMode: 'remote-async',
         requestSchema: input.defaultRequestSchema
       }
     ]
   })
+}
+
+export function normalizeWavespeedSearchResult(
+  raw: unknown,
+  _config: ProviderConfig
+): SearchResultModel {
+  const source = asRecord(raw) ?? {}
+  const modelId =
+    getString(source.id) ||
+    getString(source.model_id) ||
+    getString(asRecord(source.data)?.id) ||
+    ''
+
+  return {
+    modelId,
+    name: getString(source.name) || getString(source.title) || modelId,
+    description: getString(source.description) || undefined,
+    type: getString(source.type) || getString(source.task_type) || undefined,
+    runCount: toOptionalNumber(source.run_count) ?? undefined,
+    raw
+  }
+}
+
+export function normalizeWavespeedModelDetail(
+  raw: unknown,
+  config: ProviderConfig
+): ProviderModel | null {
+  const source = asRecord(raw)
+  if (!source) return null
+
+  const searchResult = normalizeWavespeedSearchResult(source, config)
+  if (!searchResult.modelId) return null
+
+  const requestSchema = extractWavespeedRequestSchema(source)
+
+  return {
+    modelId: searchResult.modelId,
+    name: searchResult.name,
+    description: searchResult.description,
+    type: searchResult.type,
+    providerId: config.providerId,
+    requestSchema: requestSchema ?? fallbackRequestSchema()
+  }
+}
+
+function extractModelList(rawFeed: unknown): unknown[] {
+  if (Array.isArray(rawFeed)) return rawFeed
+
+  const source = asRecord(rawFeed)
+  if (!source) return []
+
+  if (Array.isArray(source.models)) return source.models
+  if (Array.isArray(source.data)) return source.data
+
+  return []
+}
+
+function extractWavespeedRequestSchema(model: Record<string, unknown>) {
+  const apiSchema = asRecord(model.api_schema)
+  const schemaList = Array.isArray(apiSchema?.api_schemas) ? apiSchema?.api_schemas : []
+
+  for (const entry of schemaList) {
+    const requestSchema = asRecord(asRecord(entry)?.request_schema)
+    if (!requestSchema) continue
+
+    const normalized = normalizeObjectSchema(requestSchema)
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  return null
 }

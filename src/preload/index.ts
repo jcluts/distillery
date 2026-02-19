@@ -103,6 +103,38 @@ const api: DistilleryAPI = {
   removeModelFile: (payload) => ipcRenderer.invoke(CH.MODEL_REMOVE_FILE, payload),
   checkModelFiles: (payload) => ipcRenderer.invoke(CH.MODEL_CHECK_FILES, payload),
 
+  // Providers
+  providers: {
+    getAll: () => ipcRenderer.invoke(CH.PROVIDERS_GET_ALL),
+    getConfig: (providerId: string) => ipcRenderer.invoke(CH.PROVIDERS_GET_CONFIG, providerId),
+    searchModels: (providerId: string, query: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_SEARCH_MODELS, providerId, query),
+    listModels: (providerId: string) => ipcRenderer.invoke(CH.PROVIDERS_LIST_MODELS, providerId),
+    fetchModelDetail: (providerId: string, modelId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_FETCH_MODEL_DETAIL, providerId, modelId),
+    getUserModels: (providerId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_GET_USER_MODELS, providerId),
+    addUserModel: (providerId: string, model) =>
+      ipcRenderer.invoke(CH.PROVIDERS_ADD_USER_MODEL, providerId, model),
+    removeUserModel: (providerId: string, modelId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_REMOVE_USER_MODEL, providerId, modelId),
+    testConnection: (providerId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_TEST_CONNECTION, providerId)
+  },
+
+  // Model Identities
+  identities: {
+    getAll: () => ipcRenderer.invoke(CH.IDENTITIES_GET_ALL),
+    create: (
+      id: string,
+      name: string,
+      description: string,
+      initialMapping?: { providerId: string; modelIds: string[] }
+    ) => ipcRenderer.invoke(CH.IDENTITIES_CREATE, id, name, description, initialMapping),
+    addMapping: (identityId: string, providerId: string, modelIds: string[]) =>
+      ipcRenderer.invoke(CH.IDENTITIES_ADD_MAPPING, identityId, providerId, modelIds)
+  },
+
   // App
   showOpenDialog: (options: Electron.OpenDialogOptions) =>
     ipcRenderer.invoke(CH.APP_SHOW_OPEN_DIALOG, options),

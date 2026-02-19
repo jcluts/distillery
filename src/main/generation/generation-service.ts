@@ -23,7 +23,7 @@ interface GenerationServiceDeps {
   providerCatalogService: ProviderCatalogService
 }
 
-interface QueuedLocalTaskPayload {
+interface GenerationTaskPayload {
   generationId: string
   endpointKey: string
   params: CanonicalGenerationParams
@@ -48,19 +48,18 @@ export class GenerationService extends EventEmitter {
   }
 
   async submit(input: GenerationSubmitInput): Promise<string> {
-    const endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
+    let endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
+    if (!endpoint) {
+      await this.providerCatalogService.refresh()
+      endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
+    }
+
     if (!endpoint) {
       throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
 
-    if (endpoint.executionMode !== 'queued-local') {
-      throw new Error(
-        `Execution mode "${endpoint.executionMode}" is not yet supported (endpoint: ${endpoint.endpointKey})`
-      )
-    }
-
     const params = this.withResolvedSeed(input.params)
-    this.validateParams(params)
+    this.validateParams(endpoint, params)
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
@@ -104,8 +103,8 @@ export class GenerationService extends EventEmitter {
       provider: endpoint.providerId,
       model_file: activeModelId,
       prompt: this.asString(params.prompt),
-      width: this.asNumber(params.width),
-      height: this.asNumber(params.height),
+      width: this.asOptionalNumber(params.width),
+      height: this.asOptionalNumber(params.height),
       seed: this.asOptionalNumber(params.seed),
       steps: this.asOptionalNumber(params.steps) ?? 4,
       guidance: this.asOptionalNumber(params.guidance) ?? 3.5,
@@ -128,15 +127,28 @@ export class GenerationService extends EventEmitter {
       this.generationIOService.insertInputRecords(inputRecords)
     })()
 
-    const payload: QueuedLocalTaskPayload = {
+    const payload: GenerationTaskPayload = {
       generationId,
       endpointKey: endpoint.endpointKey,
       params
     }
 
+    const taskType =
+      endpoint.executionMode === 'queued-local'
+        ? WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE
+        : endpoint.executionMode === 'remote-async'
+          ? WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE
+          : null
+
+    if (!taskType) {
+      throw new Error(
+        `Execution mode "${endpoint.executionMode}" is not supported (endpoint: ${endpoint.endpointKey})`
+      )
+    }
+
     try {
       await this.workQueueManager.enqueue({
-        task_type: WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE,
+        task_type: taskType,
         priority: 0,
         payload_json: JSON.stringify(payload),
         correlation_id: generationId,
@@ -165,10 +177,12 @@ export class GenerationService extends EventEmitter {
     providerId?: string
     outputType?: 'image' | 'video'
   }): Promise<CanonicalEndpointDef[]> {
+    await this.providerCatalogService.refresh()
     return this.providerCatalogService.listEndpoints(filter)
   }
 
   async getEndpointSchema(endpointKey: string): Promise<CanonicalEndpointDef | null> {
+    await this.providerCatalogService.refresh()
     return this.providerCatalogService.getEndpoint(endpointKey)
   }
 
@@ -195,14 +209,23 @@ export class GenerationService extends EventEmitter {
     this.emit('libraryUpdated')
   }
 
-  private validateParams(params: CanonicalGenerationParams): void {
+  private validateParams(endpoint: CanonicalEndpointDef, params: CanonicalGenerationParams): void {
     const prompt = this.asString(params.prompt).trim()
-    const width = this.asNumber(params.width)
-    const height = this.asNumber(params.height)
 
     if (!prompt) throw new Error('Prompt is required')
-    if (!Number.isFinite(width) || width <= 0) throw new Error('Width must be a positive number')
-    if (!Number.isFinite(height) || height <= 0) throw new Error('Height must be a positive number')
+
+    if (endpoint.executionMode === 'queued-local') {
+      const width = this.asNumber(params.width)
+      const height = this.asNumber(params.height)
+
+      if (!Number.isFinite(width) || width <= 0) {
+        throw new Error('Width must be a positive number')
+      }
+
+      if (!Number.isFinite(height) || height <= 0) {
+        throw new Error('Height must be a positive number')
+      }
+    }
   }
 
   private asString(value: unknown): string {

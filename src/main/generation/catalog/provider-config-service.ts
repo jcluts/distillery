@@ -25,9 +25,48 @@ export interface ProviderConfig {
   adapter?: 'wavespeed' | 'fal' | 'replicate'
   feedFile?: string
   endpoints?: ProviderEndpointConfig[]
-  auth?: Record<string, unknown>
-  uploadStrategy?: Record<string, unknown>
-  asyncStrategy?: Record<string, unknown>
+  baseUrl?: string
+  auth?: {
+    type: 'bearer' | 'key'
+    header?: string
+    prefix?: string
+    settingsKey: string
+  }
+  search?: {
+    endpoint: string
+    method: 'GET' | 'QUERY'
+    queryParam?: string
+    limitParam?: string
+    extraParams?: Record<string, string>
+    maxResults?: number
+    detailEndpoint?: string
+    detailQueryParam?: string
+    searchOnly?: boolean
+  }
+  browse?: {
+    mode: 'search' | 'list'
+  }
+  upload?: {
+    endpoint: string
+    method: 'multipart' | 'json'
+    fileField?: string
+    responseField: string
+  }
+  async?: {
+    enabled: boolean
+    requestIdPath: string
+    pollEndpoint: string
+    pollInterval?: number
+    maxPollTime?: number
+    statusPath: string
+    completedValue: string
+    failedValue: string
+    errorPath?: string
+    outputsPath: string
+  }
+  request?: {
+    endpointTemplate?: string
+  }
 }
 
 const builtInProviderModules = import.meta.glob('../../defaults/providers/*.json', {
@@ -48,15 +87,27 @@ function mergeProviderConfig(base: ProviderConfig, override: ProviderConfig): Pr
     auth: {
       ...(base.auth ?? {}),
       ...(override.auth ?? {})
-    },
-    uploadStrategy: {
-      ...(base.uploadStrategy ?? {}),
-      ...(override.uploadStrategy ?? {})
-    },
-    asyncStrategy: {
-      ...(base.asyncStrategy ?? {}),
-      ...(override.asyncStrategy ?? {})
-    },
+    } as ProviderConfig['auth'],
+    search: {
+      ...(base.search ?? {}),
+      ...(override.search ?? {})
+    } as ProviderConfig['search'],
+    browse: {
+      ...(base.browse ?? {}),
+      ...(override.browse ?? {})
+    } as ProviderConfig['browse'],
+    upload: {
+      ...(base.upload ?? {}),
+      ...(override.upload ?? {})
+    } as ProviderConfig['upload'],
+    async: {
+      ...(base.async ?? {}),
+      ...(override.async ?? {})
+    } as ProviderConfig['async'],
+    request: {
+      ...(base.request ?? {}),
+      ...(override.request ?? {})
+    } as ProviderConfig['request'],
     endpoints: override.endpoints ?? base.endpoints
   }
 }
@@ -105,11 +156,12 @@ export class ProviderConfigService {
     })
   }
 
-  loadMergedProviderConfigs(): ProviderConfig[] {
+  loadMergedProviderConfigs(options?: { activeOnly?: boolean }): ProviderConfig[] {
+    const activeOnly = options?.activeOnly !== false
     const builtIns = this.loadBuiltInConfigs()
 
     if (!app.isPackaged) {
-      return builtIns.filter((config) => config.enabled !== false)
+      return activeOnly ? builtIns.filter((config) => config.enabled !== false) : builtIns
     }
 
     const overrides = this.loadProfileOverrides()
@@ -125,6 +177,7 @@ export class ProviderConfigService {
       map.set(override.providerId, existing ? mergeProviderConfig(existing, override) : override)
     }
 
-    return Array.from(map.values()).filter((config) => config.enabled !== false)
+    const merged = Array.from(map.values())
+    return activeOnly ? merged.filter((config) => config.enabled !== false) : merged
   }
 }

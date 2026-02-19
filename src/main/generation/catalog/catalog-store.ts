@@ -16,8 +16,12 @@ export class CatalogStore {
     return path.join(this.getProfileRoot(), 'model_feeds')
   }
 
+  getProviderModelsDir(): string {
+    return path.join(this.getProfileRoot(), 'provider_models')
+  }
+
   ensureDirectories(): void {
-    const dirs = [this.getEndpointCatalogDir(), this.getModelFeedsDir()]
+    const dirs = [this.getEndpointCatalogDir(), this.getModelFeedsDir(), this.getProviderModelsDir()]
     for (const dir of dirs) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true })
@@ -54,6 +58,19 @@ export class CatalogStore {
       return JSON.parse(fs.readFileSync(filePath, 'utf8'))
     } catch {
       return null
+    }
+  }
+
+  readProviderModels(providerId: string): unknown[] {
+    this.ensureDirectories()
+    const filePath = path.join(this.getProviderModelsDir(), `${providerId}.json`)
+    if (!fs.existsSync(filePath)) return []
+
+    try {
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
     }
   }
 }
