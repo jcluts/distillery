@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { type LucideIcon } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from '@/components/ui/section-header'
 
@@ -123,9 +124,9 @@ export function AppSidebar<T extends string>({
                         </SidebarMenuButton>
 
                         {item.badge != null && item.badge > 0 && (
-                          <span className="pointer-events-none absolute -top-0.25 -right-0.25 z-10 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                          <Badge className="pointer-events-none absolute -top-0.25 -right-0.25 z-10 h-3 min-w-3 justify-center rounded-full px-1 text-[10px] font-bold leading-none">
                             {item.badge > 99 ? '99+' : item.badge}
-                          </span>
+                          </Badge>
                         )}
                       </div>
                     </SidebarMenuItem>
