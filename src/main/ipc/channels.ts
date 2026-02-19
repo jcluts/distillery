@@ -71,6 +71,22 @@ export const IPC_CHANNELS = {
   MODEL_REMOVE_FILE: 'model:remove-file',
   MODEL_CHECK_FILES: 'model:check-files',
 
+  // Providers
+  PROVIDERS_GET_ALL: 'providers:getAll',
+  PROVIDERS_GET_CONFIG: 'providers:getConfig',
+  PROVIDERS_SEARCH_MODELS: 'providers:searchModels',
+  PROVIDERS_LIST_MODELS: 'providers:listModels',
+  PROVIDERS_FETCH_MODEL_DETAIL: 'providers:fetchModelDetail',
+  PROVIDERS_GET_USER_MODELS: 'providers:getUserModels',
+  PROVIDERS_ADD_USER_MODEL: 'providers:addUserModel',
+  PROVIDERS_REMOVE_USER_MODEL: 'providers:removeUserModel',
+  PROVIDERS_TEST_CONNECTION: 'providers:testConnection',
+
+  // Model Identities
+  IDENTITIES_GET_ALL: 'identities:getAll',
+  IDENTITIES_CREATE: 'identities:create',
+  IDENTITIES_ADD_MAPPING: 'identities:addMapping',
+
   // App
   APP_SHOW_OPEN_DIALOG: 'app:showOpenDialog',
   APP_SHOW_SAVE_DIALOG: 'app:showSaveDialog',

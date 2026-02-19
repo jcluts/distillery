@@ -250,6 +250,99 @@ export interface GenerationResultEvent {
   error?: string
 }
 
+export interface ProviderConfig {
+  providerId: string
+  displayName?: string
+  enabled?: boolean
+  mode?: 'queued-local' | 'remote-async'
+  adapter?: 'wavespeed' | 'fal' | 'replicate'
+  feedFile?: string
+  endpoints?: Array<{
+    endpointKey: string
+    providerModelId: string
+    canonicalModelId?: string
+    displayName: string
+    modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+    outputType: 'image' | 'video'
+    executionMode: 'queued-local' | 'remote-async'
+    requestSchema: unknown
+    uiSchema?: unknown
+  }>
+  baseUrl?: string
+  auth?: {
+    type: 'bearer' | 'key'
+    header?: string
+    prefix?: string
+    settingsKey: keyof AppSettings
+  }
+  search?: {
+    endpoint: string
+    method: 'GET' | 'QUERY'
+    queryParam?: string
+    limitParam?: string
+    extraParams?: Record<string, string>
+    maxResults?: number
+    detailEndpoint?: string
+    detailQueryParam?: string
+    searchOnly?: boolean
+  }
+  browse?: {
+    mode: 'search' | 'list'
+  }
+  upload?: {
+    endpoint: string
+    method: 'multipart' | 'json'
+    fileField?: string
+    responseField: string
+  }
+  async?: {
+    enabled: boolean
+    requestIdPath: string
+    pollEndpoint: string
+    pollInterval?: number
+    maxPollTime?: number
+    statusPath: string
+    completedValue: string
+    failedValue: string
+    errorPath?: string
+    outputsPath: string
+  }
+  request?: {
+    endpointTemplate?: string
+  }
+}
+
+export interface SearchResult {
+  models: SearchResultModel[]
+  hasMore?: boolean
+}
+
+export interface SearchResultModel {
+  modelId: string
+  name: string
+  description?: string
+  type?: string
+  runCount?: number
+  raw?: unknown
+}
+
+export interface ProviderModel {
+  modelId: string
+  name: string
+  description?: string
+  type?: string
+  providerId: string
+  requestSchema: CanonicalRequestSchema
+  modelIdentityId?: string
+}
+
+export interface ModelIdentity {
+  id: string
+  name: string
+  description?: string
+  providerMapping: Record<string, string[]>
+}
+
 // -----------------------------------------------------------------------------
 // Engine
 // -----------------------------------------------------------------------------
@@ -370,6 +463,11 @@ export interface AppSettings {
   thumbnail_size: number
   view_mode: 'grid' | 'loupe'
 
+  // API Provider Keys
+  fal_api_key: string
+  replicate_api_key: string
+  wavespeed_api_key: string
+
   // Window
   window_x?: number
   window_y?: number
@@ -475,6 +573,31 @@ export interface DistilleryAPI {
   cancelModelDownload(payload: { relativePath: string }): Promise<void>
   removeModelFile(payload: { relativePath: string }): Promise<void>
   checkModelFiles(payload: { modelId: string }): Promise<ModelFilesCheckResult>
+
+  // Providers
+  providers: {
+    getAll(): Promise<ProviderConfig[]>
+    getConfig(providerId: string): Promise<ProviderConfig | null>
+    searchModels(providerId: string, query: string): Promise<SearchResult>
+    listModels(providerId: string): Promise<ProviderModel[]>
+    fetchModelDetail(providerId: string, modelId: string): Promise<ProviderModel | null>
+    getUserModels(providerId: string): Promise<ProviderModel[]>
+    addUserModel(providerId: string, model: ProviderModel): Promise<void>
+    removeUserModel(providerId: string, modelId: string): Promise<void>
+    testConnection(providerId: string): Promise<{ valid: boolean; error?: string }>
+  }
+
+  // Model Identities
+  identities: {
+    getAll(): Promise<ModelIdentity[]>
+    create(
+      id: string,
+      name: string,
+      description: string,
+      initialMapping?: { providerId: string; modelIds: string[] }
+    ): Promise<ModelIdentity>
+    addMapping(identityId: string, providerId: string, modelIds: string[]): Promise<void>
+  }
 
   // App
   showOpenDialog(options: Electron.OpenDialogOptions): Promise<string[] | null>

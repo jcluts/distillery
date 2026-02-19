@@ -328,6 +328,9 @@ export interface AppSettings {
   right_panel_width: number
   thumbnail_size: number
   view_mode: 'grid' | 'loupe'
+  fal_api_key: string
+  replicate_api_key: string
+  wavespeed_api_key: string
   window_x?: number
   window_y?: number
   window_width?: number

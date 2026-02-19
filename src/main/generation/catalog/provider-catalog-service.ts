@@ -27,6 +27,9 @@ export class ProviderCatalogService {
         const fromConfig = this.fromProviderConfigEndpoints(provider)
         endpoints.push(...fromConfig)
 
+        const fromUserModels = this.fromProviderUserModels(provider)
+        endpoints.push(...fromUserModels)
+
         const adapter = createProviderAdapter(provider.adapter)
         if (adapter) {
           const rawFeed = this.store.readRawFeed(provider.providerId)
@@ -96,6 +99,51 @@ export class ProviderCatalogService {
     return endpoints.map((endpoint) => this.mapProviderEndpoint(provider, endpoint))
   }
 
+  private fromProviderUserModels(provider: ProviderConfig): CanonicalEndpointDef[] {
+    const userModels = this.store.readProviderModels(provider.providerId)
+    return userModels
+      .map((entry) => this.mapProviderUserModel(provider, entry))
+      .filter((endpoint): endpoint is CanonicalEndpointDef => !!endpoint)
+  }
+
+  private mapProviderUserModel(
+    provider: ProviderConfig,
+    value: unknown
+  ): CanonicalEndpointDef | null {
+    if (!value || typeof value !== 'object') return null
+    const model = value as {
+      modelId?: unknown
+      name?: unknown
+      type?: unknown
+      requestSchema?: unknown
+      modelIdentityId?: unknown
+    }
+
+    const modelId = typeof model.modelId === 'string' ? model.modelId.trim() : ''
+    if (!modelId) return null
+
+    const modeInfo = this.inferModeInfo(
+      typeof model.type === 'string' ? model.type : undefined,
+      modelId
+    )
+
+    return {
+      endpointKey: `${provider.providerId}.${modelId}.${modeInfo.outputType}`,
+      providerId: provider.providerId,
+      providerModelId: modelId,
+      canonicalModelId:
+        typeof model.modelIdentityId === 'string' ? model.modelIdentityId : undefined,
+      displayName:
+        typeof model.name === 'string' && model.name.trim().length > 0
+          ? model.name.trim()
+          : modelId,
+      modes: modeInfo.modes,
+      outputType: modeInfo.outputType,
+      executionMode: provider.mode ?? 'remote-async',
+      requestSchema: normalizeRequestSchema(model.requestSchema)
+    }
+  }
+
   private mapProviderEndpoint(
     provider: ProviderConfig,
     endpoint: ProviderEndpointConfig
@@ -124,6 +172,30 @@ export class ProviderCatalogService {
       outputType: 'image',
       executionMode: 'queued-local',
       requestSchema: this.defaultRequestSchema()
+    }
+  }
+
+  private inferModeInfo(
+    type: string | undefined,
+    modelId: string
+  ): {
+    modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+    outputType: 'image' | 'video'
+  } {
+    const haystack = `${type ?? ''} ${modelId}`.toLowerCase()
+
+    if (haystack.includes('video')) {
+      return {
+        modes: haystack.includes('image') ? ['image-to-video'] : ['text-to-video'],
+        outputType: 'video'
+      }
+    }
+
+    return {
+      modes: haystack.includes('edit') || haystack.includes('image-to-image')
+        ? ['image-to-image']
+        : ['text-to-image'],
+      outputType: 'image'
     }
   }
 

@@ -1,7 +1,35 @@
 {
   "providerId": "replicate",
   "displayName": "Replicate",
-  "enabled": true,
+  "enabled": false,
   "mode": "remote-async",
-  "adapter": "replicate"
+  "adapter": "replicate",
+  "baseUrl": "https://api.replicate.com",
+  "auth": {
+    "type": "bearer",
+    "prefix": "Token",
+    "settingsKey": "replicate_api_key"
+  },
+  "browse": { "mode": "search" },
+  "search": {
+    "endpoint": "/v1/models",
+    "method": "QUERY",
+    "maxResults": 50,
+    "detailEndpoint": "/v1/models/{owner}/{name}",
+    "searchOnly": true
+  },
+  "async": {
+    "enabled": true,
+    "requestIdPath": "id",
+    "pollEndpoint": "/v1/predictions/{requestId}",
+    "pollInterval": 1000,
+    "statusPath": "status",
+    "completedValue": "succeeded",
+    "failedValue": "failed",
+    "errorPath": "error",
+    "outputsPath": "output"
+  },
+  "request": {
+    "endpointTemplate": "/v1/models/{model_id}/predictions"
+  }
 }

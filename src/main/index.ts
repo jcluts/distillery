@@ -14,7 +14,12 @@ import { GenerationIOService } from './generation/generation-io-service'
 import { GenerationService } from './generation/generation-service'
 import { LocalCnEngineProvider } from './generation/providers/local-cn-provider'
 import { ProviderCatalogService } from './generation/catalog/provider-catalog-service'
+import { ProviderConfigService } from './generation/catalog/provider-config-service'
+import { CatalogStore } from './generation/catalog/catalog-store'
+import { ModelIdentityService } from './generation/catalog/model-identity-service'
+import { ProviderManagerService } from './generation/api/provider-manager-service'
 import { LocalGenerateTaskHandler } from './generation/tasks/local-generate-task'
+import { RemoteGenerateTaskHandler } from './generation/tasks/remote-generate-task'
 import { IPC_CHANNELS } from './ipc/channels'
 import { registerLibraryHandlers } from './ipc/handlers/library'
 import { registerGenerationHandlers } from './ipc/handlers/generation'
@@ -26,6 +31,7 @@ import { registerModelHandlers } from './ipc/handlers/models'
 import { registerKeywordsHandlers } from './ipc/handlers/keywords'
 import { registerCollectionsHandlers } from './ipc/handlers/collections'
 import { registerWindowHandlers } from './ipc/handlers/window'
+import { registerProviderHandlers } from './ipc/handlers/providers'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
 import { ModelCatalogService } from './models/model-catalog-service'
 import { ModelDownloadManager } from './models/model-download-manager'
@@ -294,7 +300,17 @@ app.whenReady().then(async () => {
   // Initialize work queue + generation services
   workQueueManager = new WorkQueueManager(db)
   const generationIOService = new GenerationIOService(db, fileManager)
-  const providerCatalogService = new ProviderCatalogService()
+  const catalogStore = new CatalogStore()
+  const providerConfigService = new ProviderConfigService()
+  const modelIdentityService = new ModelIdentityService()
+  modelIdentityService.loadIdentities()
+
+  const providerCatalogService = new ProviderCatalogService(providerConfigService, catalogStore)
+  const providerManagerService = new ProviderManagerService(
+    providerConfigService,
+    modelIdentityService,
+    catalogStore
+  )
   const localProvider = new LocalCnEngineProvider(engineManager)
 
   generationService = new GenerationService({
@@ -322,6 +338,19 @@ app.whenReady().then(async () => {
       modelCatalogService
     })
   )
+
+  workQueueManager.registerHandler(
+    WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE,
+    new RemoteGenerateTaskHandler(
+      db,
+      generationService,
+      generationIOService,
+      providerManagerService
+    )
+  )
+
+  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE, 1)
+  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE, 4)
 
   console.log('[Main] Work queue + generation services initialized')
 
@@ -358,6 +387,10 @@ app.whenReady().then(async () => {
     }
   })
   registerWindowHandlers(() => mainWindow)
+  registerProviderHandlers({
+    providerManagerService,
+    modelIdentityService
+  })
   console.log('[Main] IPC handlers registered')
 
   // Create window
