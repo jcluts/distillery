@@ -1,6 +1,7 @@
 import * as React from 'react'
-import { Layers3, Settings2, Star } from 'lucide-react'
+import { Layers3, Settings, Star } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -76,11 +77,7 @@ function CollectionRow({
         {isSpecial ? (
           <Star className="size-3.5 text-muted-foreground" />
         ) : (
-          <Layers3
-            className="size-3.5"
-            color={collection.color}
-            aria-hidden="true"
-          />
+          <Layers3 className="size-3.5" color={collection.color} aria-hidden="true" />
         )}
         <span className="truncate text-sm">{collection.name}</span>
       </button>
@@ -89,10 +86,10 @@ function CollectionRow({
         {!isSpecial ? (
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="icon-sm"
             className={cn(
-              'size-6 transition-opacity',
+              'size-6 transition-opacity bg-background',
               isHovered ? 'opacity-100' : 'pointer-events-none opacity-0'
             )}
             onClick={(e) => {
@@ -101,15 +98,15 @@ function CollectionRow({
             }}
             aria-label={`Edit ${collection.name}`}
           >
-            <Settings2 className="size-3.5" />
+            <Settings className="size-3.5" />
           </Button>
         ) : (
           <span className="size-6" aria-hidden="true" />
         )}
         <div className="w-8 text-right">
-          <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-border bg-background px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-primary">
+          <Badge variant="ghost" className="bg-background">
             {collection.media_count}
-          </span>
+          </Badge>
         </div>
       </div>
     </div>
@@ -166,7 +163,9 @@ export function CollectionsPane(): React.JSX.Element {
         />
       ))}
 
-      {manualCollections.length > 0 && specialCollections.length > 0 && <Separator className="my-2" />}
+      {manualCollections.length > 0 && specialCollections.length > 0 && (
+        <Separator className="my-2" />
+      )}
 
       {manualCollections.map((collection) => (
         <CollectionRow
@@ -188,7 +187,8 @@ export function CollectionsPane(): React.JSX.Element {
           onDragOver={(e) => {
             const mediaIds = parseDroppedMediaIds(e)
             const draggedCollectionId =
-              e.dataTransfer.getData('application/x-distillery-collection-id') || draggingCollectionId
+              e.dataTransfer.getData('application/x-distillery-collection-id') ||
+              draggingCollectionId
 
             if (mediaIds.length > 0) {
               e.preventDefault()
@@ -212,7 +212,8 @@ export function CollectionsPane(): React.JSX.Element {
             }
 
             const draggedCollectionId =
-              e.dataTransfer.getData('application/x-distillery-collection-id') || draggingCollectionId
+              e.dataTransfer.getData('application/x-distillery-collection-id') ||
+              draggingCollectionId
 
             if (!draggedCollectionId || draggedCollectionId === collection.id) {
               setDragOverCollectionId(null)

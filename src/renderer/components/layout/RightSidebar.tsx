@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { FolderHeart, Info, Plus, SlidersHorizontal } from 'lucide-react'
+import { Layers3, Info, Plus, SlidersHorizontal } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useUIStore, type RightPanelTab } from '@/stores/ui-store'
@@ -31,6 +31,14 @@ function CollectionsHeaderActions(): React.JSX.Element {
 
 const RIGHT_TABS: SidebarTabConfig<RightPanelTab>[] = [
   {
+    tab: 'collections',
+    label: 'Collections',
+    title: 'Collections',
+    icon: Layers3,
+    headerActions: <CollectionsHeaderActions />,
+    content: <CollectionsPane />
+  },
+  {
     tab: 'info',
     label: 'Info',
     title: 'Media Info',
@@ -43,14 +51,6 @@ const RIGHT_TABS: SidebarTabConfig<RightPanelTab>[] = [
     title: 'Generation Info',
     icon: SlidersHorizontal,
     content: <GenerationInfoPane />
-  },
-  {
-    tab: 'collections',
-    label: 'Collections',
-    title: 'Collections',
-    icon: FolderHeart,
-    headerActions: <CollectionsHeaderActions />,
-    content: <CollectionsPane />
   }
 ]
 
