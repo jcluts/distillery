@@ -42,6 +42,7 @@ export interface MediaQuery {
   sort?: MediaSortField
   sortDirection?: 'asc' | 'desc'
   search?: string
+  collectionId?: string
 }
 
 export interface MediaPage {
@@ -49,6 +50,33 @@ export interface MediaPage {
   total: number
   page: number
   pageSize: number
+}
+
+// Collection types
+export type CollectionType = 'manual' | 'special' | 'live'
+
+export interface CollectionRecord {
+  id: string
+  name: string
+  color: string
+  type: CollectionType
+  system_key: string | null
+  sort_order: number
+  filter_json: string | null
+  created_at: string
+  updated_at: string
+  media_count: number
+}
+
+export interface CollectionCreate {
+  name: string
+  color: string
+  media_ids?: string[]
+}
+
+export interface CollectionUpdate {
+  name?: string
+  color?: string
 }
 
 // Generation types

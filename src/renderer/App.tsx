@@ -4,9 +4,11 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
 import { ModelManagerModal } from '@/components/modals/ModelManagerModal'
 import { SettingsModal } from '@/components/modals/SettingsModal'
+import { CollectionModal } from '@/components/modals/CollectionModal'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useModelCatalog } from '@/hooks/useModelCatalog'
 import { useModelDownload } from '@/hooks/useModelDownload'
+import { useCollectionStore } from './stores/collection-store'
 import { useEngineStore } from './stores/engine-store'
 import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
@@ -29,6 +31,7 @@ function App(): React.JSX.Element {
   const focusedId = useLibraryStore((s) => s.focusedId)
   const buildLibraryQuery = useLibraryStore((s) => s.buildQuery)
   const setLibraryLoading = useLibraryStore((s) => s.setLoading)
+  const setLibraryPage = useLibraryStore((s) => s.setPage)
   const page = useLibraryStore((s) => s.page)
   const pageSize = useLibraryStore((s) => s.pageSize)
   const ratingFilter = useLibraryStore((s) => s.ratingFilter)
@@ -38,6 +41,9 @@ function App(): React.JSX.Element {
   const sortDirection = useLibraryStore((s) => s.sortDirection)
 
   const setGenerations = useGenerationStore((s) => s.setGenerations)
+
+  const loadCollections = useCollectionStore((s) => s.loadCollections)
+  const activeCollectionId = useCollectionStore((s) => s.activeCollectionId)
 
   const setQueueItems = useQueueStore((s) => s.setItems)
   const startTimer = useQueueStore((s) => s.startTimer)
@@ -126,7 +132,12 @@ function App(): React.JSX.Element {
     void loadMedia()
     void loadTimeline()
     void loadQueue()
-  }, [loadMedia, loadQueue, loadTimeline])
+    void loadCollections()
+  }, [loadCollections, loadMedia, loadQueue, loadTimeline])
+
+  useEffect(() => {
+    setLibraryPage(1)
+  }, [activeCollectionId, setLibraryPage])
 
   // Re-query library on filter changes.
   useEffect(() => {
@@ -142,7 +153,17 @@ function App(): React.JSX.Element {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current)
     }
-  }, [loadMedia, page, pageSize, ratingFilter, searchQuery, sortDirection, sortField, statusFilter])
+  }, [
+    activeCollectionId,
+    loadMedia,
+    page,
+    pageSize,
+    ratingFilter,
+    searchQuery,
+    sortDirection,
+    sortField,
+    statusFilter
+  ])
 
   // Queue updates
   useEffect(() => {
@@ -161,6 +182,13 @@ function App(): React.JSX.Element {
     })
     return unsubscribe
   }, [loadMedia])
+
+  useEffect(() => {
+    const unsubscribe = window.api.on('collections:updated', () => {
+      void loadCollections()
+    })
+    return unsubscribe
+  }, [loadCollections])
 
   // Generation progress -> status bar / queue progress
   useEffect(() => {
@@ -206,6 +234,7 @@ function App(): React.JSX.Element {
       <GenerationDetailModal />
       <SettingsModal />
       <ModelManagerModal />
+      <CollectionModal />
     </TooltipProvider>
   )
 }

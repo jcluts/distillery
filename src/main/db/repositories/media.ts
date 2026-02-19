@@ -9,30 +9,43 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
   const pageSize = params.pageSize ?? 200
   const offset = (page - 1) * pageSize
 
+  let fromClause = 'media'
   const conditions: string[] = []
   const values: unknown[] = []
 
+  if (params.collectionId && params.collectionId !== 'special-all') {
+    if (params.collectionId === 'special-generated') {
+      conditions.push("media.origin = 'generation'")
+    } else if (params.collectionId === 'special-imported') {
+      conditions.push("media.origin = 'import'")
+    } else {
+      fromClause = 'media JOIN collection_media cm ON cm.media_id = media.id'
+      conditions.push('cm.collection_id = ?')
+      values.push(params.collectionId)
+    }
+  }
+
   if (params.media_type) {
-    conditions.push('media_type = ?')
+    conditions.push('media.media_type = ?')
     values.push(params.media_type)
   }
 
   if (params.rating !== undefined && params.rating > 0) {
-    conditions.push('rating >= ?')
+    conditions.push('media.rating >= ?')
     values.push(params.rating)
   }
 
   if (params.status === 'selected' || params.status === 'rejected') {
-    conditions.push('status = ?')
+    conditions.push('media.status = ?')
     values.push(params.status)
   } else if (params.status === 'unmarked') {
-    conditions.push('status IS NULL')
+    conditions.push('media.status IS NULL')
   }
   // 'all' and undefined = no filter
 
   if (params.search) {
     conditions.push(
-      `(file_name LIKE ? OR id IN (
+      `(media.file_name LIKE ? OR media.id IN (
         SELECT mk.media_id FROM media_keywords mk
         JOIN keywords k ON k.id = mk.keyword_id
         WHERE k.keyword LIKE ?
@@ -46,7 +59,7 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
 
   // Count
   const countRow = db
-    .prepare(`SELECT COUNT(*) as total FROM media ${where}`)
+    .prepare(`SELECT COUNT(DISTINCT media.id) as total FROM ${fromClause} ${where}`)
     .get(...values) as { total: number }
 
   // Sort
@@ -56,11 +69,11 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
       ? params.sort
       : 'created_at'
   const sortDir = params.sortDirection === 'asc' ? 'asc' : 'desc'
-  const orderBy = `ORDER BY ${sortField} ${sortDir}`
+  const orderBy = `ORDER BY media.${sortField} ${sortDir}`
 
   // Fetch
   const items = db
-    .prepare(`SELECT * FROM media ${where} ${orderBy} LIMIT ? OFFSET ?`)
+    .prepare(`SELECT media.* FROM ${fromClause} ${where} ${orderBy} LIMIT ? OFFSET ?`)
     .all(...values, pageSize, offset) as MediaRecord[]
 
   return {

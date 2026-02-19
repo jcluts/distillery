@@ -123,7 +123,7 @@ export function AppSidebar<T extends string>({
                         </SidebarMenuButton>
 
                         {item.badge != null && item.badge > 0 && (
-                          <span className="pointer-events-none absolute -right-0.5 z-10 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                          <span className="pointer-events-none absolute -top-0.25 -right-0.25 z-10 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
                             {item.badge > 99 ? '99+' : item.badge}
                           </span>
                         )}

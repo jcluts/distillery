@@ -1,5 +1,7 @@
 import * as React from 'react'
+import { X } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -8,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { useCollectionStore } from '@/stores/collection-store'
 import { useLibraryStore } from '@/stores/library-store'
 
 export function FilterBar(): React.JSX.Element {
@@ -18,6 +21,15 @@ export function FilterBar(): React.JSX.Element {
   const setRatingFilter = useLibraryStore((s) => s.setRatingFilter)
   const setStatusFilter = useLibraryStore((s) => s.setStatusFilter)
   const setSearchQuery = useLibraryStore((s) => s.setSearchQuery)
+
+  const collections = useCollectionStore((s) => s.collections)
+  const activeCollectionId = useCollectionStore((s) => s.activeCollectionId)
+  const setActiveCollection = useCollectionStore((s) => s.setActiveCollection)
+
+  const activeCollection =
+    activeCollectionId === 'special-all'
+      ? null
+      : (collections.find((collection) => collection.id === activeCollectionId) ?? null)
 
   const statusValue =
     statusFilter === 'all'
@@ -68,6 +80,27 @@ export function FilterBar(): React.JSX.Element {
       </div>
 
       <div className="flex-1" />
+
+      {activeCollection && (
+        <div className="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-xs">
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: activeCollection.color }}
+            aria-hidden="true"
+          />
+          <span className="max-w-[180px] truncate">{activeCollection.name}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="size-5"
+            onClick={() => setActiveCollection('special-all')}
+            aria-label="Clear collection filter"
+          >
+            <X className="size-3" />
+          </Button>
+        </div>
+      )}
 
       <Input
         value={searchQuery}
