@@ -3,7 +3,15 @@ import { Layers3, Settings, Star } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle
+} from '@/components/ui/item'
 import { cn } from '@/lib/utils'
 import { useCollectionStore } from '@/stores/collection-store'
 import { useUIStore } from '@/stores/ui-store'
@@ -54,10 +62,13 @@ function CollectionRow({
   const [isHovered, setIsHovered] = React.useState(false)
 
   return (
-    <div
+    <Item
+      size="xs"
       className={cn(
-        'flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors',
-        active ? 'border-primary/40 bg-primary/10' : 'border-transparent hover:bg-accent',
+        'rounded-md px-2 py-1.5 transition-colors',
+        active
+          ? 'border-primary/40 bg-primary/10'
+          : 'border-transparent hover:border-border hover:bg-muted/50',
         isReorderDragOver && 'border-primary/50 bg-primary/5'
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -74,22 +85,22 @@ function CollectionRow({
         className="flex min-w-0 flex-1 items-center gap-2 text-left"
         onClick={onSelect}
       >
-        {isSpecial ? (
-          <Star className="size-3.5 text-muted-foreground" />
-        ) : (
-          <Layers3 className="size-3.5" color={collection.color} aria-hidden="true" />
-        )}
-        <span className="truncate text-sm">{collection.name}</span>
+        <ItemMedia variant="icon" className="size-auto">
+          {isSpecial ? <Star /> : <Layers3 color={collection.color} />}
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{collection.name}</ItemTitle>
+        </ItemContent>
       </button>
 
-      <div className="ml-auto flex items-center gap-0.5">
+      <ItemActions>
         {!isSpecial ? (
           <Button
             type="button"
             variant="outline"
             size="icon-sm"
             className={cn(
-              'size-6 transition-opacity bg-background',
+              'transition-opacity bg-background',
               isHovered ? 'opacity-100' : 'pointer-events-none opacity-0'
             )}
             onClick={(e) => {
@@ -98,18 +109,16 @@ function CollectionRow({
             }}
             aria-label={`Edit ${collection.name}`}
           >
-            <Settings className="size-3.5" />
+            <Settings />
           </Button>
         ) : (
           <span className="size-6" aria-hidden="true" />
         )}
-        <div className="w-8 text-right">
-          <Badge variant="ghost" className="bg-background">
-            {collection.media_count}
-          </Badge>
-        </div>
-      </div>
-    </div>
+        <Badge variant="ghost" className="bg-background">
+          {collection.media_count}
+        </Badge>
+      </ItemActions>
+    </Item>
   )
 }
 
@@ -138,7 +147,7 @@ export function CollectionsPane(): React.JSX.Element {
   )
 
   return (
-    <div className="space-y-1">
+    <ItemGroup className="gap-1">
       {specialCollections.map((collection) => (
         <CollectionRow
           key={collection.id}
@@ -146,8 +155,8 @@ export function CollectionsPane(): React.JSX.Element {
           active={collection.id === activeCollectionId}
           isReorderDragOver={false}
           onSelect={() => setActiveCollection(collection.id)}
-          onEdit={() => {}}
-          onDragStart={() => {}}
+          onEdit={() => { }}
+          onDragStart={() => { }}
           onDragEnd={() => {
             setDraggingCollectionId(null)
             setDragOverCollectionId(null)
@@ -163,9 +172,7 @@ export function CollectionsPane(): React.JSX.Element {
         />
       ))}
 
-      {manualCollections.length > 0 && specialCollections.length > 0 && (
-        <Separator className="my-2" />
-      )}
+      {manualCollections.length > 0 && specialCollections.length > 0 && <ItemSeparator />}
 
       {manualCollections.map((collection) => (
         <CollectionRow
@@ -238,6 +245,6 @@ export function CollectionsPane(): React.JSX.Element {
           }}
         />
       ))}
-    </div>
+    </ItemGroup>
   )
 }
