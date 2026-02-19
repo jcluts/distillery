@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC_CHANNELS } from '../main/ipc/channels'
 import type {
+  CollectionCreate,
+  CollectionUpdate,
   DistilleryAPI,
   GenerationSubmitInput,
   MediaQuery,
@@ -39,6 +41,21 @@ const api: DistilleryAPI = {
     search: (prefix: string, limit?: number) =>
       ipcRenderer.invoke(CH.KEYWORDS_SEARCH, prefix, limit),
     getAll: () => ipcRenderer.invoke(CH.KEYWORDS_GET_ALL)
+  },
+
+  // Collections
+  collections: {
+    getAll: () => ipcRenderer.invoke(CH.COLLECTIONS_GET_ALL),
+    get: (id: string) => ipcRenderer.invoke(CH.COLLECTIONS_GET, id),
+    create: (data: CollectionCreate) => ipcRenderer.invoke(CH.COLLECTIONS_CREATE, data),
+    update: (id: string, data: CollectionUpdate) =>
+      ipcRenderer.invoke(CH.COLLECTIONS_UPDATE, id, data),
+    delete: (id: string) => ipcRenderer.invoke(CH.COLLECTIONS_DELETE, id),
+    reorder: (orderedIds: string[]) => ipcRenderer.invoke(CH.COLLECTIONS_REORDER, orderedIds),
+    addMedia: (collectionId: string, mediaIds: string[]) =>
+      ipcRenderer.invoke(CH.COLLECTIONS_ADD_MEDIA, collectionId, mediaIds),
+    removeMedia: (collectionId: string, mediaIds: string[]) =>
+      ipcRenderer.invoke(CH.COLLECTIONS_REMOVE_MEDIA, collectionId, mediaIds)
   },
 
   // Generation
@@ -108,6 +125,7 @@ const api: DistilleryAPI = {
       | typeof CH.GENERATION_RESULT
       | typeof CH.QUEUE_UPDATED
       | typeof CH.LIBRARY_UPDATED
+      | typeof CH.COLLECTIONS_UPDATED
       | typeof CH.WINDOW_MAXIMIZED_CHANGED
       | typeof CH.MODEL_DOWNLOAD_PROGRESS
 
@@ -117,6 +135,7 @@ const api: DistilleryAPI = {
       CH.GENERATION_RESULT,
       CH.QUEUE_UPDATED,
       CH.LIBRARY_UPDATED,
+      CH.COLLECTIONS_UPDATED,
       CH.WINDOW_MAXIMIZED_CHANGED,
       CH.MODEL_DOWNLOAD_PROGRESS
     ])

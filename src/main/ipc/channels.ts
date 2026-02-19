@@ -24,6 +24,16 @@ export const IPC_CHANNELS = {
   KEYWORDS_SEARCH: 'keywords:search',
   KEYWORDS_GET_ALL: 'keywords:getAll',
 
+  // Collections
+  COLLECTIONS_GET_ALL: 'collections:getAll',
+  COLLECTIONS_GET: 'collections:get',
+  COLLECTIONS_CREATE: 'collections:create',
+  COLLECTIONS_UPDATE: 'collections:update',
+  COLLECTIONS_DELETE: 'collections:delete',
+  COLLECTIONS_REORDER: 'collections:reorder',
+  COLLECTIONS_ADD_MEDIA: 'collections:addMedia',
+  COLLECTIONS_REMOVE_MEDIA: 'collections:removeMedia',
+
   // Generation
   GENERATION_SUBMIT: 'generation:submit',
   GENERATION_CANCEL: 'generation:cancel',
@@ -79,6 +89,7 @@ export const IPC_CHANNELS = {
   GENERATION_RESULT: 'generation:result',
   QUEUE_UPDATED: 'queue:updated',
   LIBRARY_UPDATED: 'library:updated',
+  COLLECTIONS_UPDATED: 'collections:updated',
   WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged',
   MODEL_DOWNLOAD_PROGRESS: 'model:download-progress'
 } as const

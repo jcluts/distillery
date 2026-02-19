@@ -45,6 +45,7 @@ export interface MediaQuery {
   sort?: MediaSortField
   sortDirection?: 'asc' | 'desc'
   search?: string
+  collectionId?: string
 }
 
 export type MediaSortField = 'created_at' | 'rating' | 'file_name'
@@ -54,6 +55,36 @@ export interface MediaPage {
   total: number
   page: number
   pageSize: number
+}
+
+// -----------------------------------------------------------------------------
+// Collections
+// -----------------------------------------------------------------------------
+
+export type CollectionType = 'manual' | 'special' | 'live'
+
+export interface CollectionRecord {
+  id: string
+  name: string
+  color: string
+  type: CollectionType
+  system_key: string | null
+  sort_order: number
+  filter_json: string | null
+  created_at: string
+  updated_at: string
+  media_count: number
+}
+
+export interface CollectionCreate {
+  name: string
+  color: string
+  media_ids?: string[]
+}
+
+export interface CollectionUpdate {
+  name?: string
+  color?: string
 }
 
 // -----------------------------------------------------------------------------
@@ -388,6 +419,18 @@ export interface DistilleryAPI {
     removeFromMedia(mediaId: string, keyword: string): Promise<void>
     search(prefix: string, limit?: number): Promise<string[]>
     getAll(): Promise<{ keyword: string; count: number }[]>
+  }
+
+  // Collections
+  collections: {
+    getAll(): Promise<CollectionRecord[]>
+    get(id: string): Promise<CollectionRecord | null>
+    create(data: CollectionCreate): Promise<CollectionRecord>
+    update(id: string, data: CollectionUpdate): Promise<void>
+    delete(id: string): Promise<void>
+    reorder(orderedIds: string[]): Promise<void>
+    addMedia(collectionId: string, mediaIds: string[]): Promise<void>
+    removeMedia(collectionId: string, mediaIds: string[]): Promise<void>
   }
 
   // Generation

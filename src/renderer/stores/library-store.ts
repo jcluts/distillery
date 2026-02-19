@@ -6,6 +6,7 @@ import type {
   MediaStatus,
   MediaSortField
 } from '../types'
+import { useCollectionStore } from './collection-store'
 
 // =============================================================================
 // Library Store
@@ -47,6 +48,7 @@ interface LibraryState {
   setSearchQuery: (query: string) => void
   setSortField: (field: MediaSortField) => void
   setSortDirection: (dir: 'asc' | 'desc') => void
+  setPage: (page: number) => void
   setLoading: (loading: boolean) => void
 
   // Computed
@@ -145,6 +147,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   setSearchQuery: (query) => set({ searchQuery: query, page: 1 }),
   setSortField: (field) => set({ sortField: field, page: 1 }),
   setSortDirection: (dir) => set({ sortDirection: dir, page: 1 }),
+  setPage: (page) => set({ page }),
   setLoading: (loading) => set({ isLoading: loading }),
 
   buildQuery: (): MediaQuery => {
@@ -156,7 +159,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       status: state.statusFilter !== 'all' ? state.statusFilter : undefined,
       sort: state.sortField,
       sortDirection: state.sortDirection,
-      search: state.searchQuery || undefined
+      search: state.searchQuery || undefined,
+      collectionId: useCollectionStore.getState().activeCollectionId
     }
   }
 }))

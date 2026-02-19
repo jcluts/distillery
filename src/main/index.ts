@@ -24,6 +24,7 @@ import { registerTimelineHandlers } from './ipc/handlers/timeline'
 import { registerSettingsHandlers } from './ipc/handlers/settings'
 import { registerModelHandlers } from './ipc/handlers/models'
 import { registerKeywordsHandlers } from './ipc/handlers/keywords'
+import { registerCollectionsHandlers } from './ipc/handlers/collections'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
 import { ModelCatalogService } from './models/model-catalog-service'
@@ -333,6 +334,14 @@ app.whenReady().then(async () => {
   registerQueueHandlers(workQueueManager)
   registerTimelineHandlers()
   registerKeywordsHandlers()
+  registerCollectionsHandlers({
+    onCollectionsUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.COLLECTIONS_UPDATED)
+    },
+    onLibraryUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
+  })
   registerSettingsHandlers({
     engineManager,
     fileManager,

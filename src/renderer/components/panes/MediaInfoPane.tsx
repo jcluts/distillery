@@ -5,6 +5,7 @@ import {
   CircleX,
   ClipboardCopy,
   ExternalLink,
+  FolderMinus,
   FolderOpen,
   Star,
   Trash2,
@@ -28,6 +29,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SectionLabel } from '@/components/ui/section-label'
 import { InfoTable } from '@/components/ui/info-table'
+import { useCollectionStore } from '@/stores/collection-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { cn } from '@/lib/utils'
 import type { MediaStatus, MediaUpdate } from '@/types'
@@ -175,8 +177,14 @@ export function MediaInfoPane(): React.JSX.Element {
   const selectSingle = useLibraryStore((s) => s.selectSingle)
   const setSelection = useLibraryStore((s) => s.setSelection)
 
+  const collections = useCollectionStore((s) => s.collections)
+  const activeCollectionId = useCollectionStore((s) => s.activeCollectionId)
+  const removeMediaFromCollection = useCollectionStore((s) => s.removeMediaFromCollection)
+
   const isMulti = selectedIds.size > 1
   const media = focusedId ? (items.find((m) => m.id === focusedId) ?? null) : null
+  const activeCollection = collections.find((collection) => collection.id === activeCollectionId) ?? null
+  const canRemoveFromCollection = activeCollection?.type === 'manual'
   const currentStatus = media?.status ?? 'unmarked'
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
@@ -291,6 +299,34 @@ export function MediaInfoPane(): React.JSX.Element {
       void executeDelete()
     }
   }, [isMulti, selectedIds, media?.id, executeDelete])
+
+  const handleRemoveFromCollection = React.useCallback(async () => {
+    if (!activeCollection || activeCollection.type !== 'manual') return
+
+    const idsToRemove = isMulti ? [...selectedIds] : media?.id ? [media.id] : []
+    if (idsToRemove.length === 0) return
+
+    await removeMediaFromCollection(activeCollection.id, idsToRemove)
+
+    const page = await window.api.getMedia(buildQuery())
+    setItems(page)
+
+    if (page.items[0]) {
+      selectSingle(page.items[0].id)
+    } else {
+      setSelection(new Set())
+    }
+  }, [
+    activeCollection,
+    buildQuery,
+    isMulti,
+    media?.id,
+    removeMediaFromCollection,
+    selectSingle,
+    selectedIds,
+    setItems,
+    setSelection
+  ])
 
   const deleteCount = isMulti ? selectedIds.size : 1
 
@@ -469,6 +505,21 @@ export function MediaInfoPane(): React.JSX.Element {
                   {isMulti ? `Delete ${deleteCount} images` : 'Delete image'}
                 </TooltipContent>
               </Tooltip>
+              {canRemoveFromCollection && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-lg"
+                      onClick={() => void handleRemoveFromCollection()}
+                    >
+                      <FolderMinus />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Remove from collection</TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
         </>
