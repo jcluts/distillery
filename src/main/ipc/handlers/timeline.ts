@@ -31,11 +31,10 @@ export function registerTimelineHandlers(): void {
     generationRepo.removeGeneration(db, id)
   })
 
-  ipcMain.handle(IPC_CHANNELS.TIMELINE_CLEAR_COMPLETED, () => {
-    // Get all completed generations and remove them
+  ipcMain.handle(IPC_CHANNELS.TIMELINE_CLEAR_FAILED, () => {
     const all = generationRepo.getAllGenerations(db)
     for (const gen of all) {
-      if (gen.status === 'completed') {
+      if (gen.status === 'failed') {
         generationRepo.removeGeneration(db, gen.id)
       }
     }

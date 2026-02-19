@@ -41,12 +41,12 @@ export class TimelineService {
   }
 
   /**
-   * Clear all completed generations.
+   * Clear all failed generations.
    */
-  clearCompleted(): void {
+  clearFailed(): void {
     const all = generationRepo.getAllGenerations(this.db)
     for (const gen of all) {
-      if (gen.status === 'completed') {
+      if (gen.status === 'failed') {
         generationRepo.removeGeneration(this.db, gen.id)
       }
     }

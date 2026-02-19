@@ -62,7 +62,7 @@ const api: DistilleryAPI = {
     getAll: () => ipcRenderer.invoke(CH.TIMELINE_GET_ALL),
     get: (id: string) => ipcRenderer.invoke(CH.TIMELINE_GET, id),
     remove: (id: string) => ipcRenderer.invoke(CH.TIMELINE_REMOVE, id),
-    clearCompleted: () => ipcRenderer.invoke(CH.TIMELINE_CLEAR_COMPLETED),
+    clearFailed: () => ipcRenderer.invoke(CH.TIMELINE_CLEAR_FAILED),
     getThumbnail: (genId: string) => ipcRenderer.invoke(CH.TIMELINE_GET_THUMBNAIL, genId),
     getThumbnailsBatch: (genIds: string[]) =>
       ipcRenderer.invoke(CH.TIMELINE_GET_THUMBNAILS_BATCH, genIds),

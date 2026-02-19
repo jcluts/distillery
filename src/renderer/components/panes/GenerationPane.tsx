@@ -1,10 +1,13 @@
 import * as React from 'react'
 
+import { Loader2 } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { validateFormValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useEngineStore } from '@/stores/engine-store'
+import { useQueueStore } from '@/stores/queue-store'
 import { useModelStore } from '@/stores/model-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
 import { RefImageDropzone } from '@/components/generation/RefImageDropzone'
@@ -31,6 +34,9 @@ export function GenerationPane(): React.JSX.Element {
 
   const engineState = useEngineStore((s) => s.state)
   const engineCanGenerate = engineState === 'ready' || engineState === 'idle'
+
+  const { activePhase, items: queueItems } = useQueueStore()
+  const isGenerating = !!activePhase || queueItems.some((q) => q.status === 'processing')
 
   // Fetch the endpoint schema on mount / when endpoint key changes
   React.useEffect(() => {
@@ -154,7 +160,14 @@ export function GenerationPane(): React.JSX.Element {
         disabled={generateDisabled}
         onClick={handleSubmit}
       >
-        Generate
+        {isGenerating ? (
+          <>
+            <Loader2 className="animate-spin" />
+            Generating
+          </>
+        ) : (
+          'Generate'
+        )}
       </Button>
 
       {/* Generation status — model load, progress, pending items */}

@@ -42,7 +42,7 @@ export const IPC_CHANNELS = {
   TIMELINE_GET_ALL: 'timeline:getAll',
   TIMELINE_GET: 'timeline:get',
   TIMELINE_REMOVE: 'timeline:remove',
-  TIMELINE_CLEAR_COMPLETED: 'timeline:clearCompleted',
+  TIMELINE_CLEAR_FAILED: 'timeline:clearFailed',
   TIMELINE_GET_THUMBNAIL: 'timeline:getThumbnail',
   TIMELINE_GET_THUMBNAILS_BATCH: 'timeline:getThumbnailsBatch',
   TIMELINE_GET_INPUT_THUMBNAIL: 'timeline:getInputThumbnail',

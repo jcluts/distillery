@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { type LucideIcon } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
 import { SectionHeader } from '@/components/ui/section-header'
 
 import {
@@ -27,6 +28,7 @@ export interface SidebarTabConfig<T extends string = string> {
   icon: LucideIcon
   content: React.ReactNode
   headerActions?: React.ReactNode
+  badge?: number
 }
 
 interface AppSidebarProps<T extends string = string> {
@@ -100,24 +102,32 @@ export function AppSidebar<T extends string>({
                 <SidebarMenu>
                   {tabs.map((item) => (
                     <SidebarMenuItem key={item.tab}>
-                      <SidebarMenuButton
-                        tooltip={{
-                          children: item.label,
-                          side: isLeft ? 'right' : 'left',
-                          hidden: false
-                        }}
-                        isActive={open && activeTab === item.tab}
-                        // className="size-9 justify-center p-0"
-                        className={
-                          open && activeTab === item.tab
-                            ? 'size-9 justify-center p-0 bg-primary/10! ring-1 ring-primary/30! text-primary!'
-                            : 'size-9 justify-center p-0'
-                        }
-                        onClick={() => onToggle(item.tab)}
-                        aria-label={item.label}
-                      >
-                        <item.icon />
-                      </SidebarMenuButton>
+                      <div className="relative mx-auto size-9 overflow-visible">
+                        <SidebarMenuButton
+                          tooltip={{
+                            children: item.label,
+                            side: isLeft ? 'right' : 'left',
+                            hidden: false
+                          }}
+                          isActive={open && activeTab === item.tab}
+                          className={cn(
+                            'size-9 justify-center p-0',
+                            open && activeTab === item.tab
+                              ? 'bg-primary/10! ring-1 ring-primary/30! text-primary!'
+                              : ''
+                          )}
+                          onClick={() => onToggle(item.tab)}
+                          aria-label={item.label}
+                        >
+                          <item.icon />
+                        </SidebarMenuButton>
+
+                        {item.badge != null && item.badge > 0 && (
+                          <span className="pointer-events-none absolute -right-0.5 z-10 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </span>
+                        )}
+                      </div>
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
