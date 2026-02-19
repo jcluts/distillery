@@ -60,7 +60,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   leftPanelTab: 'generation',
   leftPanelWidth: LEFT_PANEL_WIDTH_PX,
   rightPanelOpen: true,
-  rightPanelTab: 'info',
+  rightPanelTab: 'collections',
   rightPanelWidth: RIGHT_PANEL_WIDTH_PX,
   viewMode: 'grid',
   thumbnailSize: THUMBNAIL_SIZE_DEFAULT,
