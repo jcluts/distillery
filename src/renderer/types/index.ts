@@ -409,7 +409,7 @@ export interface DistilleryAPI {
     getAll(): Promise<{ generations: GenerationRecord[] }>
     get(id: string): Promise<GenerationRecord | null>
     remove(id: string): Promise<void>
-    clearCompleted(): Promise<void>
+    clearFailed(): Promise<void>
     getThumbnail(genId: string): Promise<string | null>
     getThumbnailsBatch(genIds: string[]): Promise<Record<string, string>>
     getInputThumbnail(inputId: string): Promise<string | null>

@@ -7,7 +7,6 @@ import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useEngineStore } from '@/stores/engine-store'
 import { useQueueStore } from '@/stores/queue-store'
-import { useGenerationStore } from '@/stores/generation-store'
 
 /**
  * Unified generation status indicator.
@@ -29,11 +28,8 @@ export function GenerationStatus(): React.JSX.Element | null {
   const activeStep = useQueueStore((s) => s.activeStep)
   const activeTotalSteps = useQueueStore((s) => s.activeTotalSteps)
 
-  // Generations (for prompt labels)
-  const generations = useGenerationStore((s) => s.generations)
-
-  const visibleQueueItems = React.useMemo(
-    () => queueItems.filter((q) => q.status === 'pending' || q.status === 'processing'),
+  const pendingCount = React.useMemo(
+    () => queueItems.filter((q) => q.status === 'pending').length,
     [queueItems]
   )
 
@@ -42,16 +38,16 @@ export function GenerationStatus(): React.JSX.Element | null {
   const isQueueProcessing = queueItems.some((q) => q.status === 'processing')
   const hasError = engineState === 'error'
   const isModelReady = engineState === 'ready'
-  const canUnloadModel = isModelReady && !isQueueProcessing && !isUnloadingModel
+  const canUnloadModel =
+    isModelReady && !isQueueProcessing && !isUnloadingModel && pendingCount === 0
 
   const progressValue =
     activeStep != null && activeTotalSteps != null && activeTotalSteps > 0
       ? Math.round((activeStep / activeTotalSteps) * 100)
       : 0
 
-  // Decide visibility: show when loading, generating, pending items, error, or model ready (idle with model is not interesting)
-  const hasContent =
-    isModelLoading || isGenerating || visibleQueueItems.length > 0 || hasError || isModelReady
+  // Decide visibility: show when loading, generating, pending items, error, or model ready
+  const hasContent = isModelLoading || isGenerating || pendingCount > 0 || hasError || isModelReady
 
   if (!hasContent) return null
 
@@ -124,33 +120,11 @@ export function GenerationStatus(): React.JSX.Element | null {
       {isModelLoading && <Progress className="animate-pulse" />}
       {isGenerating && <Progress value={progressValue} />}
 
-      {/* Pending / processing items */}
-      {visibleQueueItems.length > 0 && (
-        <div className="space-y-1">
-          {visibleQueueItems.slice(0, 3).map((q) => {
-            const generationId = q.correlation_id
-            return (
-              <div key={q.id} className="flex items-center justify-between text-xs">
-                <span className="truncate text-muted-foreground">
-                  {generations.find((g) => g.id === generationId)?.prompt ?? generationId ?? q.id}
-                </span>
-                <div className="ml-2 flex items-center gap-2">
-                  <Badge variant="outline">{q.status}</Badge>
-                  {q.status === 'pending' && generationId ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => window.api.cancelGeneration(generationId)}
-                    >
-                      Cancel
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+      {/* Pending counter */}
+      {pendingCount > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {pendingCount} {pendingCount === 1 ? 'generation' : 'generations'} pending
+        </p>
       )}
     </Card>
   )

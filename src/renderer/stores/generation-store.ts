@@ -55,7 +55,7 @@ interface GenerationState {
   addGeneration: (generation: GenerationRecord) => void
   updateGeneration: (id: string, updates: Partial<GenerationRecord>) => void
   removeGeneration: (id: string) => void
-  clearCompleted: () => void
+  clearFailed: () => void
 
   setDetailGenerationId: (id: string | null) => void
 
@@ -172,9 +172,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   removeGeneration: (id) =>
     set((s) => ({ generations: s.generations.filter((g) => g.id !== id) })),
 
-  clearCompleted: () =>
+  clearFailed: () =>
     set((s) => ({
-      generations: s.generations.filter((g) => g.status !== 'completed')
+      generations: s.generations.filter((g) => g.status !== 'failed')
     })),
 
   setDetailGenerationId: (id) => set({ detailGenerationId: id }),
