@@ -114,13 +114,13 @@ export function ModelSelector(): React.JSX.Element {
       for (const model of userModels) {
         const identityId = model.modelIdentityId ?? `${provider.providerId}-${model.modelId}`
 
-        // Find matching endpoint from catalog. Fall back to canonical catalog format
-        // (${providerId}.${modelId}.image) rather than a bare ID, to stay consistent
-        // with what ProviderCatalogService.mapProviderUserModel generates.
+        // Find matching endpoint from catalog.
         const ep = endpoints.find(
           (e) =>
             e.providerId === provider.providerId && e.providerModelId === model.modelId
         )
+
+        if (!ep) continue // Wait for endpoints to load or skip invalid models
 
         if (!map.has(identityId)) {
           const existingIdentity = identities.find((i) => i.id === identityId)
@@ -136,7 +136,7 @@ export function ModelSelector(): React.JSX.Element {
 
         map.get(identityId)!.providerOptions.push({
           label: provider.displayName ?? provider.providerId,
-          endpointKey: ep?.endpointKey ?? `${provider.providerId}.${model.modelId}.image`,
+          endpointKey: ep.endpointKey,
           providerId: provider.providerId,
           isLocal: false,
           isReady: true // API models are always "ready" if key is configured

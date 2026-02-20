@@ -80,6 +80,15 @@ export class ApiClient {
         method: 'GET',
         headers
       })
+    } else if (search.method === 'QUERY') {
+      response = await fetch(endpointUrl, {
+        method: 'QUERY',
+        headers: {
+          ...headers,
+          'Content-Type': 'text/plain'
+        },
+        body: query
+      })
     } else {
       const body: Record<string, unknown> = {
         query,
