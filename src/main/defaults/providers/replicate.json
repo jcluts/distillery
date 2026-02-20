@@ -1,7 +1,7 @@
 {
   "providerId": "replicate",
   "displayName": "Replicate",
-  "enabled": false,
+  "enabled": true,
   "mode": "remote-async",
   "adapter": "replicate",
   "baseUrl": "https://api.replicate.com",

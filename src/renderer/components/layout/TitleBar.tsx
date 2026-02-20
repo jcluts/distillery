@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Boxes, Copy, Minus, Settings, Square, X } from 'lucide-react'
+import { Boxes, Cloud, Copy, Minus, Settings, Square, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -88,6 +88,18 @@ export function TitleBar(): React.JSX.Element {
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         onDoubleClick={(e) => e.stopPropagation()}
       >
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8"
+          onClick={() => openModal('providers')}
+          aria-label="Open provider manager"
+        >
+          <Cloud className="size-4" />
+          Providers
+        </Button>
+
         <Button
           type="button"
           variant="ghost"

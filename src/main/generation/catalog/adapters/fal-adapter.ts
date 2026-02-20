@@ -40,25 +40,37 @@ export function transformFal(input: AdapterInput): CanonicalEndpointDef[] {
 }
 
 export function normalizeFalSearchResult(raw: unknown, _config: ProviderConfig): SearchResultModel {
-  const source = asRecord(raw) ?? {}
+  const source = unwrapFalModel(raw) ?? asRecord(raw) ?? {}
+  const metadata = asRecord(source.metadata) ?? {}
   const modelId =
     getString(source.endpoint_id) || getString(source.id) || getString(source.model_id) || ''
 
   return {
     modelId,
-    name: getString(source.title) || getString(source.name) || modelId,
-    description: getString(source.description) || undefined,
-    type: getString(source.category) || getString(source.task) || getString(source.type) || undefined,
-    runCount: toOptionalNumber(source.run_count) ?? undefined,
+    name:
+      getString(metadata.display_name) ||
+      getString(source.title) ||
+      getString(source.name) ||
+      modelId,
+    description: getString(metadata.description) || getString(source.description) || undefined,
+    type:
+      getString(metadata.category) ||
+      getString(source.category) ||
+      getString(source.task) ||
+      getString(source.type) ||
+      undefined,
+    runCount: toOptionalNumber(source.run_count) ?? toOptionalNumber(metadata.run_count) ?? undefined,
     raw
   }
 }
 
 export function normalizeFalModelDetail(raw: unknown, config: ProviderConfig): ProviderModel | null {
-  const model = normalizeFalSearchResult(raw, config)
+  const source = unwrapFalModel(raw)
+  const model = normalizeFalSearchResult(source ?? raw, config)
   if (!model.modelId) return null
 
-  const requestSchema = extractCanonicalSchemaFromOpenApi(raw)
+  const requestSchema =
+    extractCanonicalSchemaFromOpenApi(source) ?? extractCanonicalSchemaFromOpenApi(raw)
 
   return {
     modelId: model.modelId,
@@ -68,6 +80,28 @@ export function normalizeFalModelDetail(raw: unknown, config: ProviderConfig): P
     providerId: config.providerId,
     requestSchema: requestSchema ?? fallbackRequestSchema()
   }
+}
+
+function unwrapFalModel(raw: unknown): Record<string, unknown> | null {
+  const source = asRecord(raw)
+  if (!source) return null
+
+  if (Array.isArray(source.models)) {
+    const first = asRecord(source.models[0])
+    if (first) return first
+  }
+
+  if (Array.isArray(source.data)) {
+    const first = asRecord(source.data[0])
+    if (first) return first
+  }
+
+  const dataRecord = asRecord(source.data)
+  if (dataRecord) {
+    return dataRecord
+  }
+
+  return source
 }
 
 function extractModelList(rawFeed: unknown): unknown[] {
