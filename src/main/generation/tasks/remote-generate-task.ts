@@ -35,86 +35,31 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
   async execute(item: WorkItem): Promise<WorkTaskResult> {
     let payload: RemoteTaskPayload
 
-    console.log('[RemoteGenerateTaskHandler] execute:start', {
-      workItemId: item.id,
-      correlationId: item.correlation_id,
-      taskType: item.task_type,
-      payloadLength: item.payload_json?.length ?? 0
-    })
-
     try {
       payload = JSON.parse(item.payload_json) as RemoteTaskPayload
     } catch {
-      console.error('[RemoteGenerateTaskHandler] execute:invalid-payload-json', {
-        workItemId: item.id,
-        correlationId: item.correlation_id,
-        payloadPreview:
-          typeof item.payload_json === 'string'
-            ? item.payload_json.slice(0, 200)
-            : String(item.payload_json)
-      })
-      return {
-        success: false,
-        error: 'Invalid payload_json for remote generation task'
-      }
+      return { success: false, error: 'Invalid payload_json for remote generation task' }
     }
 
-    const generationId = payload.generationId
-    if (!generationId || !payload.endpointKey || !payload.params || typeof payload.params !== 'object') {
-      console.error('[RemoteGenerateTaskHandler] execute:malformed-payload', {
-        workItemId: item.id,
-        generationId,
-        endpointKey: payload.endpointKey,
-        hasParams: !!payload.params
-      })
-      return {
-        success: false,
-        error: 'Malformed payload: requires generationId, endpointKey, and params'
-      }
+    const { generationId, endpointKey, params } = payload
+    if (!generationId || !endpointKey || !params || typeof params !== 'object') {
+      return { success: false, error: 'Malformed payload: requires generationId, endpointKey, and params' }
     }
 
     try {
-      const endpoint = await this.generationService.getEndpointSchema(payload.endpointKey)
-      if (!endpoint) {
-        throw new Error(`Unknown endpointKey: ${payload.endpointKey}`)
-      }
-
-      console.log('[RemoteGenerateTaskHandler] execute:endpoint-resolved', {
-        generationId,
-        endpointKey: payload.endpointKey,
-        providerId: endpoint.providerId,
-        providerModelId: endpoint.providerModelId,
-        executionMode: endpoint.executionMode
-      })
-
+      const endpoint = await this.generationService.getEndpointSchema(endpointKey)
+      if (!endpoint) throw new Error(`Unknown endpointKey: ${endpointKey}`)
       if (endpoint.executionMode !== 'remote-async') {
-        throw new Error(`Endpoint is not remote-async: ${payload.endpointKey}`)
+        throw new Error(`Endpoint is not remote-async: ${endpointKey}`)
       }
 
       const providerConfig = this.providerManagerService.getProviderConfig(endpoint.providerId)
-      if (!providerConfig) {
-        throw new Error(`Unknown provider: ${endpoint.providerId}`)
-      }
-
-      console.log('[RemoteGenerateTaskHandler] execute:provider-config', {
-        generationId,
-        providerId: providerConfig.providerId,
-        hasAuth: !!providerConfig.auth,
-        endpointTemplate: providerConfig.request?.endpointTemplate,
-        asyncEnabled: !!providerConfig.async?.enabled,
-        pollEndpoint: providerConfig.async?.pollEndpoint
-      })
+      if (!providerConfig) throw new Error(`Unknown provider: ${endpoint.providerId}`)
 
       const apiKey = this.providerManagerService.getApiKey(endpoint.providerId)
       if (providerConfig.auth && !apiKey.trim()) {
         throw new Error(`Missing API key for provider: ${providerConfig.displayName ?? providerConfig.providerId}`)
       }
-
-      console.log('[RemoteGenerateTaskHandler] execute:auth-state', {
-        generationId,
-        providerId: endpoint.providerId,
-        hasApiKey: apiKey.trim().length > 0
-      })
 
       generationRepo.markGenerationStarted(this.db, generationId)
 
@@ -128,28 +73,11 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
       }
 
       const refImages = await this.generationIOService.getRefImagesForProvider(generationId)
-      console.log('[RemoteGenerateTaskHandler] execute:request-ready', {
-        generationId,
-        endpointKey: endpoint.endpointKey,
-        providerId: endpoint.providerId,
-        providerModelId: endpoint.providerModelId,
-        paramsSummary: this.summarizeParams(payload.params),
-        refImageCount: refImages.length
-      })
-
       const generationResult = await apiClient.generate(
         model,
-        payload.params as Record<string, unknown>,
+        params as Record<string, unknown>,
         refImages
       )
-
-      console.log('[RemoteGenerateTaskHandler] execute:provider-result', {
-        generationId,
-        success: generationResult.success,
-        outputCount: generationResult.outputs?.length ?? 0,
-        hasMetrics: !!generationResult.metrics,
-        error: generationResult.error ?? null
-      })
 
       const localOutputs = await Promise.all(
         (generationResult.outputs ?? []).map(async (output) => ({
@@ -158,27 +86,12 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
         }))
       )
 
-      console.log('[RemoteGenerateTaskHandler] execute:local-outputs-ready', {
-        generationId,
-        localOutputCount: localOutputs.length,
-        localOutputPreview: localOutputs.slice(0, 3).map((output) => ({
-          providerPath: output.providerPath,
-          mimeType: output.mimeType
-        }))
-      })
-
       const finalized = await this.generationIOService.finalize({
         generationId,
         success: generationResult.success,
         outputs: localOutputs,
         metrics: generationResult.metrics,
         error: generationResult.error
-      })
-
-      console.log('[RemoteGenerateTaskHandler] execute:finalized', {
-        generationId,
-        finalizedCount: finalized.length,
-        success: generationResult.success
       })
 
       this.generationService.emitResult({
@@ -193,20 +106,10 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
         this.generationService.emitLibraryUpdated()
       }
 
-      return {
-        success: generationResult.success,
-        error: generationResult.error
-      }
+      return { success: generationResult.success, error: generationResult.error }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      console.error('[RemoteGenerateTaskHandler] execute:failed', {
-        workItemId: item.id,
-        correlationId: item.correlation_id,
-        generationId,
-        endpointKey: payload.endpointKey,
-        error: message,
-        stack: error instanceof Error ? error.stack : undefined
-      })
+      console.error('[RemoteGenerateTaskHandler] failed:', generationId, message)
 
       generationRepo.updateGenerationComplete(this.db, generationId, {
         status: 'failed',
@@ -219,44 +122,14 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
         error: message
       })
 
-      return {
-        success: false,
-        error: message
-      }
+      return { success: false, error: message }
     }
-  }
-
-  private summarizeParams(params: CanonicalGenerationParams): Record<string, unknown> {
-    const summary: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(params)) {
-      if (typeof value === 'string') {
-        summary[key] = `${value.slice(0, 80)} (len=${value.length})`
-        continue
-      }
-
-      if (Array.isArray(value)) {
-        summary[key] = `array(len=${value.length})`
-        continue
-      }
-
-      if (value && typeof value === 'object') {
-        summary[key] = `object(keys=${Object.keys(value as Record<string, unknown>).join(',')})`
-        continue
-      }
-
-      summary[key] = value
-    }
-    return summary
   }
 
   private async ensureLocalOutput(providerPath: string): Promise<string> {
     if (/^https?:\/\//i.test(providerPath)) {
-      console.log('[RemoteGenerateTaskHandler] ensureLocalOutput:downloading', {
-        providerPath
-      })
       return await downloadRemoteOutput(providerPath)
     }
-
     return providerPath
   }
 }

@@ -6,6 +6,7 @@ import type { GenerationOutputArtifact } from '../../types'
 import type { ProviderConfig } from '../catalog/provider-config-service'
 import type { GenerationResult, ProviderModel, SearchResult, SearchResultModel } from './types'
 import { createProviderAdapter } from '../catalog/adapters/adapter-factory'
+import { asRecord, getString, toOptionalNumber } from '../catalog/adapters/adapter-utils'
 
 const DEFAULT_POLL_TIMEOUT_MS = 5 * 60 * 1000
 const MAX_LOG_BODY_CHARS = 1600
@@ -641,7 +642,7 @@ export class ApiClient {
       return payload
     }
 
-    const root = this.asRecord(payload)
+    const root = asRecord(payload)
     if (!root) return []
 
     if (Array.isArray(root.models)) return root.models
@@ -652,7 +653,7 @@ export class ApiClient {
   }
 
   private extractHasMore(payload: unknown): boolean | undefined {
-    const root = this.asRecord(payload)
+    const root = asRecord(payload)
     if (!root) return undefined
 
     const hasMore = root.has_more
@@ -695,24 +696,24 @@ export class ApiClient {
   }
 
   private defaultNormalizeSearch(raw: unknown): SearchResultModel {
-    const source = this.asRecord(raw)
+    const source = asRecord(raw)
     if (!source) {
       return { modelId: '', name: '', raw }
     }
 
     const modelId =
-      this.getString(source.modelId) ||
-      this.getString(source.model_id) ||
-      this.getString(source.slug) ||
-      this.getString(source.id) ||
+      getString(source.modelId) ||
+      getString(source.model_id) ||
+      getString(source.slug) ||
+      getString(source.id) ||
       ''
 
     return {
       modelId,
-      name: this.getString(source.name) || this.getString(source.title) || modelId,
-      description: this.getString(source.description) || undefined,
-      type: this.getString(source.type) || undefined,
-      runCount: this.toOptionalNumber(source.run_count) ?? undefined,
+      name: getString(source.name) || getString(source.title) || modelId,
+      description: getString(source.description) || undefined,
+      type: getString(source.type) || undefined,
+      runCount: toOptionalNumber(source.run_count) ?? undefined,
       raw
     }
   }
@@ -731,27 +732,27 @@ export class ApiClient {
             return { providerPath: entry }
           }
 
-          const record = this.asRecord(entry)
+          const record = asRecord(entry)
           if (!record) return null
 
           const providerPath =
-            this.getString(record.url) ||
-            this.getString(record.uri) ||
-            this.getString(record.download_url) ||
-            this.getString(record.response_url) ||
-            this.getString(record.path)
+            getString(record.url) ||
+            getString(record.uri) ||
+            getString(record.download_url) ||
+            getString(record.response_url) ||
+            getString(record.path)
 
           if (!providerPath) return null
 
           return {
             providerPath,
-            mimeType: this.getString(record.mime_type) || this.getString(record.mimeType) || undefined
+            mimeType: getString(record.mime_type) || getString(record.mimeType) || undefined
           }
         })
         .filter((entry): entry is GenerationOutputArtifact => !!entry)
     }
 
-    const record = this.asRecord(value)
+    const record = asRecord(value)
     if (!record) return []
 
     const nested =
@@ -777,7 +778,7 @@ export class ApiClient {
     let cursor: unknown = value
 
     for (const part of parts) {
-      const record = this.asRecord(cursor)
+      const record = asRecord(cursor)
       if (!record || !(part in record)) {
         return undefined
       }
@@ -787,25 +788,6 @@ export class ApiClient {
     return cursor
   }
 
-  private asRecord(value: unknown): Record<string, unknown> | null {
-    if (!value || typeof value !== 'object') return null
-    return value as Record<string, unknown>
-  }
-
-  private getString(value: unknown): string | null {
-    if (typeof value !== 'string') return null
-    const trimmed = value.trim()
-    return trimmed.length > 0 ? trimmed : null
-  }
-
-  private toOptionalNumber(value: unknown): number | null {
-    if (typeof value === 'number' && Number.isFinite(value)) return value
-    if (typeof value === 'string' && value.trim().length > 0) {
-      const parsed = Number(value)
-      return Number.isFinite(parsed) ? parsed : null
-    }
-    return null
-  }
 }
 
 async function wait(durationMs: number): Promise<void> {

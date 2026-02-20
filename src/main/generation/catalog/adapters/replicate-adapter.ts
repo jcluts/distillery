@@ -1,43 +1,13 @@
-import type { CanonicalEndpointDef } from '../../../types'
 import type { SearchResultModel, ProviderModel } from '../../api/types'
 import type { ProviderConfig } from '../provider-config-service'
-import type { AdapterInput } from './adapter-factory'
 import {
   asRecord,
   fallbackRequestSchema,
   getString,
-  inferModeInfo,
   normalizeObjectSchema,
   resolveSchemaReference,
-  toEndpointKey,
   toOptionalNumber
 } from './adapter-utils'
-
-export function transformReplicate(input: AdapterInput): CanonicalEndpointDef[] {
-  const models = extractModelList(input.rawFeed)
-
-  return models.flatMap((model) => {
-    const normalized = normalizeReplicateSearchResult(model, input.providerConfig)
-    const slug = normalized.modelId
-    if (!slug) return []
-
-    const modeInfo = inferModeInfo(normalized.type, normalized.modelId)
-
-    return [
-      {
-        endpointKey: toEndpointKey(input.providerConfig.providerId, slug, modeInfo.outputType),
-        providerId: input.providerConfig.providerId,
-        providerModelId: slug,
-        canonicalModelId: undefined,
-        displayName: normalized.name,
-        modes: modeInfo.modes,
-        outputType: modeInfo.outputType,
-        executionMode: 'remote-async',
-        requestSchema: input.defaultRequestSchema
-      }
-    ]
-  })
-}
 
 export function normalizeReplicateSearchResult(
   raw: unknown,
@@ -86,18 +56,6 @@ export function normalizeReplicateModelDetail(
     providerId: config.providerId,
     requestSchema: inputSchema ?? fallbackRequestSchema()
   }
-}
-
-function extractModelList(rawFeed: unknown): unknown[] {
-  if (Array.isArray(rawFeed)) return rawFeed
-
-  const source = asRecord(rawFeed)
-  if (!source) return []
-
-  if (Array.isArray(source.results)) return source.results
-  if (Array.isArray(source.models)) return source.models
-
-  return []
 }
 
 function extractReplicateInputSchema(openApiSchema: Record<string, unknown> | null) {

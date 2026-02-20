@@ -44,7 +44,7 @@ export class GenerationService extends EventEmitter {
   }
 
   async initialize(): Promise<void> {
-    await this.providerCatalogService.refresh()
+    // Catalog builds lazily on first access — nothing to do here.
   }
 
   async submit(input: GenerationSubmitInput): Promise<string> {
@@ -53,14 +53,7 @@ export class GenerationService extends EventEmitter {
       paramKeys: Object.keys(input.params ?? {})
     })
 
-    let endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
-    if (!endpoint) {
-      console.log('[GenerationService] submit:endpoint-miss-refreshing-catalog', {
-        endpointKey: input.endpointKey
-      })
-      await this.providerCatalogService.refresh()
-      endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
-    }
+    const endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
 
     if (!endpoint) {
       console.error('[GenerationService] submit:unknown-endpoint', {
@@ -219,12 +212,10 @@ export class GenerationService extends EventEmitter {
     providerId?: string
     outputType?: 'image' | 'video'
   }): Promise<CanonicalEndpointDef[]> {
-    await this.providerCatalogService.refresh()
     return this.providerCatalogService.listEndpoints(filter)
   }
 
   async getEndpointSchema(endpointKey: string): Promise<CanonicalEndpointDef | null> {
-    await this.providerCatalogService.refresh()
     return this.providerCatalogService.getEndpoint(endpointKey)
   }
 

@@ -1,42 +1,12 @@
-import type { CanonicalEndpointDef } from '../../../types'
 import type { SearchResultModel, ProviderModel } from '../../api/types'
 import type { ProviderConfig } from '../provider-config-service'
-import type { AdapterInput } from './adapter-factory'
 import {
   asRecord,
   fallbackRequestSchema,
   getString,
-  inferModeInfo,
   normalizeObjectSchema,
-  toEndpointKey,
   toOptionalNumber
 } from './adapter-utils'
-
-export function transformWavespeed(input: AdapterInput): CanonicalEndpointDef[] {
-  const models = extractModelList(input.rawFeed)
-
-  return models.flatMap((model) => {
-    const normalized = normalizeWavespeedSearchResult(model, input.providerConfig)
-    const modelId = normalized.modelId
-    if (!modelId) return []
-
-    const modeInfo = inferModeInfo(normalized.type, normalized.modelId)
-
-    return [
-      {
-        endpointKey: toEndpointKey(input.providerConfig.providerId, modelId, modeInfo.outputType),
-        providerId: input.providerConfig.providerId,
-        providerModelId: modelId,
-        canonicalModelId: undefined,
-        displayName: normalized.name,
-        modes: modeInfo.modes,
-        outputType: modeInfo.outputType,
-        executionMode: 'remote-async',
-        requestSchema: input.defaultRequestSchema
-      }
-    ]
-  })
-}
 
 export function normalizeWavespeedSearchResult(
   raw: unknown,
@@ -79,18 +49,6 @@ export function normalizeWavespeedModelDetail(
     providerId: config.providerId,
     requestSchema: requestSchema ?? fallbackRequestSchema()
   }
-}
-
-function extractModelList(rawFeed: unknown): unknown[] {
-  if (Array.isArray(rawFeed)) return rawFeed
-
-  const source = asRecord(rawFeed)
-  if (!source) return []
-
-  if (Array.isArray(source.models)) return source.models
-  if (Array.isArray(source.data)) return source.data
-
-  return []
 }
 
 function extractWavespeedRequestSchema(model: Record<string, unknown>) {

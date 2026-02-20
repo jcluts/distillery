@@ -15,7 +15,6 @@ import { GenerationService } from './generation/generation-service'
 import { LocalCnEngineProvider } from './generation/providers/local-cn-provider'
 import { ProviderCatalogService } from './generation/catalog/provider-catalog-service'
 import { ProviderConfigService } from './generation/catalog/provider-config-service'
-import { CatalogStore } from './generation/catalog/catalog-store'
 import { ModelIdentityService } from './generation/catalog/model-identity-service'
 import { ProviderManagerService } from './generation/api/provider-manager-service'
 import { LocalGenerateTaskHandler } from './generation/tasks/local-generate-task'
@@ -300,17 +299,18 @@ app.whenReady().then(async () => {
   // Initialize work queue + generation services
   workQueueManager = new WorkQueueManager(db)
   const generationIOService = new GenerationIOService(db, fileManager)
-  const catalogStore = new CatalogStore()
   const providerConfigService = new ProviderConfigService()
   const modelIdentityService = new ModelIdentityService()
   modelIdentityService.loadIdentities()
 
-  const providerCatalogService = new ProviderCatalogService(providerConfigService, catalogStore)
+  const providerCatalogService = new ProviderCatalogService(providerConfigService)
   const providerManagerService = new ProviderManagerService(
     providerConfigService,
-    modelIdentityService,
-    catalogStore
+    modelIdentityService
   )
+  // Wire the two-way relationship: manager provides user models to catalog
+  providerManagerService.setCatalogService(providerCatalogService)
+
   const localProvider = new LocalCnEngineProvider(engineManager)
 
   generationService = new GenerationService({

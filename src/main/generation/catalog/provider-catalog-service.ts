@@ -1,150 +1,131 @@
 import type { CanonicalEndpointDef } from '../../types'
-import { CatalogStore } from './catalog-store'
 import type { ProviderConfig, ProviderEndpointConfig } from './provider-config-service'
 import { ProviderConfigService } from './provider-config-service'
-import { createProviderAdapter } from './adapters/adapter-factory'
 import { normalizeRequestSchema, normalizeUiSchema } from './schema-normalizer'
+import { inferModeInfo } from './adapters/adapter-utils'
+import type { ProviderModel } from '../api/types'
 
 const DEFAULT_LOCAL_ENDPOINT_KEY = 'local.flux2-klein.image'
 
+/**
+ * Provides the interface for user model access — implemented by ProviderManagerService.
+ * This avoids a circular dependency: catalog doesn't import the manager, the manager
+ * registers itself as the user model source.
+ */
+export interface UserModelSource {
+  getProvidersWithUserModels(): Array<{ providerId: string; models: ProviderModel[] }>
+}
+
+/**
+ * In-memory endpoint catalog. Built once at startup, invalidated explicitly
+ * when user models change. No disk I/O for the catalog itself.
+ *
+ * Sources of endpoints (in priority order, last wins on key collision):
+ *   1. Static endpoints from provider config JSONs (e.g. local.json endpoints[])
+ *   2. User-added models from ProviderManagerService
+ */
 export class ProviderCatalogService {
   private configService: ProviderConfigService
-  private store: CatalogStore
+  private userModelSource: UserModelSource | null = null
   private endpointsByKey = new Map<string, CanonicalEndpointDef>()
+  private dirty = true
 
-  constructor(configService?: ProviderConfigService, store?: CatalogStore) {
+  constructor(configService?: ProviderConfigService) {
     this.configService = configService ?? new ProviderConfigService()
-    this.store = store ?? new CatalogStore()
   }
 
-  async refresh(): Promise<void> {
-    const providerConfigs = this.configService.loadMergedProviderConfigs()
+  /**
+   * Register the source of user models. Called once during app init,
+   * after ProviderManagerService is constructed.
+   */
+  setUserModelSource(source: UserModelSource): void {
+    this.userModelSource = source
+    this.invalidate()
+  }
 
+  /**
+   * Mark the cache as stale. Next call to listEndpoints/getEndpoint will rebuild.
+   */
+  invalidate(): void {
+    this.dirty = true
+  }
+
+  /**
+   * Rebuild the endpoint map if stale. This is cheap: reads in-memory configs +
+   * in-memory user models, normalizes schemas, deduplicates. No disk I/O.
+   */
+  private ensureFresh(): void {
+    if (!this.dirty) return
+
+    const providerConfigs = this.configService.loadMergedProviderConfigs()
     const endpoints: CanonicalEndpointDef[] = []
 
+    // 1. Static endpoints from provider configs
     for (const provider of providerConfigs) {
       try {
         const fromConfig = this.fromProviderConfigEndpoints(provider)
         endpoints.push(...fromConfig)
-
-        const fromUserModels = this.fromProviderUserModels(provider)
-        endpoints.push(...fromUserModels)
-
-        const adapter = createProviderAdapter(provider.adapter)
-        if (adapter) {
-          const rawFeed = this.store.readRawFeed(provider.providerId)
-          const defaultRequestSchema = fromConfig[0]?.requestSchema ?? this.defaultRequestSchema()
-          const adaptedEndpoints = adapter.transform({
-            providerConfig: provider,
-            rawFeed,
-            defaultRequestSchema
-          })
-          endpoints.push(...adaptedEndpoints)
-        }
       } catch (error) {
         console.warn(
-          `[ProviderCatalogService] Failed to process provider "${provider.providerId}", skipping:`,
+          `[ProviderCatalogService] Failed to process provider "${provider.providerId}":`,
           error instanceof Error ? error.message : error
         )
       }
     }
 
-    if (!endpoints.some((endpoint) => endpoint.endpointKey === DEFAULT_LOCAL_ENDPOINT_KEY)) {
+    // 2. User-added models
+    if (this.userModelSource) {
+      for (const { providerId, models } of this.userModelSource.getProvidersWithUserModels()) {
+        const provider = providerConfigs.find((p) => p.providerId === providerId)
+        if (!provider) continue
+
+        for (const model of models) {
+          const ep = this.mapUserModel(provider, model)
+          if (ep) endpoints.push(ep)
+        }
+      }
+    }
+
+    // 3. Ensure default local endpoint exists
+    if (!endpoints.some((ep) => ep.endpointKey === DEFAULT_LOCAL_ENDPOINT_KEY)) {
       endpoints.push(this.createDefaultLocalEndpoint())
     }
 
-    const deduped = new Map<string, CanonicalEndpointDef>()
-    for (const endpoint of endpoints) {
-      if (deduped.has(endpoint.endpointKey)) {
-        const existing = deduped.get(endpoint.endpointKey)
-        console.warn(
-          `[ProviderCatalogService] Duplicate endpointKey "${endpoint.endpointKey}" from provider "${endpoint.providerId}"; overriding previous provider "${existing?.providerId}".`
-        )
-      }
-      deduped.set(endpoint.endpointKey, endpoint)
-    }
-
-    const normalizedEndpoints = Array.from(deduped.values())
-    this.endpointsByKey = new Map(
-      normalizedEndpoints.map((endpoint) => [endpoint.endpointKey, endpoint])
-    )
-
-    this.store.writeNormalizedEndpoints(normalizedEndpoints)
-    this.store.writeEndpointsByProvider(normalizedEndpoints)
+    // 4. Deduplicate (last wins)
+    this.endpointsByKey = new Map(endpoints.map((ep) => [ep.endpointKey, ep]))
+    this.dirty = false
   }
 
   async listEndpoints(filter?: {
     providerId?: string
     outputType?: 'image' | 'video'
   }): Promise<CanonicalEndpointDef[]> {
+    this.ensureFresh()
     let endpoints = Array.from(this.endpointsByKey.values())
 
     if (filter?.providerId) {
-      endpoints = endpoints.filter((endpoint) => endpoint.providerId === filter.providerId)
+      endpoints = endpoints.filter((ep) => ep.providerId === filter.providerId)
     }
-
     if (filter?.outputType) {
-      endpoints = endpoints.filter((endpoint) => endpoint.outputType === filter.outputType)
+      endpoints = endpoints.filter((ep) => ep.outputType === filter.outputType)
     }
-
     return endpoints
   }
 
   async getEndpoint(endpointKey: string): Promise<CanonicalEndpointDef | null> {
+    this.ensureFresh()
     return this.endpointsByKey.get(endpointKey) ?? null
   }
 
+  // ---------------------------------------------------------------------------
+  // Mapping helpers
+  // ---------------------------------------------------------------------------
+
   private fromProviderConfigEndpoints(provider: ProviderConfig): CanonicalEndpointDef[] {
-    const endpoints = provider.endpoints ?? []
-    return endpoints.map((endpoint) => this.mapProviderEndpoint(provider, endpoint))
+    return (provider.endpoints ?? []).map((ep) => this.mapStaticEndpoint(provider, ep))
   }
 
-  private fromProviderUserModels(provider: ProviderConfig): CanonicalEndpointDef[] {
-    const userModels = this.store.readProviderModels(provider.providerId)
-    return userModels
-      .map((entry) => this.mapProviderUserModel(provider, entry))
-      .filter((endpoint): endpoint is CanonicalEndpointDef => !!endpoint)
-  }
-
-  private mapProviderUserModel(
-    provider: ProviderConfig,
-    value: unknown
-  ): CanonicalEndpointDef | null {
-    if (!value || typeof value !== 'object') return null
-    const model = value as {
-      modelId?: unknown
-      name?: unknown
-      type?: unknown
-      requestSchema?: unknown
-      modelIdentityId?: unknown
-    }
-
-    const modelId = typeof model.modelId === 'string' ? model.modelId.trim() : ''
-    if (!modelId) return null
-
-    const modeInfo = this.inferModeInfo(
-      typeof model.type === 'string' ? model.type : undefined,
-      modelId
-    )
-
-    return {
-      endpointKey: `${provider.providerId}.${modelId}.${modeInfo.outputType}`,
-      providerId: provider.providerId,
-      providerModelId: modelId,
-      canonicalModelId:
-        typeof model.modelIdentityId === 'string' ? model.modelIdentityId : undefined,
-      displayName:
-        typeof model.name === 'string' && model.name.trim().length > 0
-          ? model.name.trim()
-          : modelId,
-      modes: modeInfo.modes,
-      outputType: modeInfo.outputType,
-      executionMode: provider.mode ?? 'remote-async',
-      requestSchema: normalizeRequestSchema(model.requestSchema)
-    }
-  }
-
-  private mapProviderEndpoint(
+  private mapStaticEndpoint(
     provider: ProviderConfig,
     endpoint: ProviderEndpointConfig
   ): CanonicalEndpointDef {
@@ -162,6 +143,27 @@ export class ProviderCatalogService {
     }
   }
 
+  private mapUserModel(
+    provider: ProviderConfig,
+    model: ProviderModel
+  ): CanonicalEndpointDef | null {
+    if (!model.modelId?.trim()) return null
+
+    const modeInfo = inferModeInfo(model.type, model.modelId)
+
+    return {
+      endpointKey: `${provider.providerId}.${model.modelId}.${modeInfo.outputType}`,
+      providerId: provider.providerId,
+      providerModelId: model.modelId,
+      canonicalModelId: model.modelIdentityId,
+      displayName: model.name?.trim() || model.modelId,
+      modes: modeInfo.modes,
+      outputType: modeInfo.outputType,
+      executionMode: provider.mode ?? 'remote-async',
+      requestSchema: normalizeRequestSchema(model.requestSchema)
+    }
+  }
+
   private createDefaultLocalEndpoint(): CanonicalEndpointDef {
     return {
       endpointKey: DEFAULT_LOCAL_ENDPOINT_KEY,
@@ -171,96 +173,58 @@ export class ProviderCatalogService {
       modes: ['text-to-image', 'image-to-image'],
       outputType: 'image',
       executionMode: 'queued-local',
-      requestSchema: this.defaultRequestSchema()
+      requestSchema: normalizeRequestSchema({
+        properties: {
+          prompt: {
+            type: 'string',
+            title: 'Prompt',
+            description: 'Describe what you want to see'
+          },
+          size: {
+            type: 'string',
+            title: 'Size',
+            default: '1024*1024',
+            minimum: 256,
+            maximum: 2048,
+            ui: { component: 'local-size', hideLabel: true }
+          },
+          steps: {
+            type: 'integer',
+            title: 'Steps',
+            description: 'Number of diffusion steps',
+            default: 4,
+            minimum: 1,
+            maximum: 10,
+            ui: { hidden: true }
+          },
+          sampling_method: {
+            type: 'string',
+            title: 'Sampler',
+            default: 'euler',
+            ui: { hidden: true, component: 'internal' }
+          },
+          seed: {
+            type: 'integer',
+            title: 'Seed',
+            description: 'Leave empty for random',
+            minimum: 0,
+            maximum: 2147483647,
+            ui: { hidden: true }
+          },
+          ref_image_ids: {
+            type: 'array',
+            items: { type: 'string' },
+            ui: { hidden: true, component: 'internal' }
+          },
+          ref_image_paths: {
+            type: 'array',
+            items: { type: 'string' },
+            ui: { hidden: true, component: 'internal' }
+          }
+        },
+        required: ['prompt'],
+        order: ['prompt', 'size', 'steps', 'seed', 'sampling_method']
+      })
     }
-  }
-
-  private inferModeInfo(
-    type: string | undefined,
-    modelId: string
-  ): {
-    modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
-    outputType: 'image' | 'video'
-  } {
-    const haystack = `${type ?? ''} ${modelId}`.toLowerCase()
-
-    if (haystack.includes('video')) {
-      return {
-        modes: haystack.includes('image') ? ['image-to-video'] : ['text-to-video'],
-        outputType: 'video'
-      }
-    }
-
-    return {
-      modes: haystack.includes('edit') || haystack.includes('image-to-image')
-        ? ['image-to-image']
-        : ['text-to-image'],
-      outputType: 'image'
-    }
-  }
-
-  private defaultRequestSchema(): CanonicalEndpointDef['requestSchema'] {
-    return normalizeRequestSchema({
-      properties: {
-        prompt: {
-          type: 'string',
-          title: 'Prompt',
-          description: 'Describe what you want to see'
-        },
-        size: {
-          type: 'string',
-          title: 'Size',
-          default: '1024*1024',
-          minimum: 256,
-          maximum: 2048,
-          ui: { component: 'local-size', hideLabel: true }
-        },
-        steps: {
-          type: 'integer',
-          title: 'Steps',
-          description: 'Number of diffusion steps',
-          minimum: 1,
-          maximum: 64,
-          default: 4
-        },
-        guidance: {
-          type: 'number',
-          title: 'Guidance',
-          description: 'Classifier-free guidance scale',
-          minimum: 1,
-          maximum: 20,
-          step: 0.1,
-          default: 3.5
-        },
-        sampling_method: {
-          type: 'string',
-          title: 'Sampler',
-          default: 'euler',
-          ui: { hidden: true }
-        },
-        seed: {
-          type: 'integer',
-          title: 'Seed',
-          description: 'Random seed (leave empty for random)',
-          minimum: 0,
-          maximum: 2147483647,
-          ui: { hidden: true }
-        },
-        ref_image_ids: {
-          type: 'array',
-          title: 'Reference Media IDs',
-          items: { type: 'string' },
-          ui: { hidden: true, component: 'internal' }
-        },
-        ref_image_paths: {
-          type: 'array',
-          title: 'Reference Image Paths',
-          items: { type: 'string' },
-          ui: { hidden: true, component: 'internal' }
-        }
-      },
-      required: ['prompt'],
-      order: ['prompt', 'size', 'steps', 'guidance', 'seed', 'sampling_method']
-    })
   }
 }
