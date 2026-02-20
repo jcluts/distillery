@@ -1,14 +1,17 @@
 import * as React from 'react'
 
-import { Loader2 } from 'lucide-react'
+import { Loader2, Wifi } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { validateFormValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useEngineStore } from '@/stores/engine-store'
 import { useQueueStore } from '@/stores/queue-store'
 import { useModelStore } from '@/stores/model-store'
+import { useProviderStore } from '@/stores/provider-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
 import { RefImageDropzone } from '@/components/generation/RefImageDropzone'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -49,8 +52,11 @@ export function GenerationPane(): React.JSX.Element {
     }
   }, [endpointKey])
 
+  const isRemoteEndpoint = endpoint?.executionMode === 'remote-async'
   const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
-  const generateDisabled = !engineCanGenerate || !prompt.trim()
+  const generateDisabled = isRemoteEndpoint
+    ? !prompt.trim()
+    : !engineCanGenerate || !prompt.trim()
 
   // Callbacks for DynamicForm
   const handleFieldChange = React.useCallback(
@@ -97,7 +103,8 @@ export function GenerationPane(): React.JSX.Element {
     }
   }, [formValues, buildParams, addGeneration])
 
-  if (!anyModelReady) {
+  // Show setup wizard only when no local model is ready AND no remote endpoint is selected
+  if (!anyModelReady && !isRemoteEndpoint) {
     return (
       <div className="space-y-4">
         <ModelSetupWizard />
@@ -170,8 +177,68 @@ export function GenerationPane(): React.JSX.Element {
         )}
       </Button>
 
-      {/* Generation status — model load, progress, pending items */}
-      <GenerationStatus />
+      {/* Generation status — local engine state, or API mode indicator */}
+      {isRemoteEndpoint ? (
+        <ApiModeStatus providerId={endpoint?.providerId} isGenerating={isGenerating} />
+      ) : (
+        <GenerationStatus />
+      )}
     </div>
+  )
+}
+
+// =============================================================================
+// API Mode status indicator
+// Shown below the Generate button when a remote API provider is selected.
+// =============================================================================
+
+function ApiModeStatus({
+  providerId,
+  isGenerating
+}: {
+  providerId?: string
+  isGenerating: boolean
+}): React.JSX.Element | null {
+  const providers = useProviderStore((s) => s.providers)
+  const connectionStatus = useProviderStore((s) => s.connectionStatus)
+  const hasApiKey = useProviderStore((s) => s.hasApiKey)
+
+  if (!providerId) return null
+
+  const provider = providers.find((p) => p.providerId === providerId)
+  const displayName = provider?.displayName ?? providerId
+  const connInfo = connectionStatus[providerId]
+  const keyPresent = hasApiKey[providerId] ?? false
+
+  if (!isGenerating && !connInfo && !keyPresent) return null
+
+  return (
+    <Card className="p-3">
+      <div className="flex items-center gap-2">
+        <Wifi className="size-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs text-muted-foreground flex-1">
+          {isGenerating ? `Sending to ${displayName}…` : `API Mode — ${displayName}`}
+        </span>
+        {connInfo?.status === 'success' && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 text-emerald-600">
+            Connected
+          </Badge>
+        )}
+        {connInfo?.status === 'error' && (
+          <Badge
+            variant="secondary"
+            className="text-[10px] px-1.5 border-destructive/20 text-destructive bg-destructive/10"
+            title={connInfo.message}
+          >
+            API Error
+          </Badge>
+        )}
+        {!keyPresent && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 text-amber-600">
+            No API Key
+          </Badge>
+        )}
+      </div>
+    </Card>
   )
 }

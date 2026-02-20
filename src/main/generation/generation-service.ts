@@ -48,15 +48,34 @@ export class GenerationService extends EventEmitter {
   }
 
   async submit(input: GenerationSubmitInput): Promise<string> {
+    console.log('[GenerationService] submit:start', {
+      endpointKey: input.endpointKey,
+      paramKeys: Object.keys(input.params ?? {})
+    })
+
     let endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
     if (!endpoint) {
+      console.log('[GenerationService] submit:endpoint-miss-refreshing-catalog', {
+        endpointKey: input.endpointKey
+      })
       await this.providerCatalogService.refresh()
       endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
     }
 
     if (!endpoint) {
+      console.error('[GenerationService] submit:unknown-endpoint', {
+        endpointKey: input.endpointKey
+      })
       throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
+
+    console.log('[GenerationService] submit:endpoint-resolved', {
+      endpointKey: endpoint.endpointKey,
+      providerId: endpoint.providerId,
+      providerModelId: endpoint.providerModelId,
+      executionMode: endpoint.executionMode,
+      canonicalModelId: endpoint.canonicalModelId
+    })
 
     const params = this.withResolvedSeed(input.params)
     this.validateParams(endpoint, params)
@@ -141,10 +160,21 @@ export class GenerationService extends EventEmitter {
           : null
 
     if (!taskType) {
+      console.error('[GenerationService] submit:unsupported-execution-mode', {
+        endpointKey: endpoint.endpointKey,
+        executionMode: endpoint.executionMode
+      })
       throw new Error(
         `Execution mode "${endpoint.executionMode}" is not supported (endpoint: ${endpoint.endpointKey})`
       )
     }
+
+    console.log('[GenerationService] submit:queue-enqueue', {
+      generationId,
+      endpointKey: endpoint.endpointKey,
+      providerId: endpoint.providerId,
+      taskType
+    })
 
     try {
       await this.workQueueManager.enqueue({
@@ -155,8 +185,20 @@ export class GenerationService extends EventEmitter {
         owner_module: 'generation',
         max_attempts: 1
       })
+
+      console.log('[GenerationService] submit:queue-enqueued', {
+        generationId,
+        taskType,
+        endpointKey: endpoint.endpointKey
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      console.error('[GenerationService] submit:queue-enqueue-failed', {
+        generationId,
+        endpointKey: endpoint.endpointKey,
+        taskType,
+        error: message
+      })
       generationRepo.updateGenerationComplete(this.db, generationId, {
         status: 'failed',
         error: `Failed to enqueue generation task: ${message}`

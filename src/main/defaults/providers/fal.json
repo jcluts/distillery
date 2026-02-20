@@ -1,7 +1,7 @@
 {
   "providerId": "fal",
   "displayName": "Fal",
-  "enabled": false,
+  "enabled": true,
   "mode": "remote-async",
   "adapter": "fal",
   "baseUrl": "https://api.fal.ai",
@@ -33,6 +33,7 @@
     "enabled": true,
     "requestIdPath": "request_id",
     "pollEndpoint": "/queue/requests/{requestId}",
+    "pollUrlPath": "status_url",
     "pollInterval": 500,
     "statusPath": "status",
     "completedValue": "COMPLETED",

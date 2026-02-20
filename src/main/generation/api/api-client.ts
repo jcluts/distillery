@@ -8,6 +8,7 @@ import type { GenerationResult, ProviderModel, SearchResult, SearchResultModel }
 import { createProviderAdapter } from '../catalog/adapters/adapter-factory'
 
 const DEFAULT_POLL_TIMEOUT_MS = 5 * 60 * 1000
+const MAX_LOG_BODY_CHARS = 1600
 
 export class ApiClient {
   private config: ProviderConfig
@@ -124,12 +125,23 @@ export class ApiClient {
 
     const adapter = createProviderAdapter(this.config.adapter)
     const resolved = this.resolveDetailEndpoint(detailEndpointTemplate, modelId)
+    const detailUrl = new URL(resolved.url)
+    for (const [key, value] of Object.entries(this.config.search?.extraParams ?? {})) {
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          detailUrl.searchParams.append(key, String(entry))
+        }
+      } else if (value !== undefined && value !== null) {
+        detailUrl.searchParams.set(key, String(value))
+      }
+    }
+
     const headers: HeadersInit = {
       Accept: 'application/json',
       ...this.buildAuthHeaders()
     }
 
-    const response = await fetch(resolved.url, {
+    const response = await fetch(detailUrl.toString(), {
       method: 'GET',
       headers
     })
@@ -282,6 +294,16 @@ export class ApiClient {
     params: Record<string, unknown>,
     filePaths?: string[]
   ): Promise<GenerationResult> {
+    this.logInfo('generate:start', {
+      providerId: this.config.providerId,
+      modelId: model.modelId,
+      endpointTemplate: this.config.request?.endpointTemplate,
+      hasUploadConfig: !!this.config.upload,
+      hasAsyncConfig: !!this.config.async?.enabled,
+      paramSummary: this.summarizeParams(params),
+      refImageCount: Array.isArray(filePaths) ? filePaths.length : 0
+    })
+
     const preparedParams = { ...params }
 
     if (Array.isArray(filePaths) && filePaths.length > 0 && this.config.upload) {
@@ -294,6 +316,11 @@ export class ApiClient {
       if (uploadedUrls.length === 1 && !('image_url' in preparedParams)) {
         preparedParams.image_url = uploadedUrls[0]
       }
+
+      this.logInfo('generate:uploads-prepared', {
+        uploadedUrlCount: uploadedUrls.length,
+        uploadedUrls
+      })
     }
 
     const requestEndpointTemplate = this.config.request?.endpointTemplate
@@ -302,6 +329,13 @@ export class ApiClient {
     }
 
     const endpoint = this.buildUrl(requestEndpointTemplate.replace('{model_id}', model.modelId))
+
+    this.logInfo('generate:request', {
+      endpoint,
+      providerId: this.config.providerId,
+      modelId: model.modelId,
+      payloadSummary: this.summarizeParams(preparedParams)
+    })
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -315,20 +349,51 @@ export class ApiClient {
 
     if (!response.ok) {
       const errorBody = await response.text()
+      this.logError('generate:http-error', {
+        endpoint,
+        providerId: this.config.providerId,
+        modelId: model.modelId,
+        status: response.status,
+        statusText: response.statusText,
+        responseBody: this.truncate(errorBody, MAX_LOG_BODY_CHARS),
+        payloadSummary: this.summarizeParams(preparedParams)
+      })
       throw new Error(
         `Generation request failed: ${response.status} ${response.statusText} ${errorBody}`.trim()
       )
     }
 
     const payload = (await response.json()) as unknown
+    this.logInfo('generate:accepted', {
+      providerId: this.config.providerId,
+      modelId: model.modelId,
+      payloadPreview: this.previewUnknown(payload)
+    })
 
     if (this.config.async?.enabled) {
       const requestId = this.getByPath(payload, this.config.async.requestIdPath)
       if (typeof requestId !== 'string' || !requestId.trim()) {
+        this.logError('generate:missing-request-id', {
+          providerId: this.config.providerId,
+          modelId: model.modelId,
+          requestIdPath: this.config.async.requestIdPath,
+          payloadPreview: this.previewUnknown(payload)
+        })
         throw new Error('Async generation response did not include a request id')
       }
 
-      const pollResult = await this.pollForResults(requestId)
+      this.logInfo('generate:polling-start', {
+        providerId: this.config.providerId,
+        modelId: model.modelId,
+        requestId
+      })
+
+      const pollResult = await this.pollForResults(requestId, payload, model.modelId)
+      this.logInfo('generate:polling-complete', {
+        providerId: this.config.providerId,
+        modelId: model.modelId,
+        outputsPreview: this.previewUnknown(pollResult)
+      })
       return {
         success: true,
         outputs: this.normalizeOutputs(pollResult)
@@ -345,7 +410,11 @@ export class ApiClient {
     }
   }
 
-  private async pollForResults(requestId: string): Promise<unknown> {
+  private async pollForResults(
+    requestId: string,
+    submitPayload: unknown,
+    modelId: string
+  ): Promise<unknown> {
     const asyncConfig = this.config.async
     if (!asyncConfig) {
       throw new Error('Async strategy is not configured')
@@ -353,7 +422,16 @@ export class ApiClient {
 
     const deadline = Date.now() + (asyncConfig.maxPollTime ?? DEFAULT_POLL_TIMEOUT_MS)
     const pollInterval = asyncConfig.pollInterval ?? 1000
-    const pollEndpoint = this.buildUrl(asyncConfig.pollEndpoint.replace('{requestId}', requestId))
+    const pollEndpoint = this.resolvePollEndpoint(requestId, submitPayload, modelId)
+    let previousStatus = ''
+
+    this.logInfo('poll:start', {
+      providerId: this.config.providerId,
+      requestId,
+      pollEndpoint,
+      pollInterval,
+      maxPollTime: asyncConfig.maxPollTime ?? DEFAULT_POLL_TIMEOUT_MS
+    })
 
     while (Date.now() <= deadline) {
       const response = await fetch(pollEndpoint, {
@@ -365,6 +443,15 @@ export class ApiClient {
       })
 
       if (!response.ok) {
+        const responseBody = await response.text()
+        this.logError('poll:http-error', {
+          providerId: this.config.providerId,
+          requestId,
+          pollEndpoint,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: this.truncate(responseBody, MAX_LOG_BODY_CHARS)
+        })
         throw new Error(`Poll request failed: ${response.status} ${response.statusText}`)
       }
 
@@ -372,14 +459,41 @@ export class ApiClient {
       const statusValue = this.getByPath(payload, asyncConfig.statusPath)
       const status = String(statusValue ?? '')
 
+      if (status !== previousStatus) {
+        previousStatus = status
+        this.logInfo('poll:status-change', {
+          providerId: this.config.providerId,
+          requestId,
+          status,
+          statusPath: asyncConfig.statusPath,
+          payloadPreview: this.previewUnknown(payload)
+        })
+      }
+
       if (status === asyncConfig.completedValue) {
-        return this.getByPath(payload, asyncConfig.outputsPath) ?? payload
+        const rawOutputs = this.getByPath(payload, asyncConfig.outputsPath) ?? payload
+        const resolvedOutputs = await this.resolveAsyncOutputs(rawOutputs)
+        this.logInfo('poll:completed', {
+          providerId: this.config.providerId,
+          requestId,
+          outputsPath: asyncConfig.outputsPath,
+          outputsPreview: this.previewUnknown(resolvedOutputs)
+        })
+        return resolvedOutputs
       }
 
       if (status === asyncConfig.failedValue) {
         const errorValue = asyncConfig.errorPath
           ? this.getByPath(payload, asyncConfig.errorPath)
           : 'Generation failed'
+        this.logError('poll:failed', {
+          providerId: this.config.providerId,
+          requestId,
+          status,
+          errorPath: asyncConfig.errorPath,
+          errorValue: this.previewUnknown(errorValue),
+          payloadPreview: this.previewUnknown(payload)
+        })
         throw new Error(String(errorValue ?? 'Generation failed'))
       }
 
@@ -387,6 +501,139 @@ export class ApiClient {
     }
 
     throw new Error('Polling timed out while waiting for generation results')
+  }
+
+  private resolvePollEndpoint(requestId: string, submitPayload: unknown, modelId: string): string {
+    const asyncConfig = this.config.async
+    if (!asyncConfig) {
+      throw new Error('Async strategy is not configured')
+    }
+
+    const configuredPollUrl = asyncConfig.pollUrlPath
+      ? this.getByPath(submitPayload, asyncConfig.pollUrlPath)
+      : undefined
+    const fallbackPollUrl = this.getByPath(submitPayload, 'status_url')
+    const pollUrlCandidate = configuredPollUrl ?? fallbackPollUrl
+
+    if (typeof pollUrlCandidate === 'string' && pollUrlCandidate.trim()) {
+      return this.buildUrl(pollUrlCandidate)
+    }
+
+    const templateWithModel = asyncConfig.pollEndpoint.includes('{model_id}')
+      ? asyncConfig.pollEndpoint.replace('{model_id}', modelId)
+      : asyncConfig.pollEndpoint
+
+    return this.buildUrl(templateWithModel.replace('{requestId}', requestId))
+  }
+
+  private async resolveAsyncOutputs(value: unknown): Promise<unknown> {
+    if (typeof value !== 'string' || !/^https?:\/\//i.test(value)) {
+      return value
+    }
+
+    try {
+      const response = await fetch(value, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          ...this.buildAuthHeaders()
+        }
+      })
+
+      if (!response.ok) {
+        const responseBody = await response.text()
+        this.logError('poll:outputs-fetch-http-error', {
+          providerId: this.config.providerId,
+          url: value,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: this.truncate(responseBody, MAX_LOG_BODY_CHARS)
+        })
+        return value
+      }
+
+      const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+      if (contentType.includes('application/json')) {
+        const payload = (await response.json()) as unknown
+        this.logInfo('poll:outputs-fetched-json', {
+          providerId: this.config.providerId,
+          url: value,
+          payloadPreview: this.previewUnknown(payload)
+        })
+        return payload
+      }
+
+      this.logInfo('poll:outputs-fetched-non-json', {
+        providerId: this.config.providerId,
+        url: value,
+        contentType
+      })
+      return value
+    } catch (error) {
+      this.logError('poll:outputs-fetch-error', {
+        providerId: this.config.providerId,
+        url: value,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return value
+    }
+  }
+
+  private logInfo(event: string, details?: Record<string, unknown>): void {
+    if (details) {
+      console.log(`[ApiClient:${this.config.providerId}] ${event}`, details)
+      return
+    }
+    console.log(`[ApiClient:${this.config.providerId}] ${event}`)
+  }
+
+  private logError(event: string, details?: Record<string, unknown>): void {
+    if (details) {
+      console.error(`[ApiClient:${this.config.providerId}] ${event}`, details)
+      return
+    }
+    console.error(`[ApiClient:${this.config.providerId}] ${event}`)
+  }
+
+  private summarizeParams(params: Record<string, unknown>): Record<string, unknown> {
+    const summary: Record<string, unknown> = {}
+
+    for (const [key, value] of Object.entries(params)) {
+      if (typeof value === 'string') {
+        summary[key] = `${this.truncate(value, 80)} (len=${value.length})`
+        continue
+      }
+
+      if (Array.isArray(value)) {
+        summary[key] = `array(len=${value.length})`
+        continue
+      }
+
+      if (value && typeof value === 'object') {
+        summary[key] = `object(keys=${Object.keys(value as Record<string, unknown>).join(',')})`
+        continue
+      }
+
+      summary[key] = value
+    }
+
+    return summary
+  }
+
+  private previewUnknown(value: unknown): string {
+    if (value === null || value === undefined) return String(value)
+    if (typeof value === 'string') return this.truncate(value, 200)
+
+    try {
+      return this.truncate(JSON.stringify(value), 200)
+    } catch {
+      return Object.prototype.toString.call(value)
+    }
+  }
+
+  private truncate(value: string, maxChars: number): string {
+    if (value.length <= maxChars) return value
+    return `${value.slice(0, maxChars)}…`
   }
 
   private extractModelCandidates(payload: unknown): unknown[] {
@@ -489,6 +736,7 @@ export class ApiClient {
 
           const providerPath =
             this.getString(record.url) ||
+            this.getString(record.uri) ||
             this.getString(record.download_url) ||
             this.getString(record.response_url) ||
             this.getString(record.path)
@@ -509,6 +757,11 @@ export class ApiClient {
     const nested =
       record.outputs ??
       record.output ??
+      record.images ??
+      record.image ??
+      record.videos ??
+      record.video ??
+      record.data ??
       record.response_url ??
       record.url ??
       record.download_url ??
@@ -560,8 +813,17 @@ async function wait(durationMs: number): Promise<void> {
 }
 
 export async function downloadRemoteOutput(url: string): Promise<string> {
+  console.log('[ApiClient:downloadRemoteOutput] start', { url })
+
   const response = await fetch(url)
   if (!response.ok) {
+    const errorBody = await response.text()
+    console.error('[ApiClient:downloadRemoteOutput] http-error', {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      responseBody: errorBody.length <= MAX_LOG_BODY_CHARS ? errorBody : `${errorBody.slice(0, MAX_LOG_BODY_CHARS)}…`
+    })
     throw new Error(`Failed to download output: ${response.status} ${response.statusText}`)
   }
 
@@ -573,6 +835,12 @@ export async function downloadRemoteOutput(url: string): Promise<string> {
   const arrayBuffer = await response.arrayBuffer()
   const content = Buffer.from(arrayBuffer)
   await fs.promises.writeFile(outputPath, content)
+
+  console.log('[ApiClient:downloadRemoteOutput] complete', {
+    url,
+    outputPath,
+    bytes: content.byteLength
+  })
 
   return outputPath
 }
