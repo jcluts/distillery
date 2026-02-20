@@ -1,9 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { app } from 'electron'
 import { getDatabase } from '../../db/connection'
 import * as settingsRepo from '../../db/repositories/settings'
 import type { AppSettings } from '../../types'
-import type { CatalogStore } from '../catalog/catalog-store'
+import type { UserModelSource, ProviderCatalogService } from '../catalog/provider-catalog-service'
 import type { ModelIdentityService } from '../catalog/model-identity-service'
 import type { ProviderConfigService, ProviderConfig } from '../catalog/provider-config-service'
 import { ApiClient } from './api-client'
@@ -21,21 +22,58 @@ function isProviderModel(value: unknown): value is ProviderModel {
   )
 }
 
-export class ProviderManagerService {
+/**
+ * Orchestrates provider state: configs, API keys, model browsing, and user model persistence.
+ * Implements UserModelSource so the catalog can pull user models without a circular dependency.
+ */
+export class ProviderManagerService implements UserModelSource {
   private configService: ProviderConfigService
   private identityService: ModelIdentityService
-  private catalogStore: CatalogStore
+  private catalogService: ProviderCatalogService | null = null
   private userModelsByProvider = new Map<string, ProviderModel[]>()
 
   constructor(
     configService: ProviderConfigService,
-    identityService: ModelIdentityService,
-    catalogStore: CatalogStore
+    identityService: ModelIdentityService
   ) {
     this.configService = configService
     this.identityService = identityService
-    this.catalogStore = catalogStore
   }
+
+  /**
+   * Called once during init, after both services exist.
+   * Registers this service as the catalog's user model source.
+   */
+  setCatalogService(catalogService: ProviderCatalogService): void {
+    this.catalogService = catalogService
+    catalogService.setUserModelSource(this)
+  }
+
+  // ---------------------------------------------------------------------------
+  // UserModelSource implementation (called by ProviderCatalogService)
+  // ---------------------------------------------------------------------------
+
+  getProvidersWithUserModels(): Array<{ providerId: string; models: ProviderModel[] }> {
+    // Ensure all remote providers have their user models loaded
+    const providers = this.getProviders()
+    for (const p of providers) {
+      if (!this.userModelsByProvider.has(p.providerId)) {
+        this.loadUserModelsFromDisk(p.providerId)
+      }
+    }
+
+    const result: Array<{ providerId: string; models: ProviderModel[] }> = []
+    for (const [providerId, models] of this.userModelsByProvider) {
+      if (models.length > 0) {
+        result.push({ providerId, models })
+      }
+    }
+    return result
+  }
+
+  // ---------------------------------------------------------------------------
+  // Provider queries
+  // ---------------------------------------------------------------------------
 
   getProviders(): ProviderConfig[] {
     return this.configService
@@ -44,15 +82,12 @@ export class ProviderManagerService {
   }
 
   getProviderConfig(providerId: string): ProviderConfig | null {
-    return this.getProviders().find((provider) => provider.providerId === providerId) ?? null
+    return this.getProviders().find((p) => p.providerId === providerId) ?? null
   }
 
   getApiKey(providerId: string): string {
     const provider = this.getProviderConfig(providerId)
-    if (!provider?.auth?.settingsKey) {
-      return ''
-    }
-
+    if (!provider?.auth?.settingsKey) return ''
     const db = getDatabase()
     return settingsRepo.getSetting(db, provider.auth.settingsKey as keyof AppSettings) as string
   }
@@ -60,6 +95,10 @@ export class ProviderManagerService {
   isProviderConfigured(providerId: string): boolean {
     return this.getApiKey(providerId).trim().length > 0
   }
+
+  // ---------------------------------------------------------------------------
+  // Model browsing (delegates to ApiClient)
+  // ---------------------------------------------------------------------------
 
   async searchModels(providerId: string, query: string): Promise<SearchResult> {
     const client = this.createApiClient(providerId)
@@ -78,12 +117,14 @@ export class ProviderManagerService {
     return model ? this.attachIdentity(model) : null
   }
 
+  // ---------------------------------------------------------------------------
+  // User model management
+  // ---------------------------------------------------------------------------
+
   getUserModels(providerId: string): ProviderModel[] {
     if (!this.userModelsByProvider.has(providerId)) {
-      const loaded = this.loadUserModels(providerId)
-      this.userModelsByProvider.set(providerId, loaded)
+      this.loadUserModelsFromDisk(providerId)
     }
-
     return [...(this.userModelsByProvider.get(providerId) ?? [])]
   }
 
@@ -93,6 +134,7 @@ export class ProviderManagerService {
     deduped.push(this.attachIdentity(model))
     this.userModelsByProvider.set(providerId, deduped)
     this.persistUserModels(providerId)
+    this.catalogService?.invalidate()
   }
 
   removeUserModel(providerId: string, modelId: string): void {
@@ -100,48 +142,17 @@ export class ProviderManagerService {
     const next = current.filter((entry) => entry.modelId !== modelId)
     this.userModelsByProvider.set(providerId, next)
     this.persistUserModels(providerId)
+    this.catalogService?.invalidate()
   }
 
-  persistUserModels(providerId: string): void {
-    const filePath = this.getProviderModelsPath(providerId)
-    const models = this.userModelsByProvider.get(providerId) ?? []
-
-    fs.mkdirSync(path.dirname(filePath), { recursive: true })
-    fs.writeFileSync(filePath, JSON.stringify(models, null, 2), 'utf8')
-  }
-
-  loadUserModels(providerId: string): ProviderModel[] {
-    const filePath = this.getProviderModelsPath(providerId)
-    if (!fs.existsSync(filePath)) {
-      this.userModelsByProvider.set(providerId, [])
-      return []
-    }
-
-    try {
-      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown
-      if (!Array.isArray(parsed)) {
-        this.userModelsByProvider.set(providerId, [])
-        return []
-      }
-
-      const models = parsed
-        .filter((entry): entry is ProviderModel => isProviderModel(entry))
-        .map((model) => this.attachIdentity(model))
-
-      this.userModelsByProvider.set(providerId, models)
-      return [...models]
-    } catch {
-      this.userModelsByProvider.set(providerId, [])
-      return []
-    }
-  }
+  // ---------------------------------------------------------------------------
+  // Connection testing
+  // ---------------------------------------------------------------------------
 
   async testConnection(providerId: string): Promise<{ valid: boolean; error?: string }> {
     try {
       const provider = this.getProviderConfig(providerId)
-      if (!provider) {
-        return { valid: false, error: `Unknown provider: ${providerId}` }
-      }
+      if (!provider) return { valid: false, error: `Unknown provider: ${providerId}` }
 
       const client = this.createApiClient(providerId)
       if (provider.browse?.mode === 'list') {
@@ -149,7 +160,6 @@ export class ProviderManagerService {
       } else {
         await client.searchModels('flux')
       }
-
       return { valid: true }
     } catch (error) {
       return {
@@ -159,42 +169,63 @@ export class ProviderManagerService {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
   private createApiClient(providerId: string): ApiClient {
     const provider = this.getProviderConfig(providerId)
-    if (!provider) {
-      throw new Error(`Unknown provider: ${providerId}`)
-    }
+    if (!provider) throw new Error(`Unknown provider: ${providerId}`)
 
     const apiKey = this.getApiKey(providerId)
     if (provider.auth && !apiKey.trim()) {
-      throw new Error(`Missing API key for provider: ${provider.displayName ?? provider.providerId}`)
+      throw new Error(
+        `Missing API key for provider: ${provider.displayName ?? provider.providerId}`
+      )
     }
-
     return new ApiClient(provider, apiKey)
   }
 
   private attachIdentity(model: ProviderModel): ProviderModel {
-    if (model.modelIdentityId) {
-      return model
-    }
-
+    if (model.modelIdentityId) return model
     const identityId = this.identityService.findIdentityId(model.modelId, model.providerId)
-    if (!identityId) {
-      return model
-    }
+    return identityId ? { ...model, modelIdentityId: identityId } : model
+  }
 
-    return {
-      ...model,
-      modelIdentityId: identityId
-    }
+  private getProviderModelsDir(): string {
+    return path.join(app.getPath('userData'), 'provider_models')
   }
 
   private getProviderModelsPath(providerId: string): string {
     return path.join(this.getProviderModelsDir(), `${providerId}.json`)
   }
 
-  private getProviderModelsDir(): string {
-    const userDataRoot = path.dirname(this.catalogStore.getEndpointCatalogDir())
-    return path.join(userDataRoot, 'provider_models')
+  private persistUserModels(providerId: string): void {
+    const filePath = this.getProviderModelsPath(providerId)
+    const models = this.userModelsByProvider.get(providerId) ?? []
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, JSON.stringify(models, null, 2), 'utf8')
+  }
+
+  private loadUserModelsFromDisk(providerId: string): void {
+    const filePath = this.getProviderModelsPath(providerId)
+    if (!fs.existsSync(filePath)) {
+      this.userModelsByProvider.set(providerId, [])
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown
+      if (!Array.isArray(parsed)) {
+        this.userModelsByProvider.set(providerId, [])
+        return
+      }
+      const models = parsed
+        .filter((entry): entry is ProviderModel => isProviderModel(entry))
+        .map((model) => this.attachIdentity(model))
+      this.userModelsByProvider.set(providerId, models)
+    } catch {
+      this.userModelsByProvider.set(providerId, [])
+    }
   }
 }
