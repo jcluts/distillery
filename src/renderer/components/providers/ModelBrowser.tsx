@@ -11,7 +11,6 @@ import {
   Item,
   ItemContent,
   ItemTitle,
-  ItemDescription,
   ItemActions,
   ItemGroup
 } from '@/components/ui/item'
@@ -118,35 +117,32 @@ function SearchBrowser({
         />
       </div>
 
-      {isLoading && (
-        <div className="space-y-2 pt-1">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-lg" />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && query.trim() && results.length === 0 && (
-        <div className="py-6 text-center text-xs text-muted-foreground">
-          No models found for &ldquo;{query}&rdquo;
-        </div>
-      )}
-
-      {!isLoading && results.length > 0 && (
-        <ScrollArea className="max-h-[280px]">
-          <ModelResultList
-            models={results}
-            addedModelIds={addedModelIds}
-            onAdd={handleAdd}
-          />
+      {/* Fixed-height results pane — always occupies space to prevent layout shift */}
+      <div className="h-[200px] rounded-md border border-border/60">
+        <ScrollArea className="h-full">
+          {isLoading ? (
+            <div className="space-y-1.5 p-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-md" />
+              ))}
+            </div>
+          ) : !query.trim() ? (
+            <div className="flex h-[280px] items-center justify-center text-xs text-muted-foreground">
+              Type to search for models
+            </div>
+          ) : results.length === 0 ? (
+            <div className="flex h-[280px] items-center justify-center text-xs text-muted-foreground">
+              No models found for &ldquo;{query}&rdquo;
+            </div>
+          ) : (
+            <ModelResultList
+              models={results}
+              addedModelIds={addedModelIds}
+              onAdd={handleAdd}
+            />
+          )}
         </ScrollArea>
-      )}
-
-      {!query.trim() && !isLoading && (
-        <div className="py-6 text-center text-xs text-muted-foreground">
-          Type to search for models
-        </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -232,29 +228,28 @@ function ListBrowser({
         />
       </div>
 
-      {isLoading && (
-        <div className="space-y-2 pt-1">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-lg" />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && filtered.length === 0 && (
-        <div className="py-6 text-center text-xs text-muted-foreground">
-          {allModels.length > 0 ? 'No models match your filter' : 'No models available'}
-        </div>
-      )}
-
-      {!isLoading && filtered.length > 0 && (
-        <ScrollArea className="max-h-[280px]">
-          <ModelResultList
-            models={filtered}
-            addedModelIds={addedModelIds}
-            onAdd={handleAdd}
-          />
+      {/* Fixed-height results pane — always occupies space to prevent layout shift */}
+      <div className="h-[280px] rounded-md border border-border/60">
+        <ScrollArea className="h-full">
+          {isLoading ? (
+            <div className="space-y-1.5 p-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-md" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex h-[280px] items-center justify-center text-xs text-muted-foreground">
+              {allModels.length > 0 ? 'No models match your filter' : 'No models available'}
+            </div>
+          ) : (
+            <ModelResultList
+              models={filtered}
+              addedModelIds={addedModelIds}
+              onAdd={handleAdd}
+            />
+          )}
         </ScrollArea>
-      )}
+      </div>
     </div>
   )
 }
@@ -305,15 +300,20 @@ function ModelResultList({
         return (
           <Item key={model.modelId} variant="outline" size="sm" className="hover:border-border hover:bg-muted/50">
             <ItemContent>
-              <ItemTitle>{model.name}</ItemTitle>
-              <ItemDescription>
-                {model.modelId}
+              <ItemTitle className="flex items-center gap-1.5 truncate">
+                <span className="truncate">{model.name}</span>
+                {model.modelId !== model.name && (
+                  <>
+                    <span className="shrink-0 text-muted-foreground/40">·</span>
+                    <span className="truncate text-muted-foreground font-normal">{model.modelId}</span>
+                  </>
+                )}
                 {model.type && (
-                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">
+                  <Badge variant="secondary" className="shrink-0 ml-0.5 text-[10px] px-1">
                     {model.type}
                   </Badge>
                 )}
-              </ItemDescription>
+              </ItemTitle>
             </ItemContent>
             <ItemActions>
               {hasError ? (

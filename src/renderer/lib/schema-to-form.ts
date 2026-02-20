@@ -40,7 +40,16 @@ export interface FormFieldConfig {
 const TEXTAREA_FIELDS = ['prompt', 'negative_prompt']
 
 // Internal fields that should never appear in the form
-const INTERNAL_FIELDS = ['ref_image_ids', 'ref_image_paths']
+const INTERNAL_FIELDS = [
+  'ref_image_ids',
+  'ref_image_paths',
+  'image',
+  'image_url',
+  'init_image',
+  'mask',
+  'mask_image',
+  'mask_url'
+]
 
 // Fields managed outside the dynamic form (rendered directly by the pane)
 const PANE_MANAGED_FIELDS = ['prompt']

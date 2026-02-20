@@ -10,28 +10,15 @@ import {
   ItemActions,
   ItemGroup
 } from '@/components/ui/item'
-import { useProviderStore, type ConnectionStatus } from '@/stores/provider-store'
+import { useProviderStore } from '@/stores/provider-store'
 
 /**
- * Status dot semantics (per spec):
- *  green  — API key saved + connection verified
- *  amber  — key saved but not yet tested / untested
+ * Status dot semantics:
+ *  green  — API key saved
  *  gray   — no API key configured
- *  red    — connection test failed
  */
-function statusDot(connStatus: ConnectionStatus, hasKey: boolean): React.JSX.Element {
-  let color: string
-
-  if (connStatus === 'error') {
-    color = 'bg-destructive'
-  } else if (connStatus === 'success') {
-    color = 'bg-emerald-500'
-  } else if (hasKey) {
-    color = 'bg-amber-500' // key present but untested
-  } else {
-    color = 'bg-muted-foreground/40' // no key
-  }
-
+function statusDot(hasKey: boolean): React.JSX.Element {
+  const color = hasKey ? 'bg-emerald-500' : 'bg-muted-foreground/40'
   return <span className={cn('size-2 shrink-0 rounded-full', color)} />
 }
 
@@ -40,7 +27,6 @@ export function ProviderSidebar(): React.JSX.Element {
   const selectedProviderId = useProviderStore((s) => s.selectedProviderId)
   const selectProvider = useProviderStore((s) => s.selectProvider)
   const userModelsByProvider = useProviderStore((s) => s.userModelsByProvider)
-  const connectionStatus = useProviderStore((s) => s.connectionStatus)
   const hasApiKey = useProviderStore((s) => s.hasApiKey)
 
   // Only show API providers (not local)
@@ -55,8 +41,6 @@ export function ProviderSidebar(): React.JSX.Element {
         {apiProviders.map((provider) => {
           const isSelected = provider.providerId === selectedProviderId
           const modelCount = userModelsByProvider[provider.providerId]?.length ?? 0
-          const connInfo = connectionStatus[provider.providerId]
-          const connStat: ConnectionStatus = connInfo?.status ?? 'idle'
           const keyPresent = hasApiKey[provider.providerId] ?? false
 
           return (
@@ -82,7 +66,7 @@ export function ProviderSidebar(): React.JSX.Element {
             >
               <ItemContent>
                 <ItemTitle>
-                  {statusDot(connStat, keyPresent)}
+                  {statusDot(keyPresent)}
                   {provider.displayName ?? provider.providerId}
                 </ItemTitle>
               </ItemContent>

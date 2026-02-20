@@ -12,7 +12,6 @@ import {
   Item,
   ItemContent,
   ItemTitle,
-  ItemDescription,
   ItemActions,
   ItemGroup
 } from '@/components/ui/item'
@@ -145,7 +144,6 @@ export function ProviderDetail({ providerId }: ProviderDetailProps): React.JSX.E
         {/* Added Models */}
         {userModels.length > 0 && (
           <>
-            <Separator />
             <div className="space-y-3">
               <SectionLabel>
                 Added Models
@@ -162,8 +160,15 @@ export function ProviderDetail({ providerId }: ProviderDetailProps): React.JSX.E
                     className="border-border"
                   >
                     <ItemContent>
-                      <ItemTitle>{model.name}</ItemTitle>
-                      <ItemDescription>{model.modelId}</ItemDescription>
+                      <ItemTitle className="flex items-center gap-1.5 truncate">
+                        <span className="truncate">{model.name}</span>
+                        {model.modelId !== model.name && (
+                          <>
+                            <span className="shrink-0 text-muted-foreground/40">·</span>
+                            <span className="truncate text-muted-foreground font-normal">{model.modelId}</span>
+                          </>
+                        )}
+                      </ItemTitle>
                     </ItemContent>
                     <ItemActions>
                       <IdentityMappingSelect

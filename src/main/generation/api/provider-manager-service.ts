@@ -32,10 +32,7 @@ export class ProviderManagerService implements UserModelSource {
   private catalogService: ProviderCatalogService | null = null
   private userModelsByProvider = new Map<string, ProviderModel[]>()
 
-  constructor(
-    configService: ProviderConfigService,
-    identityService: ModelIdentityService
-  ) {
+  constructor(configService: ProviderConfigService, identityService: ModelIdentityService) {
     this.configService = configService
     this.identityService = identityService
   }
