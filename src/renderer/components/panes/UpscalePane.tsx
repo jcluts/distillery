@@ -3,6 +3,14 @@ import { Check, Loader2, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle
+} from '@/components/ui/item'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -45,46 +53,48 @@ function VariantItem({
   onDelete: () => void
 }): React.JSX.Element {
   return (
-    <button
-      type="button"
-      onClick={onActivate}
+    <Item
+      variant="outline"
+      size="xs"
       className={cn(
-        'flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors',
-        isActive
-          ? 'border-primary/40 bg-primary/10'
-          : 'border-transparent hover:border-border hover:bg-muted/50'
+        'cursor-pointer',
+        isActive ? 'border-primary/40 bg-primary/10' : 'hover:border-border hover:bg-muted/50'
       )}
+      onClick={onActivate}
     >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+      <ItemContent>
+        <ItemTitle>
           {isActive && <Check className="size-3.5 text-primary shrink-0" />}
-          <span className="font-medium truncate">{variant.model_name}</span>
-          <span className="text-muted-foreground">{variant.scale_factor}×</span>
-        </div>
-        <div className="text-xs text-muted-foreground mt-0.5">
+          {variant.model_name}
+          <span className="text-muted-foreground font-normal">{variant.scale_factor}×</span>
+        </ItemTitle>
+        <ItemDescription>
           {formatDimensions(variant.width, variant.height)}
           {variant.file_size ? ` · ${formatFileSize(variant.file_size)}` : ''}
           {' · '}
           {formatDate(variant.created_at)}
-        </div>
-      </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className="shrink-0 rounded-sm p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete()
-            }}
-            aria-label="Delete variant"
-          >
-            <Trash2 className="size-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="left">Delete variant</TooltipContent>
-      </Tooltip>
-    </button>
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="bg-background text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              aria-label="Delete variant"
+            >
+              <Trash2 />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Delete variant</TooltipContent>
+        </Tooltip>
+      </ItemActions>
+    </Item>
   )
 }
 
@@ -142,9 +152,9 @@ export function UpscalePane(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-3 py-3">
+    <div className="space-y-4">
       {/* Model selector */}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <SectionLabel>Model</SectionLabel>
         <Select
           value={selectedModelId ?? ''}
@@ -169,7 +179,7 @@ export function UpscalePane(): React.JSX.Element {
       </div>
 
       {/* Scale factor */}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <SectionLabel>Scale Factor</SectionLabel>
         <ToggleGroup
           type="single"
@@ -188,51 +198,59 @@ export function UpscalePane(): React.JSX.Element {
       </div>
 
       {/* Upscale button */}
-      <Button
-        onClick={() => void submit(focusedItem.id)}
-        disabled={!selectedModelId || isUpscaling}
-        className="w-full"
-      >
-        {isUpscaling ? (
-          <>
-            <Loader2 className="size-4 animate-spin mr-2" />
-            {progressPhase === 'preparing'
-              ? 'Preparing…'
-              : progressPhase === 'upscaling'
-                ? 'Upscaling…'
-                : progressPhase === 'saving'
-                  ? 'Saving…'
-                  : 'Processing…'}
-          </>
-        ) : (
-          'Upscale'
-        )}
-      </Button>
-
+      <div className="space-y-2">
+        <Button
+          onClick={() => void submit(focusedItem.id)}
+          disabled={!selectedModelId || isUpscaling}
+          className="w-full"
+        >
+          {isUpscaling ? (
+            <>
+              <Loader2 className="size-4 animate-spin mr-2" />
+              {progressPhase === 'preparing'
+                ? 'Preparing…'
+                : progressPhase === 'upscaling'
+                  ? 'Upscaling…'
+                  : progressPhase === 'saving'
+                    ? 'Saving…'
+                    : 'Processing…'}
+            </>
+          ) : (
+            'Upscale'
+          )}
+        </Button>
+      </div>
       {/* Variants list */}
       {(variants.length > 0 || activeVariantId !== null) && (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <SectionLabel>Variants</SectionLabel>
-          <div className="flex flex-col gap-1">
+          <ItemGroup>
             {/* Original entry */}
-            <button
-              type="button"
-              onClick={() => void setActive(focusedItem.id, null)}
+            <Item
+              size="xs"
+              variant="outline"
               className={cn(
-                'flex w-full items-center gap-1.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                'cursor-pointer',
                 activeVariantId === null
                   ? 'border-primary/40 bg-primary/10'
-                  : 'border-transparent hover:border-border hover:bg-muted/50'
+                  : 'hover:border-border hover:bg-muted/50'
               )}
+              onClick={() => void setActive(focusedItem.id, null)}
             >
-              {activeVariantId === null && <Check className="size-3.5 text-primary shrink-0" />}
-              <span className="font-medium">Original</span>
+              <ItemContent>
+                <ItemTitle>
+                  {activeVariantId === null && <Check className="size-3.5 text-primary shrink-0" />}
+                  Original
+                </ItemTitle>
+              </ItemContent>
               {focusedItem.width && focusedItem.height && (
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {formatDimensions(focusedItem.width, focusedItem.height)}
-                </span>
+                <ItemActions>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDimensions(focusedItem.width, focusedItem.height)}
+                  </span>
+                </ItemActions>
               )}
-            </button>
+            </Item>
 
             {/* Variant entries */}
             {variants.map((v) => (
@@ -244,7 +262,7 @@ export function UpscalePane(): React.JSX.Element {
                 onDelete={() => void deleteVariant(v.id, focusedItem.id)}
               />
             ))}
-          </div>
+          </ItemGroup>
         </div>
       )}
     </div>
