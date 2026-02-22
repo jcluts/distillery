@@ -31,7 +31,7 @@ export function ProviderSidebar(): React.JSX.Element {
 
   // Only show API providers (not local)
   const apiProviders = React.useMemo(
-    () => providers.filter((p) => p.mode === 'remote-async'),
+    () => providers.filter((p) => p.executionMode === 'remote-async'),
     [providers]
   )
 

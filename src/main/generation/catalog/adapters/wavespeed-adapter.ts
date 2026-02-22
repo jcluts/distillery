@@ -2,6 +2,7 @@ import type { SearchResultModel, ProviderModel } from '../../api/types'
 import type { ProviderConfig } from '../provider-config-service'
 import {
   asRecord,
+  coerceGenerationMode,
   fallbackRequestSchema,
   getString,
   normalizeObjectSchema,
@@ -23,7 +24,7 @@ export function normalizeWavespeedSearchResult(
     modelId,
     name: getString(source.name) || getString(source.title) || modelId,
     description: getString(source.description) || undefined,
-    type: getString(source.type) || getString(source.task_type) || undefined,
+    type: coerceGenerationMode(getString(source.type) || getString(source.task_type)),
     runCount: toOptionalNumber(source.run_count) ?? undefined,
     raw
   }

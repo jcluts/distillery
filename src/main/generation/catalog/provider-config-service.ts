@@ -4,13 +4,14 @@ import {
   readJsonConfigsFromDirectory,
   seedRuntimeJsonDirectory
 } from '../../config/config-file-utils'
+import type { GenerationMode } from '../../types'
 
 export interface ProviderEndpointConfig {
   endpointKey: string
   providerModelId: string
   canonicalModelId?: string
   displayName: string
-  modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+  modes: GenerationMode[]
   outputType: 'image' | 'video'
   executionMode: 'queued-local' | 'remote-async'
   requestSchema: unknown
@@ -21,7 +22,7 @@ export interface ProviderConfig {
   providerId: string
   displayName?: string
   enabled?: boolean
-  mode?: 'queued-local' | 'remote-async'
+  executionMode?: 'queued-local' | 'remote-async'
   adapter?: 'wavespeed' | 'fal' | 'replicate'
   feedFile?: string
   endpoints?: ProviderEndpointConfig[]

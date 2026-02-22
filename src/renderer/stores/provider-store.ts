@@ -93,7 +93,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
       // Auto-select first API provider if none selected
       const state = get()
       if (!state.selectedProviderId) {
-        const apiProviders = providers.filter((p) => p.mode === 'remote-async')
+        const apiProviders = providers.filter((p) => p.executionMode === 'remote-async')
         if (apiProviders[0]) {
           set({ selectedProviderId: apiProviders[0].providerId })
         }
@@ -120,7 +120,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
 
   loadAllUserModels: async () => {
     const state = get()
-    const apiProviders = state.providers.filter((p) => p.mode === 'remote-async')
+    const apiProviders = state.providers.filter((p) => p.executionMode === 'remote-async')
     await Promise.all(apiProviders.map((p) => get().loadUserModels(p.providerId)))
   },
 
@@ -154,7 +154,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
 
   checkAllApiKeyPresence: async () => {
     const state = get()
-    const apiProviders = state.providers.filter((p) => p.mode === 'remote-async')
+    const apiProviders = state.providers.filter((p) => p.executionMode === 'remote-async')
     await Promise.all(apiProviders.map((p) => get().checkApiKeyPresence(p.providerId)))
   },
 
@@ -305,6 +305,6 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   },
 
   getApiProviders: () => {
-    return get().providers.filter((p) => p.mode === 'remote-async')
+    return get().providers.filter((p) => p.executionMode === 'remote-async')
   }
 }))

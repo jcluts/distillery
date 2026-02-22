@@ -2,7 +2,7 @@
   "providerId": "wavespeed",
   "displayName": "Wavespeed",
   "enabled": true,
-  "mode": "remote-async",
+  "executionMode": "remote-async",
   "adapter": "wavespeed",
   "baseUrl": "https://api.wavespeed.ai",
   "auth": {

@@ -13,6 +13,7 @@ import { useQueueStore } from '@/stores/queue-store'
 import { useModelStore } from '@/stores/model-store'
 import { useProviderStore } from '@/stores/provider-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
+import { ModeToggle } from '@/components/generation/ModeToggle'
 import { RefImageDropzone } from '@/components/generation/RefImageDropzone'
 import { SectionLabel } from '@/components/ui/section-label'
 import { DynamicForm } from '@/components/generation/DynamicForm'
@@ -28,6 +29,7 @@ export function GenerationPane(): React.JSX.Element {
   const filesByModelId = useModelStore((s) => s.filesByModelId)
   const anyModelReady = Object.values(filesByModelId).some((f) => f.isReady)
 
+  const generationMode = useGenerationStore((s) => s.generationMode)
   const formValues = useGenerationStore((s) => s.formValues)
   const setFormValue = useGenerationStore((s) => s.setFormValue)
   const setFormValues = useGenerationStore((s) => s.setFormValues)
@@ -114,13 +116,17 @@ export function GenerationPane(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <ModeToggle />
+
       <ModelSelector />
 
-      {/* Reference images */}
-      <div className="space-y-2">
-        <SectionLabel>Reference images</SectionLabel>
-        <RefImageDropzone />
-      </div>
+      {/* Reference images — only shown in image-to-image mode */}
+      {(generationMode === 'image-to-image' || generationMode === 'image-to-video') && (
+        <div className="space-y-2">
+          <SectionLabel>Reference images</SectionLabel>
+          <RefImageDropzone />
+        </div>
+      )}
 
       {/* Prompt */}
       <div className="space-y-2">

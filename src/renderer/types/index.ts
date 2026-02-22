@@ -91,6 +91,8 @@ export interface CollectionUpdate {
 // Generation
 // -----------------------------------------------------------------------------
 
+export type GenerationMode = 'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'
+
 export type GenerationStatus = 'pending' | 'completed' | 'failed'
 
 export interface GenerationRecord {
@@ -218,7 +220,7 @@ export interface CanonicalEndpointDef {
   providerModelId: string
   canonicalModelId?: string
   displayName: string
-  modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+  modes: GenerationMode[]
   outputType: 'image' | 'video'
   executionMode: 'queued-local' | 'remote-async'
   requestSchema: CanonicalRequestSchema
@@ -254,7 +256,7 @@ export interface ProviderConfig {
   providerId: string
   displayName?: string
   enabled?: boolean
-  mode?: 'queued-local' | 'remote-async'
+  executionMode?: 'queued-local' | 'remote-async'
   adapter?: 'wavespeed' | 'fal' | 'replicate'
   feedFile?: string
   endpoints?: Array<{
@@ -262,7 +264,7 @@ export interface ProviderConfig {
     providerModelId: string
     canonicalModelId?: string
     displayName: string
-    modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+    modes: GenerationMode[]
     outputType: 'image' | 'video'
     executionMode: 'queued-local' | 'remote-async'
     requestSchema: unknown
@@ -321,7 +323,7 @@ export interface SearchResultModel {
   modelId: string
   name: string
   description?: string
-  type?: string
+  type?: GenerationMode
   runCount?: number
   raw?: unknown
 }
@@ -330,7 +332,7 @@ export interface ProviderModel {
   modelId: string
   name: string
   description?: string
-  type?: string
+  type?: GenerationMode
   providerId: string
   requestSchema: CanonicalRequestSchema
   modelIdentityId?: string

@@ -6,7 +6,7 @@ import type { CanonicalRequestSchema, GenerationOutputArtifact } from '../../typ
 import type { ProviderConfig } from '../catalog/provider-config-service'
 import type { GenerationResult, ProviderModel, SearchResult, SearchResultModel } from './types'
 import { createProviderAdapter } from '../catalog/adapters/adapter-factory'
-import { asRecord, getString, toOptionalNumber } from '../catalog/adapters/adapter-utils'
+import { asRecord, coerceGenerationMode, getString, toOptionalNumber } from '../catalog/adapters/adapter-utils'
 
 const DEFAULT_POLL_TIMEOUT_MS = 5 * 60 * 1000
 const MAX_LOG_BODY_CHARS = 1600
@@ -773,7 +773,7 @@ export class ApiClient {
       modelId,
       name: getString(source.name) || getString(source.title) || modelId,
       description: getString(source.description) || undefined,
-      type: getString(source.type) || undefined,
+      type: coerceGenerationMode(getString(source.type)),
       runCount: toOptionalNumber(source.run_count) ?? undefined,
       raw
     }

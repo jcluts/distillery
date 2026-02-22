@@ -45,6 +45,7 @@ export function ModelSelector(): React.JSX.Element {
 
   const endpointKey = useGenerationStore((s) => s.endpointKey)
   const setEndpointKey = useGenerationStore((s) => s.setEndpointKey)
+  const generationMode = useGenerationStore((s) => s.generationMode)
 
   const openModal = useUIStore((s) => s.openModal)
 
@@ -60,6 +61,12 @@ export function ModelSelector(): React.JSX.Element {
     void loadIdentities()
   }, [loadProviders, loadAllUserModels, loadIdentities])
 
+  // Filter endpoints to only those supporting the active generation mode
+  const modeEndpoints = React.useMemo(
+    () => endpoints.filter((ep) => ep.modes.includes(generationMode)),
+    [endpoints, generationMode]
+  )
+
   // Build the model identity map: identityId → { identity, providers[] }
   const identityMap = React.useMemo(() => {
     const map = new Map<
@@ -73,11 +80,13 @@ export function ModelSelector(): React.JSX.Element {
       const isReady = filesByModelId[model.id]?.isReady ?? false
       // Find matching endpoint
       const ep =
-        endpoints.find(
+        modeEndpoints.find(
           (e) =>
             e.providerId === 'local' &&
             e.providerModelId.includes(model.id.replace(/-/g, ''))
-        ) ?? endpoints.find((e) => e.providerId === 'local')
+        ) ?? modeEndpoints.find((e) => e.providerId === 'local')
+
+      if (!ep) continue // No endpoint matching current mode — skip this local model
 
       // Find or create identity for this model
       const identity = identities.find((id) =>
@@ -108,14 +117,14 @@ export function ModelSelector(): React.JSX.Element {
     }
 
     // Add API provider models
-    const apiProviders = providers.filter((p) => p.mode === 'remote-async')
+    const apiProviders = providers.filter((p) => p.executionMode === 'remote-async')
     for (const provider of apiProviders) {
       const userModels = userModelsByProvider[provider.providerId] ?? []
       for (const model of userModels) {
         const identityId = model.modelIdentityId ?? `${provider.providerId}-${model.modelId}`
 
         // Find matching endpoint from catalog.
-        const ep = endpoints.find(
+        const ep = modeEndpoints.find(
           (e) =>
             e.providerId === provider.providerId && e.providerModelId === model.modelId
         )
@@ -145,7 +154,7 @@ export function ModelSelector(): React.JSX.Element {
     }
 
     return map
-  }, [catalog, endpoints, filesByModelId, identities, providers, userModelsByProvider])
+  }, [catalog, modeEndpoints, filesByModelId, identities, providers, userModelsByProvider])
 
   // Find currently selected identity and provider from endpointKey
   const currentEntry = React.useMemo(() => {
@@ -167,6 +176,24 @@ export function ModelSelector(): React.JSX.Element {
 
   // Provider options for the currently selected identity
   const currentProviderOptions = currentEntry?.entry.providerOptions ?? []
+
+  // Auto-select an endpoint when the generation mode changes and the current
+  // endpoint doesn't support the new mode (currentEntry becomes null).
+  React.useEffect(() => {
+    if (currentEntry || identityEntries.length === 0) return
+
+    // Pick the first identity with a ready provider option
+    const firstReady = identityEntries.find((e) =>
+      e.providerOptions.some((p) => p.isReady)
+    )
+    const fallback = firstReady ?? identityEntries[0]
+    if (!fallback) return
+
+    const local = fallback.providerOptions.find((p) => p.isLocal && p.isReady)
+    const first = fallback.providerOptions[0]
+    const chosen = local ?? first
+    if (chosen) setEndpointKey(chosen.endpointKey)
+  }, [currentEntry, identityEntries, setEndpointKey])
 
   // When model identity changes, pick the first available provider
   const handleModelChange = (identityId: string): void => {
@@ -264,7 +291,7 @@ export function ModelSelector(): React.JSX.Element {
 
       {/* When only one provider, show a subtle link to manage if API providers exist */}
       {currentProviderOptions.length <= 1 &&
-        providers.some((p) => p.mode === 'remote-async') && (
+        providers.some((p) => p.executionMode === 'remote-async') && (
           <button
             type="button"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
