@@ -9,7 +9,8 @@ import type { GenerationMode } from '../../types'
 export interface ProviderEndpointConfig {
   endpointKey: string
   providerModelId: string
-  canonicalModelId?: string
+  canonicalModelId?: string // preserved for provider config JSON compatibility
+  modelIdentityId?: string
   displayName: string
   modes: GenerationMode[]
   outputType: 'image' | 'video'

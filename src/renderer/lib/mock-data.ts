@@ -52,7 +52,7 @@ export function createMockGenerations(count = 24): GenerationRecord[] {
     return {
       id,
       number: 1000 + i,
-      base_model_id: null,
+      model_identity_id: null,
       provider: 'local',
       model_file: 'FLUX.2 Klein (mock)',
       prompt:

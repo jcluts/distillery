@@ -162,12 +162,12 @@ export class GenerationService extends EventEmitter {
     endpoint: CanonicalEndpointDef,
     params: CanonicalGenerationParams
   ): Record<string, unknown> {
-    const canonicalModelId = endpoint.canonicalModelId ?? endpoint.providerModelId
+    const modelIdentityId = endpoint.modelIdentityId ?? endpoint.providerModelId
 
     const storage: Record<string, unknown> = {
       ...params,
       model: {
-        id: canonicalModelId,
+        id: modelIdentityId,
         providerModelId: endpoint.providerModelId,
         providerId: endpoint.providerId
       }
@@ -189,16 +189,12 @@ export class GenerationService extends EventEmitter {
   ): GenerationRecord {
     const { width, height } = extractDimensions(params)
 
-    // base_model_id has a FK to base_models which only contains local
-    // cn-engine models. Remote provider models use identity mappings
-    // instead, so leave this null for non-local endpoints.
-    const baseModelId =
-      endpoint.providerId === 'local' ? (endpoint.canonicalModelId ?? null) : null
+    const modelIdentityId = endpoint.modelIdentityId ?? null
 
     return {
       id: generationId,
       number: generationRepo.getNextGenerationNumber(this.db),
-      base_model_id: baseModelId,
+      model_identity_id: modelIdentityId,
       provider: endpoint.providerId,
       model_file: endpoint.providerModelId,
       prompt: asString(params.prompt),
