@@ -153,12 +153,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps): React.JSX.E
               </SectionLabel>
               <ItemGroup>
                 {userModels.map((model) => (
-                  <Item
-                    key={model.modelId}
-                    variant="outline"
-                    size="sm"
-                    className="border-border"
-                  >
+                  <Item key={model.modelId} variant="outline" size="sm" className="border-border">
                     <ItemContent>
                       <ItemTitle className="flex items-center gap-1.5 truncate">
                         <span className="truncate">{model.name}</span>
