@@ -108,6 +108,21 @@ export class GenerationService extends EventEmitter {
       now
     )
 
+    // Extract width/height — remote providers may use a combined "size"
+    // field (e.g. "2048*2048") instead of separate width/height.
+    let recordWidth = this.asOptionalNumber(params.width)
+    let recordHeight = this.asOptionalNumber(params.height)
+    if (recordWidth == null || recordHeight == null) {
+      const sizeStr = typeof params.size === 'string' ? params.size : ''
+      if (sizeStr.includes('*')) {
+        const [w, h] = sizeStr.split('*').map(Number)
+        if (Number.isFinite(w) && Number.isFinite(h)) {
+          recordWidth = w
+          recordHeight = h
+        }
+      }
+    }
+
     const generationRecord: GenerationRecord = {
       id: generationId,
       number: generationRepo.getNextGenerationNumber(this.db),
@@ -120,8 +135,8 @@ export class GenerationService extends EventEmitter {
       model_file:
         endpoint.providerId === 'local' ? activeModelId : endpoint.providerModelId,
       prompt: this.asString(params.prompt),
-      width: this.asOptionalNumber(params.width),
-      height: this.asOptionalNumber(params.height),
+      width: recordWidth,
+      height: recordHeight,
       seed: this.asOptionalNumber(params.seed),
       steps: this.asOptionalNumber(params.steps) ?? 4,
       guidance: this.asOptionalNumber(params.guidance) ?? 3.5,
