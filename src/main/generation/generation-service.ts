@@ -1,4 +1,3 @@
-import { randomInt } from 'crypto'
 import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import Database from 'better-sqlite3'
@@ -15,18 +14,19 @@ import { WorkQueueManager } from '../queue/work-queue-manager'
 import { WORK_TASK_TYPES } from '../queue/work-task-types'
 import { GenerationIOService } from './generation-io-service'
 import { ProviderCatalogService } from './catalog/provider-catalog-service'
+import {
+  asString,
+  asNumber,
+  asOptionalNumber,
+  extractDimensions,
+  withResolvedSeed
+} from './param-utils'
 
 interface GenerationServiceDeps {
   db: Database.Database
   workQueueManager: WorkQueueManager
   generationIOService: GenerationIOService
   providerCatalogService: ProviderCatalogService
-}
-
-interface GenerationTaskPayload {
-  generationId: string
-  endpointKey: string
-  params: CanonicalGenerationParams
 }
 
 export class GenerationService extends EventEmitter {
@@ -43,146 +43,42 @@ export class GenerationService extends EventEmitter {
     this.providerCatalogService = deps.providerCatalogService
   }
 
-  async initialize(): Promise<void> {
-    // Catalog builds lazily on first access — nothing to do here.
-  }
-
   async submit(input: GenerationSubmitInput): Promise<string> {
-    console.log('[GenerationService] submit:start', {
-      endpointKey: input.endpointKey,
-      paramKeys: Object.keys(input.params ?? {})
-    })
-
     const endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
-
     if (!endpoint) {
-      console.error('[GenerationService] submit:unknown-endpoint', {
-        endpointKey: input.endpointKey
-      })
       throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
 
-    console.log('[GenerationService] submit:endpoint-resolved', {
-      endpointKey: endpoint.endpointKey,
-      providerId: endpoint.providerId,
-      providerModelId: endpoint.providerModelId,
-      executionMode: endpoint.executionMode,
-      canonicalModelId: endpoint.canonicalModelId
-    })
-
-    const params = this.withResolvedSeed(input.params)
+    const params = withResolvedSeed(input.params)
     this.validateParams(endpoint, params)
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
-    const allSettings = settingsRepo.getAllSettings(this.db)
 
-    const activeModelId =
-      endpoint.providerId === 'local'
-        ? allSettings.active_model_id
-        : (endpoint.canonicalModelId ?? null)
-
-    const activeSelections = activeModelId
-      ? allSettings.model_quant_selections?.[activeModelId]
-      : undefined
-
-    const paramsWithModel = {
-      ...params,
-      model: {
-        id: activeModelId,
-        diffusionQuant: activeSelections?.diffusionQuant ?? null,
-        textEncoderQuant: activeSelections?.textEncoderQuant ?? null
-      }
-    }
-
-    // ref_image_ids / ref_image_paths are not stored in params_json —
-    // the generation_inputs table is the authoritative source for inputs.
-    // Storing them here would cause double-processing on reload.
-    const paramsForStorage = { ...paramsWithModel }
-    delete paramsForStorage.ref_image_ids
-    delete paramsForStorage.ref_image_paths
-
+    const paramsForStorage = this.buildStorageParams(endpoint, params)
     const { inputRecords } = await this.generationIOService.prepareInputs(
       generationId,
       params,
       now
     )
 
-    // Extract width/height — remote providers may use a combined "size"
-    // field (e.g. "2048*2048") instead of separate width/height.
-    let recordWidth = this.asOptionalNumber(params.width)
-    let recordHeight = this.asOptionalNumber(params.height)
-    if (recordWidth == null || recordHeight == null) {
-      const sizeStr = typeof params.size === 'string' ? params.size : ''
-      if (sizeStr.includes('*')) {
-        const [w, h] = sizeStr.split('*').map(Number)
-        if (Number.isFinite(w) && Number.isFinite(h)) {
-          recordWidth = w
-          recordHeight = h
-        }
-      }
-    }
-
-    const generationRecord: GenerationRecord = {
-      id: generationId,
-      number: generationRepo.getNextGenerationNumber(this.db),
-      // base_model_id is a FK to the local base_models table — only valid for
-      // the local provider.  Remote endpoints use canonicalModelId which lives
-      // in the model-identity system, not base_models, so we store null here
-      // and preserve the identity in params_json.model.id instead.
-      base_model_id: endpoint.providerId === 'local' ? activeModelId : null,
-      provider: endpoint.providerId,
-      model_file:
-        endpoint.providerId === 'local' ? activeModelId : endpoint.providerModelId,
-      prompt: this.asString(params.prompt),
-      width: recordWidth,
-      height: recordHeight,
-      seed: this.asOptionalNumber(params.seed),
-      steps: this.asOptionalNumber(params.steps) ?? 4,
-      guidance: this.asOptionalNumber(params.guidance) ?? 3.5,
-      sampling_method:
-        typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
-      params_json: JSON.stringify(paramsForStorage),
-      status: 'pending',
-      error: null,
-      total_time_ms: null,
-      prompt_cache_hit: false,
-      ref_latent_cache_hit: false,
-      output_paths: null,
-      created_at: now,
-      started_at: null,
-      completed_at: null
-    }
+    const generationRecord = this.buildGenerationRecord(
+      generationId,
+      endpoint,
+      params,
+      paramsForStorage,
+      now
+    )
 
     this.db.transaction(() => {
       generationRepo.insertGeneration(this.db, generationRecord)
       this.generationIOService.insertInputRecords(inputRecords)
     })()
 
-    const payload: GenerationTaskPayload = {
-      generationId,
-      endpointKey: endpoint.endpointKey,
-      params
-    }
+    const taskType = this.resolveTaskType(endpoint)
+    const payload = { generationId, endpointKey: endpoint.endpointKey, params }
 
-    const taskType =
-      endpoint.executionMode === 'queued-local'
-        ? WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE
-        : endpoint.executionMode === 'remote-async'
-          ? WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE
-          : null
-
-    if (!taskType) {
-      console.error('[GenerationService] submit:unsupported-execution-mode', {
-        endpointKey: endpoint.endpointKey,
-        executionMode: endpoint.executionMode
-      })
-      throw new Error(
-        `Execution mode "${endpoint.executionMode}" is not supported (endpoint: ${endpoint.endpointKey})`
-      )
-    }
-
-    console.log('[GenerationService] submit:queue-enqueue', {
+    console.log('[GenerationService] submit', {
       generationId,
       endpointKey: endpoint.endpointKey,
       providerId: endpoint.providerId,
@@ -198,20 +94,9 @@ export class GenerationService extends EventEmitter {
         owner_module: 'generation',
         max_attempts: 1
       })
-
-      console.log('[GenerationService] submit:queue-enqueued', {
-        generationId,
-        taskType,
-        endpointKey: endpoint.endpointKey
-      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      console.error('[GenerationService] submit:queue-enqueue-failed', {
-        generationId,
-        endpointKey: endpoint.endpointKey,
-        taskType,
-        error: message
-      })
+      console.error('[GenerationService] enqueue failed', { generationId, error: message })
       generationRepo.updateGenerationComplete(this.db, generationId, {
         status: 'failed',
         error: `Failed to enqueue generation task: ${message}`
@@ -262,60 +147,120 @@ export class GenerationService extends EventEmitter {
     this.emit('libraryUpdated')
   }
 
-  private validateParams(endpoint: CanonicalEndpointDef, params: CanonicalGenerationParams): void {
-    const prompt = this.asString(params.prompt).trim()
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
-    if (!prompt) throw new Error('Prompt is required')
+  private validateParams(
+    endpoint: CanonicalEndpointDef,
+    params: CanonicalGenerationParams
+  ): void {
+    if (!asString(params.prompt).trim()) {
+      throw new Error('Prompt is required')
+    }
 
     if (endpoint.executionMode === 'queued-local') {
-      const width = this.asNumber(params.width)
-      const height = this.asNumber(params.height)
-
+      const width = asNumber(params.width)
+      const height = asNumber(params.height)
       if (!Number.isFinite(width) || width <= 0) {
         throw new Error('Width must be a positive number')
       }
-
       if (!Number.isFinite(height) || height <= 0) {
         throw new Error('Height must be a positive number')
       }
     }
   }
 
-  private asString(value: unknown): string {
-    return typeof value === 'string' ? value : String(value ?? '')
-  }
-
-  private asNumber(value: unknown): number {
-    if (typeof value === 'number') return value
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
-  }
-
-  private asOptionalNumber(value: unknown): number | null {
-    if (value === null || value === undefined) return null
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-
   /**
-   * If seed is null/undefined/empty, generate a random seed.
-   * Uses the range 0–2^31-1 for broad engine compatibility.
+   * Build the params object stored in params_json. Attaches model metadata
+   * and strips ref image fields (those live in the generation_inputs table).
    */
-  private resolveOrGenerateSeed(value: unknown): number {
-    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
-      return value
+  private buildStorageParams(
+    endpoint: CanonicalEndpointDef,
+    params: CanonicalGenerationParams
+  ): Record<string, unknown> {
+    const allSettings = settingsRepo.getAllSettings(this.db)
+
+    const activeModelId =
+      endpoint.providerId === 'local'
+        ? allSettings.active_model_id
+        : (endpoint.canonicalModelId ?? null)
+
+    const activeSelections = activeModelId
+      ? allSettings.model_quant_selections?.[activeModelId]
+      : undefined
+
+    const storage: Record<string, unknown> = {
+      ...params,
+      model: {
+        id: activeModelId,
+        diffusionQuant: activeSelections?.diffusionQuant ?? null,
+        textEncoderQuant: activeSelections?.textEncoderQuant ?? null
+      }
     }
-    if (typeof value === 'string' && value.trim() !== '') {
-      const parsed = Number(value)
-      if (Number.isFinite(parsed) && parsed >= 0) return parsed
-    }
-    return randomInt(0, 2_147_483_647)
+
+    // Ref image fields live in generation_inputs — don't duplicate them here.
+    delete storage.ref_image_ids
+    delete storage.ref_image_paths
+
+    return storage
   }
 
-  private withResolvedSeed(params: CanonicalGenerationParams): CanonicalGenerationParams {
+  private buildGenerationRecord(
+    generationId: string,
+    endpoint: CanonicalEndpointDef,
+    params: CanonicalGenerationParams,
+    paramsForStorage: Record<string, unknown>,
+    now: string
+  ): GenerationRecord {
+    const allSettings = settingsRepo.getAllSettings(this.db)
+
+    const activeModelId =
+      endpoint.providerId === 'local'
+        ? allSettings.active_model_id
+        : (endpoint.canonicalModelId ?? null)
+
+    const { width, height } = extractDimensions(params)
+
     return {
-      ...params,
-      seed: this.resolveOrGenerateSeed(params.seed)
+      id: generationId,
+      number: generationRepo.getNextGenerationNumber(this.db),
+      // base_model_id is a FK to the local base_models table — only valid
+      // for the local provider; remote endpoints store null.
+      base_model_id: endpoint.providerId === 'local' ? activeModelId : null,
+      provider: endpoint.providerId,
+      model_file:
+        endpoint.providerId === 'local' ? activeModelId : endpoint.providerModelId,
+      prompt: asString(params.prompt),
+      width,
+      height,
+      seed: asOptionalNumber(params.seed),
+      steps: asOptionalNumber(params.steps) ?? 4,
+      guidance: asOptionalNumber(params.guidance) ?? 3.5,
+      sampling_method:
+        typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
+      params_json: JSON.stringify(paramsForStorage),
+      status: 'pending',
+      error: null,
+      total_time_ms: null,
+      prompt_cache_hit: false,
+      ref_latent_cache_hit: false,
+      output_paths: null,
+      created_at: now,
+      started_at: null,
+      completed_at: null
     }
+  }
+
+  private resolveTaskType(endpoint: CanonicalEndpointDef): string {
+    if (endpoint.executionMode === 'queued-local') {
+      return WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE
+    }
+    if (endpoint.executionMode === 'remote-async') {
+      return WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE
+    }
+    throw new Error(
+      `Execution mode "${endpoint.executionMode}" is not supported (endpoint: ${endpoint.endpointKey})`
+    )
   }
 }

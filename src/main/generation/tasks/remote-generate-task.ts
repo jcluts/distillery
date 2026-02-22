@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import type { CanonicalGenerationParams, WorkItem, WorkTaskResult } from '../../types'
+import type { WorkItem, WorkTaskResult } from '../../types'
 import * as generationRepo from '../../db/repositories/generations'
 import type { WorkTaskHandler } from '../../queue/work-handler-registry'
 import { GenerationIOService } from '../generation-io-service'
@@ -7,12 +7,7 @@ import { GenerationService } from '../generation-service'
 import { ProviderManagerService } from '../api/provider-manager-service'
 import { ApiClient, downloadRemoteOutput } from '../api/api-client'
 import type { ProviderModel } from '../api/types'
-
-interface RemoteTaskPayload {
-  generationId: string
-  endpointKey: string
-  params: CanonicalGenerationParams
-}
+import { parseTaskPayload, finalizeAndNotify, handleTaskFailure } from './task-utils'
 
 export class RemoteGenerateTaskHandler implements WorkTaskHandler {
   private db: Database.Database
@@ -33,18 +28,14 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
   }
 
   async execute(item: WorkItem): Promise<WorkTaskResult> {
-    let payload: RemoteTaskPayload
-
+    let payload: ReturnType<typeof parseTaskPayload>
     try {
-      payload = JSON.parse(item.payload_json) as RemoteTaskPayload
-    } catch {
-      return { success: false, error: 'Invalid payload_json for remote generation task' }
+      payload = parseTaskPayload(item)
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     const { generationId, endpointKey, params } = payload
-    if (!generationId || !endpointKey || !params || typeof params !== 'object') {
-      return { success: false, error: 'Malformed payload: requires generationId, endpointKey, and params' }
-    }
 
     try {
       const endpoint = await this.generationService.getEndpointSchema(endpointKey)
@@ -58,7 +49,9 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
 
       const apiKey = this.providerManagerService.getApiKey(endpoint.providerId)
       if (providerConfig.auth && !apiKey.trim()) {
-        throw new Error(`Missing API key for provider: ${providerConfig.displayName ?? providerConfig.providerId}`)
+        throw new Error(
+          `Missing API key for provider: ${providerConfig.displayName ?? providerConfig.providerId}`
+        )
       }
 
       generationRepo.markGenerationStarted(this.db, generationId)
@@ -79,6 +72,7 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
         refImages
       )
 
+      // Download any remote URLs to local temp files
       const localOutputs = await Promise.all(
         (generationResult.outputs ?? []).map(async (output) => ({
           ...output,
@@ -86,43 +80,16 @@ export class RemoteGenerateTaskHandler implements WorkTaskHandler {
         }))
       )
 
-      const finalized = await this.generationIOService.finalize({
+      return finalizeAndNotify(this.generationIOService, this.generationService, {
         generationId,
         success: generationResult.success,
         outputs: localOutputs,
         metrics: generationResult.metrics,
         error: generationResult.error
       })
-
-      this.generationService.emitResult({
-        generationId,
-        success: generationResult.success,
-        outputs: localOutputs,
-        metrics: generationResult.metrics,
-        error: generationResult.error
-      })
-
-      if (finalized.length > 0) {
-        this.generationService.emitLibraryUpdated()
-      }
-
-      return { success: generationResult.success, error: generationResult.error }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.error('[RemoteGenerateTaskHandler] failed:', generationId, message)
-
-      generationRepo.updateGenerationComplete(this.db, generationId, {
-        status: 'failed',
-        error: message
-      })
-
-      this.generationService.emitResult({
-        generationId,
-        success: false,
-        error: message
-      })
-
-      return { success: false, error: message }
+      console.error('[RemoteGenerateTaskHandler] failed:', generationId, error)
+      return handleTaskFailure(this.db, this.generationService, generationId, error)
     }
   }
 
