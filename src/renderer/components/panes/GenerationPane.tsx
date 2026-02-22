@@ -61,7 +61,8 @@ export function GenerationPane(): React.JSX.Element {
     : true
 
   const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
-  const generateDisabled = isRemoteEndpoint ? !prompt.trim() : !engineCanGenerate || !prompt.trim()
+  const requiresLocalEngine = endpoint?.providerId === 'local'
+  const generateDisabled = !prompt.trim() || (requiresLocalEngine && !engineCanGenerate)
 
   // Callbacks for DynamicForm
   const handleFieldChange = React.useCallback(

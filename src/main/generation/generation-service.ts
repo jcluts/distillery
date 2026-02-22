@@ -2,7 +2,6 @@ import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import Database from 'better-sqlite3'
 import * as generationRepo from '../db/repositories/generations'
-import * as settingsRepo from '../db/repositories/settings'
 import type {
   CanonicalGenerationParams,
   CanonicalEndpointDef,
@@ -12,11 +11,10 @@ import type {
 } from '../types'
 import { WorkQueueManager } from '../queue/work-queue-manager'
 import { WORK_TASK_TYPES } from '../queue/work-task-types'
-import { GenerationIOService } from './generation-io-service'
-import { ProviderCatalogService } from './catalog/provider-catalog-service'
+import { MediaIngestionService } from './media-ingestion-service'
+import { EndpointCatalog } from './catalog/endpoint-catalog'
 import {
   asString,
-  asNumber,
   asOptionalNumber,
   extractDimensions,
   withResolvedSeed
@@ -25,26 +23,26 @@ import {
 interface GenerationServiceDeps {
   db: Database.Database
   workQueueManager: WorkQueueManager
-  generationIOService: GenerationIOService
-  providerCatalogService: ProviderCatalogService
+  mediaIngestionService: MediaIngestionService
+  endpointCatalog: EndpointCatalog
 }
 
 export class GenerationService extends EventEmitter {
   private db: Database.Database
   private workQueueManager: WorkQueueManager
-  private generationIOService: GenerationIOService
-  private providerCatalogService: ProviderCatalogService
+  private mediaIngestionService: MediaIngestionService
+  private endpointCatalog: EndpointCatalog
 
   constructor(deps: GenerationServiceDeps) {
     super()
     this.db = deps.db
     this.workQueueManager = deps.workQueueManager
-    this.generationIOService = deps.generationIOService
-    this.providerCatalogService = deps.providerCatalogService
+    this.mediaIngestionService = deps.mediaIngestionService
+    this.endpointCatalog = deps.endpointCatalog
   }
 
   async submit(input: GenerationSubmitInput): Promise<string> {
-    const endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
+    const endpoint = await this.endpointCatalog.getEndpoint(input.endpointKey)
     if (!endpoint) {
       throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
@@ -56,7 +54,7 @@ export class GenerationService extends EventEmitter {
     const now = new Date().toISOString()
 
     const paramsForStorage = this.buildStorageParams(endpoint, params)
-    const { inputRecords } = await this.generationIOService.prepareInputs(
+    const { inputRecords } = await this.mediaIngestionService.prepareInputs(
       generationId,
       params,
       now
@@ -72,22 +70,21 @@ export class GenerationService extends EventEmitter {
 
     this.db.transaction(() => {
       generationRepo.insertGeneration(this.db, generationRecord)
-      this.generationIOService.insertInputRecords(inputRecords)
+      this.mediaIngestionService.insertInputRecords(inputRecords)
     })()
 
-    const taskType = this.resolveTaskType(endpoint)
     const payload = { generationId, endpointKey: endpoint.endpointKey, params }
 
     console.log('[GenerationService] submit', {
       generationId,
       endpointKey: endpoint.endpointKey,
       providerId: endpoint.providerId,
-      taskType
+      taskType: WORK_TASK_TYPES.GENERATION
     })
 
     try {
       await this.workQueueManager.enqueue({
-        task_type: taskType,
+        task_type: WORK_TASK_TYPES.GENERATION,
         priority: 0,
         payload_json: JSON.stringify(payload),
         correlation_id: generationId,
@@ -117,11 +114,11 @@ export class GenerationService extends EventEmitter {
     providerId?: string
     outputType?: 'image' | 'video'
   }): Promise<CanonicalEndpointDef[]> {
-    return this.providerCatalogService.listEndpoints(filter)
+    return this.endpointCatalog.listEndpoints(filter)
   }
 
   async getEndpointSchema(endpointKey: string): Promise<CanonicalEndpointDef | null> {
-    return this.providerCatalogService.getEndpoint(endpointKey)
+    return this.endpointCatalog.getEndpoint(endpointKey)
   }
 
   emitProgress(event: GenerationProgressEvent): void {
@@ -151,23 +148,9 @@ export class GenerationService extends EventEmitter {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  private validateParams(
-    endpoint: CanonicalEndpointDef,
-    params: CanonicalGenerationParams
-  ): void {
+  private validateParams(_endpoint: CanonicalEndpointDef, params: CanonicalGenerationParams): void {
     if (!asString(params.prompt).trim()) {
       throw new Error('Prompt is required')
-    }
-
-    if (endpoint.executionMode === 'queued-local') {
-      const width = asNumber(params.width)
-      const height = asNumber(params.height)
-      if (!Number.isFinite(width) || width <= 0) {
-        throw new Error('Width must be a positive number')
-      }
-      if (!Number.isFinite(height) || height <= 0) {
-        throw new Error('Height must be a positive number')
-      }
     }
   }
 
@@ -179,23 +162,14 @@ export class GenerationService extends EventEmitter {
     endpoint: CanonicalEndpointDef,
     params: CanonicalGenerationParams
   ): Record<string, unknown> {
-    const allSettings = settingsRepo.getAllSettings(this.db)
-
-    const activeModelId =
-      endpoint.providerId === 'local'
-        ? allSettings.active_model_id
-        : (endpoint.canonicalModelId ?? null)
-
-    const activeSelections = activeModelId
-      ? allSettings.model_quant_selections?.[activeModelId]
-      : undefined
+    const canonicalModelId = endpoint.canonicalModelId ?? endpoint.providerModelId
 
     const storage: Record<string, unknown> = {
       ...params,
       model: {
-        id: activeModelId,
-        diffusionQuant: activeSelections?.diffusionQuant ?? null,
-        textEncoderQuant: activeSelections?.textEncoderQuant ?? null
+        id: canonicalModelId,
+        providerModelId: endpoint.providerModelId,
+        providerId: endpoint.providerId
       }
     }
 
@@ -213,24 +187,20 @@ export class GenerationService extends EventEmitter {
     paramsForStorage: Record<string, unknown>,
     now: string
   ): GenerationRecord {
-    const allSettings = settingsRepo.getAllSettings(this.db)
-
-    const activeModelId =
-      endpoint.providerId === 'local'
-        ? allSettings.active_model_id
-        : (endpoint.canonicalModelId ?? null)
-
     const { width, height } = extractDimensions(params)
+
+    // base_model_id has a FK to base_models which only contains local
+    // cn-engine models. Remote provider models use identity mappings
+    // instead, so leave this null for non-local endpoints.
+    const baseModelId =
+      endpoint.providerId === 'local' ? (endpoint.canonicalModelId ?? null) : null
 
     return {
       id: generationId,
       number: generationRepo.getNextGenerationNumber(this.db),
-      // base_model_id is a FK to the local base_models table — only valid
-      // for the local provider; remote endpoints store null.
-      base_model_id: endpoint.providerId === 'local' ? activeModelId : null,
+      base_model_id: baseModelId,
       provider: endpoint.providerId,
-      model_file:
-        endpoint.providerId === 'local' ? activeModelId : endpoint.providerModelId,
+      model_file: endpoint.providerModelId,
       prompt: asString(params.prompt),
       width,
       height,
@@ -250,17 +220,5 @@ export class GenerationService extends EventEmitter {
       started_at: null,
       completed_at: null
     }
-  }
-
-  private resolveTaskType(endpoint: CanonicalEndpointDef): string {
-    if (endpoint.executionMode === 'queued-local') {
-      return WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE
-    }
-    if (endpoint.executionMode === 'remote-async') {
-      return WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE
-    }
-    throw new Error(
-      `Execution mode "${endpoint.executionMode}" is not supported (endpoint: ${endpoint.endpointKey})`
-    )
   }
 }

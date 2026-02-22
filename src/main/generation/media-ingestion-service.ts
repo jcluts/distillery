@@ -15,14 +15,10 @@ import {
   createThumbnail,
   REFERENCE_IMAGE_MAX_PIXELS
 } from '../files/image-derivatives'
-import type {
-  CanonicalGenerationParams,
-  GenerationExecutionResult,
-  GenerationInput,
-  MediaRecord
-} from '../types'
+import type { CanonicalGenerationParams, GenerationInput, MediaRecord } from '../types'
+import type { GenerationResult } from './providers/types'
 
-export class GenerationIOService {
+export class MediaIngestionService {
   private static readonly REF_CACHE_KEY_VERSION = 'v1'
 
   private db: Database.Database
@@ -57,8 +53,6 @@ export class GenerationIOService {
         position,
         sourceType: 'library',
         mediaId: media.id,
-        // Store the relative library path — stays valid if library root moves.
-        // The media_id is the durable reload identifier; this is a fallback.
         originalPath: media.file_path,
         originalFilename: media.file_name,
         persistThumb: async (outputAbsPath) => this.persistInputThumbnail(media, outputAbsPath)
@@ -71,7 +65,6 @@ export class GenerationIOService {
 
     const paths = Array.isArray(params.ref_image_paths) ? params.ref_image_paths : []
     for (const sourcePath of paths) {
-      // ref_image_paths contains absolute paths to external (non-library) files.
       const originalAbs = path.isAbsolute(sourcePath) ? sourcePath : path.resolve(sourcePath)
       const { input, refImageAbs } = await this.prepareInputRecord({
         generationId,
@@ -107,8 +100,6 @@ export class GenerationIOService {
     const thumbAbsPath = this.fileManager.resolve(thumbRelPath)
     await args.persistThumb(thumbAbsPath)
 
-    // Resolve to absolute for derivative creation.
-    // Library inputs store a relative path; external inputs store an absolute path.
     const sourceAbsPath =
       args.sourceType === 'library'
         ? this.fileManager.resolve(args.originalPath)
@@ -153,7 +144,6 @@ export class GenerationIOService {
 
         if (!input.original_path) continue
 
-        // Library inputs store a relative path; resolve to absolute.
         const sourceAbsPath =
           input.source_type === 'library'
             ? this.fileManager.resolve(input.original_path)
@@ -164,7 +154,7 @@ export class GenerationIOService {
         refImages.push(this.fileManager.resolve(refCacheRelPath))
       } catch (error) {
         console.warn(
-          `[GenerationIOService] Failed to prepare ref image for input ${input.id}; generation=${generationId}`,
+          `[MediaIngestionService] Failed to prepare ref image for input ${input.id}; generation=${generationId}`,
           error instanceof Error ? error.message : error
         )
       }
@@ -173,15 +163,15 @@ export class GenerationIOService {
     return refImages
   }
 
-  async getTempOutputPath(generationId: string): Promise<string> {
-    const base = path.join(app.getPath('temp'), 'distillery')
+  async getOutputDir(generationId: string): Promise<string> {
+    const base = path.join(app.getPath('temp'), 'distillery', 'generation-outputs', generationId)
     await fs.promises.mkdir(base, { recursive: true })
-    return path.join(base, `gen-${generationId}.png`)
+    return base
   }
 
-  async finalize(result: GenerationExecutionResult): Promise<MediaRecord[]> {
+  async finalize(generationId: string, result: GenerationResult): Promise<MediaRecord[]> {
     if (!result.success) {
-      generationRepo.updateGenerationComplete(this.db, result.generationId, {
+      generationRepo.updateGenerationComplete(this.db, generationId, {
         status: 'failed',
         error: result.error ?? 'Generation failed'
       })
@@ -190,7 +180,7 @@ export class GenerationIOService {
 
     const outputs = result.outputs ?? []
     if (outputs.length === 0) {
-      generationRepo.updateGenerationComplete(this.db, result.generationId, {
+      generationRepo.updateGenerationComplete(this.db, generationId, {
         status: 'failed',
         error: 'Generation completed without output artifacts'
       })
@@ -199,34 +189,24 @@ export class GenerationIOService {
 
     const mediaRecords: MediaRecord[] = []
     for (const output of outputs) {
-      const resolvedPath = await this.resolveProviderOutputPath(
-        result.generationId,
-        output.providerPath
-      )
-      const media = await this.ingestGenerationOutput(
-        result.generationId,
-        resolvedPath,
-        output.mimeType
-      )
+      const resolvedPath = await this.resolveProviderOutputPath(generationId, output.localPath)
+      const media = await this.ingestGenerationOutput(generationId, resolvedPath, output.mimeType)
       mediaRecords.push(media)
     }
 
-    generationRepo.updateGenerationComplete(this.db, result.generationId, {
+    generationRepo.updateGenerationComplete(this.db, generationId, {
       status: 'completed',
       seed: result.metrics?.seed,
       total_time_ms: result.metrics?.totalTimeMs,
       prompt_cache_hit: result.metrics?.promptCacheHit,
       ref_latent_cache_hit: result.metrics?.refLatentCacheHit,
-      output_paths: JSON.stringify(mediaRecords.map((m) => m.file_path))
+      output_paths: JSON.stringify(mediaRecords.map((media) => media.file_path))
     })
 
     return mediaRecords
   }
 
-  private async resolveProviderOutputPath(
-    generationId: string,
-    outputPath: string
-  ): Promise<string> {
+  private async resolveProviderOutputPath(generationId: string, outputPath: string): Promise<string> {
     const trimmed = outputPath.trim()
 
     let candidate = trimmed
@@ -332,7 +312,7 @@ export class GenerationIOService {
         await fs.promises.copyFile(srcAbs, outputAbsPath)
         return
       } catch {
-        // fall through to source file thumbnail generation
+        // fall through
       }
     }
 
@@ -340,10 +320,7 @@ export class GenerationIOService {
     await this.persistExternalThumbnail(originalAbs, outputAbsPath)
   }
 
-  private async persistExternalThumbnail(
-    sourceAbsPath: string,
-    outputAbsPath: string
-  ): Promise<void> {
+  private async persistExternalThumbnail(sourceAbsPath: string, outputAbsPath: string): Promise<void> {
     await fs.promises.mkdir(path.dirname(outputAbsPath), { recursive: true })
     const out = await createThumbnail(
       sourceAbsPath,
@@ -403,7 +380,7 @@ export class GenerationIOService {
     const sourceDigest = await this.hashFileContents(sourceAbsPath)
 
     const cacheFingerprint = [
-      GenerationIOService.REF_CACHE_KEY_VERSION,
+      MediaIngestionService.REF_CACHE_KEY_VERSION,
       String(REFERENCE_IMAGE_MAX_PIXELS),
       sourceDigest,
       String(stat.size)

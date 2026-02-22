@@ -3,12 +3,13 @@ import * as React from 'react'
 import { ProviderSidebar } from '@/components/providers/ProviderSidebar'
 import { ProviderDetail } from '@/components/providers/ProviderDetail'
 import { useProviderStore } from '@/stores/provider-store'
+import { useModelBrowsingStore } from '@/stores/model-browsing-store'
 
 export function ProviderManager(): React.JSX.Element {
   const loadProviders = useProviderStore((s) => s.loadProviders)
-  const loadAllUserModels = useProviderStore((s) => s.loadAllUserModels)
-  const loadIdentities = useProviderStore((s) => s.loadIdentities)
   const selectedProviderId = useProviderStore((s) => s.selectedProviderId)
+  const loadAllUserModels = useModelBrowsingStore((s) => s.loadAllUserModels)
+  const loadIdentities = useModelBrowsingStore((s) => s.loadIdentities)
 
   // Hydrate on mount
   React.useEffect(() => {

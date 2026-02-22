@@ -301,6 +301,7 @@ export interface ProviderConfig {
     enabled: boolean
     requestIdPath: string
     pollEndpoint: string
+    pollUrlPath?: string
     pollInterval?: number
     maxPollTime?: number
     statusPath: string

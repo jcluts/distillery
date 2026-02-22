@@ -1,20 +1,21 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { app } from 'electron'
-import { randomUUID } from 'crypto'
-import type { CanonicalRequestSchema, GenerationOutputArtifact } from '../../types'
-import type { ProviderConfig } from '../catalog/provider-config-service'
-import type { GenerationResult, ProviderModel, SearchResult, SearchResultModel } from './types'
-import { createProviderAdapter } from '../catalog/adapters/adapter-factory'
-import { asRecord, coerceGenerationMode, getString, toOptionalNumber } from '../catalog/adapters/adapter-utils'
+import type { CanonicalRequestSchema } from '../../types'
+import type { ProviderConfig } from '../catalog/provider-config'
+import type { ProviderModel, SearchResult, SearchResultModel } from '../management/types'
+import { asRecord, asOptionalNumber, coerceGenerationMode, getString } from '../param-utils'
+import { getProviderAdapter } from './adapters/adapter-registry'
+import {
+  extractHasMore,
+  extractModelCandidates,
+  getByPath,
+  normalizeOutputs,
+  type ProviderOutputArtifact
+} from './response-utils'
 
 const DEFAULT_POLL_TIMEOUT_MS = 5 * 60 * 1000
 const MAX_LOG_BODY_CHARS = 1600
 
-/**
- * Known provider field names that represent image/reference-image inputs.
- * Ordered by priority — the first match wins for single-image injection.
- */
 const IMAGE_INPUT_FIELD_NAMES = new Set([
   'images',
   'image_urls',
@@ -28,6 +29,18 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'reference_images',
   'ref_images'
 ])
+
+export interface RemoteGenerationResult {
+  success: boolean
+  outputs: ProviderOutputArtifact[]
+  error?: string
+  metrics?: {
+    seed?: number
+    totalTimeMs?: number
+    promptCacheHit?: boolean
+    refLatentCacheHit?: boolean
+  }
+}
 
 export class ApiClient {
   private config: ProviderConfig
@@ -44,7 +57,8 @@ export class ApiClient {
     }
 
     const headerName = this.config.auth.header || 'Authorization'
-    const authPrefix = this.config.auth.prefix || (this.config.auth.type === 'key' ? 'Key' : 'Bearer')
+    const authPrefix =
+      this.config.auth.prefix || (this.config.auth.type === 'key' ? 'Key' : 'Bearer')
     const token = authPrefix ? `${authPrefix} ${this.apiKey}` : this.apiKey
 
     return {
@@ -69,7 +83,7 @@ export class ApiClient {
       return { models: [] }
     }
 
-    const adapter = createProviderAdapter(this.config.adapter)
+    const adapter = getProviderAdapter(this.config.adapter)
 
     const endpointUrl = this.buildUrl(search.endpoint)
     const headers: HeadersInit = {
@@ -129,7 +143,7 @@ export class ApiClient {
     }
 
     const payload = (await response.json()) as unknown
-    const models = this.extractModelCandidates(payload)
+    const models = extractModelCandidates(payload, asRecord)
 
     const normalized = models.map((item) => {
       if (adapter) {
@@ -141,7 +155,7 @@ export class ApiClient {
 
     return {
       models: normalized.filter((item) => item.modelId),
-      hasMore: this.extractHasMore(payload)
+      hasMore: extractHasMore(payload, asRecord)
     }
   }
 
@@ -151,9 +165,8 @@ export class ApiClient {
       return null
     }
 
-    const adapter = createProviderAdapter(this.config.adapter)
-    const resolved = this.resolveDetailEndpoint(detailEndpointTemplate, modelId)
-    const detailUrl = new URL(resolved.url)
+    const adapter = getProviderAdapter(this.config.adapter)
+    const detailUrl = this.resolveDetailEndpoint(detailEndpointTemplate, modelId)
     for (const [key, value] of Object.entries(this.config.search?.extraParams ?? {})) {
       if (Array.isArray(value)) {
         for (const entry of value) {
@@ -228,9 +241,9 @@ export class ApiClient {
     }
 
     const payload = (await response.json()) as unknown
-    const candidates = this.extractModelCandidates(payload)
+    const candidates = extractModelCandidates(payload, asRecord)
 
-    const adapter = createProviderAdapter(this.config.adapter)
+    const adapter = getProviderAdapter(this.config.adapter)
 
     if (!adapter) {
       return candidates
@@ -255,7 +268,9 @@ export class ApiClient {
         }))
     }
 
-    const details = await Promise.all(candidates.map((candidate) => adapter.normalizeModelDetail(candidate, this.config)))
+    const details = await Promise.all(
+      candidates.map((candidate) => adapter.normalizeModelDetail(candidate, this.config))
+    )
     return details.filter((entry): entry is ProviderModel => !!entry)
   }
 
@@ -283,7 +298,7 @@ export class ApiClient {
       }
 
       const payload = (await response.json()) as unknown
-      const extracted = this.getByPath(payload, uploadConfig.responseField)
+      const extracted = getByPath(payload, uploadConfig.responseField, asRecord)
       if (typeof extracted !== 'string' || !extracted.trim()) {
         throw new Error('Upload response did not contain a valid file URL')
       }
@@ -309,7 +324,7 @@ export class ApiClient {
     }
 
     const payload = (await response.json()) as unknown
-    const extracted = this.getByPath(payload, uploadConfig.responseField)
+    const extracted = getByPath(payload, uploadConfig.responseField, asRecord)
     if (typeof extracted !== 'string' || !extracted.trim()) {
       throw new Error('Upload response did not contain a valid file URL')
     }
@@ -321,7 +336,7 @@ export class ApiClient {
     model: ProviderModel,
     params: Record<string, unknown>,
     filePaths?: string[]
-  ): Promise<GenerationResult> {
+  ): Promise<RemoteGenerationResult> {
     this.logInfo('generate:start', {
       providerId: this.config.providerId,
       modelId: model.modelId,
@@ -333,18 +348,11 @@ export class ApiClient {
     })
 
     const preparedParams = { ...params }
-
-    // Strip Distillery-internal ref image fields — the main-process pipeline
-    // already resolved them; they must not leak into the provider request body.
     delete preparedParams.ref_image_ids
     delete preparedParams.ref_image_paths
 
     if (Array.isArray(filePaths) && filePaths.length > 0 && this.config.upload) {
       const uploadedUrls = await Promise.all(filePaths.map((filePath) => this.uploadFile(filePath)))
-
-      // Detect the correct image field(s) from the model's requestSchema and
-      // inject uploaded URLs.  Array-typed fields receive all URLs; string-
-      // typed fields receive the first URL only.
       const imageFields = this.detectImageFields(model.requestSchema)
 
       if (imageFields.length > 0) {
@@ -352,7 +360,6 @@ export class ApiClient {
           preparedParams[name] = isArray ? uploadedUrls : uploadedUrls[0]
         }
       } else {
-        // Fallback: no known image field detected — use common defaults
         preparedParams.image_urls = uploadedUrls
         if (uploadedUrls.length === 1) {
           preparedParams.image_url = uploadedUrls[0]
@@ -362,7 +369,7 @@ export class ApiClient {
       this.logInfo('generate:uploads-prepared', {
         uploadedUrlCount: uploadedUrls.length,
         uploadedUrls,
-        targetFields: imageFields.map((f) => f.name)
+        targetFields: imageFields.map((field) => field.name)
       })
     }
 
@@ -414,7 +421,7 @@ export class ApiClient {
     })
 
     if (this.config.async?.enabled) {
-      const requestId = this.getByPath(payload, this.config.async.requestIdPath)
+      const requestId = getByPath(payload, this.config.async.requestIdPath, asRecord)
       if (typeof requestId !== 'string' || !requestId.trim()) {
         this.logError('generate:missing-request-id', {
           providerId: this.config.providerId,
@@ -439,12 +446,14 @@ export class ApiClient {
       })
       return {
         success: true,
-        outputs: this.normalizeOutputs(pollResult)
+        outputs: normalizeOutputs(pollResult, asRecord, getString)
       }
     }
 
-    const outputs = this.normalizeOutputs(
-      this.getByPath(payload, this.config.async?.outputsPath || 'outputs') ?? payload
+    const outputs = normalizeOutputs(
+      getByPath(payload, this.config.async?.outputsPath || 'outputs', asRecord) ?? payload,
+      asRecord,
+      getString
     )
 
     return {
@@ -499,7 +508,7 @@ export class ApiClient {
       }
 
       const payload = (await response.json()) as unknown
-      const statusValue = this.getByPath(payload, asyncConfig.statusPath)
+      const statusValue = getByPath(payload, asyncConfig.statusPath, asRecord)
       const status = String(statusValue ?? '')
 
       if (status !== previousStatus) {
@@ -514,7 +523,7 @@ export class ApiClient {
       }
 
       if (status === asyncConfig.completedValue) {
-        const rawOutputs = this.getByPath(payload, asyncConfig.outputsPath) ?? payload
+        const rawOutputs = getByPath(payload, asyncConfig.outputsPath, asRecord) ?? payload
         const resolvedOutputs = await this.resolveAsyncOutputs(rawOutputs)
         this.logInfo('poll:completed', {
           providerId: this.config.providerId,
@@ -527,7 +536,7 @@ export class ApiClient {
 
       if (status === asyncConfig.failedValue) {
         const errorValue = asyncConfig.errorPath
-          ? this.getByPath(payload, asyncConfig.errorPath)
+          ? getByPath(payload, asyncConfig.errorPath, asRecord)
           : 'Generation failed'
         this.logError('poll:failed', {
           providerId: this.config.providerId,
@@ -553,9 +562,9 @@ export class ApiClient {
     }
 
     const configuredPollUrl = asyncConfig.pollUrlPath
-      ? this.getByPath(submitPayload, asyncConfig.pollUrlPath)
+      ? getByPath(submitPayload, asyncConfig.pollUrlPath, asRecord)
       : undefined
-    const fallbackPollUrl = this.getByPath(submitPayload, 'status_url')
+    const fallbackPollUrl = getByPath(submitPayload, 'status_url', asRecord)
     const pollUrlCandidate = configuredPollUrl ?? fallbackPollUrl
 
     if (typeof pollUrlCandidate === 'string' && pollUrlCandidate.trim()) {
@@ -622,11 +631,6 @@ export class ApiClient {
     }
   }
 
-  /**
-   * Scan a model's requestSchema for known image input fields.
-   * Returns a list of `{ name, isArray }` entries so callers can inject
-   * uploaded URLs into the correct parameter(s).
-   */
   private detectImageFields(
     schema: CanonicalRequestSchema
   ): Array<{ name: string; isArray: boolean }> {
@@ -698,54 +702,17 @@ export class ApiClient {
     return `${value.slice(0, maxChars)}…`
   }
 
-  private extractModelCandidates(payload: unknown): unknown[] {
-    if (Array.isArray(payload)) {
-      return payload
-    }
-
-    const root = asRecord(payload)
-    if (!root) return []
-
-    if (Array.isArray(root.models)) return root.models
-    if (Array.isArray(root.results)) return root.results
-    if (Array.isArray(root.data)) return root.data
-
-    return []
-  }
-
-  private extractHasMore(payload: unknown): boolean | undefined {
-    const root = asRecord(payload)
-    if (!root) return undefined
-
-    const hasMore = root.has_more
-    if (typeof hasMore === 'boolean') {
-      return hasMore
-    }
-
-    const next = root.next
-    if (typeof next === 'string') {
-      return next.trim().length > 0
-    }
-
-    return undefined
-  }
-
-  private resolveDetailEndpoint(
-    detailEndpointTemplate: string,
-    modelId: string
-  ): { url: string; queryParams?: Record<string, string> } {
+  private resolveDetailEndpoint(detailEndpointTemplate: string, modelId: string): URL {
     if (detailEndpointTemplate.includes('{owner}') && detailEndpointTemplate.includes('{name}')) {
       const [owner, name] = modelId.split('/')
       const endpoint = detailEndpointTemplate
         .replace('{owner}', owner ?? '')
         .replace('{name}', name ?? '')
-      return { url: this.buildUrl(endpoint) }
+      return new URL(this.buildUrl(endpoint))
     }
 
     if (detailEndpointTemplate.includes('{model_id}')) {
-      return {
-        url: this.buildUrl(detailEndpointTemplate.replace('{model_id}', modelId))
-      }
+      return new URL(this.buildUrl(detailEndpointTemplate.replace('{model_id}', modelId)))
     }
 
     const url = new URL(this.buildUrl(detailEndpointTemplate))
@@ -753,7 +720,7 @@ export class ApiClient {
       url.searchParams.set(this.config.search.detailQueryParam, modelId)
     }
 
-    return { url: url.toString() }
+    return url
   }
 
   private defaultNormalizeSearch(raw: unknown): SearchResultModel {
@@ -774,116 +741,12 @@ export class ApiClient {
       name: getString(source.name) || getString(source.title) || modelId,
       description: getString(source.description) || undefined,
       type: coerceGenerationMode(getString(source.type)),
-      runCount: toOptionalNumber(source.run_count) ?? undefined,
+      runCount: asOptionalNumber(source.run_count) ?? undefined,
       raw
     }
   }
-
-  private normalizeOutputs(value: unknown): GenerationOutputArtifact[] {
-    if (!value) return []
-
-    if (typeof value === 'string') {
-      return [{ providerPath: value }]
-    }
-
-    if (Array.isArray(value)) {
-      return value
-        .map((entry) => {
-          if (typeof entry === 'string') {
-            return { providerPath: entry }
-          }
-
-          const record = asRecord(entry)
-          if (!record) return null
-
-          const providerPath =
-            getString(record.url) ||
-            getString(record.uri) ||
-            getString(record.download_url) ||
-            getString(record.response_url) ||
-            getString(record.path)
-
-          if (!providerPath) return null
-
-          return {
-            providerPath,
-            mimeType: getString(record.mime_type) || getString(record.mimeType) || undefined
-          }
-        })
-        .filter((entry): entry is GenerationOutputArtifact => !!entry)
-    }
-
-    const record = asRecord(value)
-    if (!record) return []
-
-    const nested =
-      record.outputs ??
-      record.output ??
-      record.images ??
-      record.image ??
-      record.videos ??
-      record.video ??
-      record.data ??
-      record.response_url ??
-      record.url ??
-      record.download_url ??
-      null
-
-    return this.normalizeOutputs(nested)
-  }
-
-  private getByPath(value: unknown, pathExpression: string): unknown {
-    if (!pathExpression) return value
-
-    const parts = pathExpression.split('.').filter(Boolean)
-    let cursor: unknown = value
-
-    for (const part of parts) {
-      const record = asRecord(cursor)
-      if (!record || !(part in record)) {
-        return undefined
-      }
-      cursor = record[part]
-    }
-
-    return cursor
-  }
-
 }
 
 async function wait(durationMs: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, durationMs))
-}
-
-export async function downloadRemoteOutput(url: string): Promise<string> {
-  console.log('[ApiClient:downloadRemoteOutput] start', { url })
-
-  const response = await fetch(url)
-  if (!response.ok) {
-    const errorBody = await response.text()
-    console.error('[ApiClient:downloadRemoteOutput] http-error', {
-      url,
-      status: response.status,
-      statusText: response.statusText,
-      responseBody: errorBody.length <= MAX_LOG_BODY_CHARS ? errorBody : `${errorBody.slice(0, MAX_LOG_BODY_CHARS)}…`
-    })
-    throw new Error(`Failed to download output: ${response.status} ${response.statusText}`)
-  }
-
-  const fileNamePart = path.basename(new URL(url).pathname) || `${randomUUID()}.png`
-  const outputDir = path.join(app.getPath('temp'), 'distillery', 'remote-outputs')
-  await fs.promises.mkdir(outputDir, { recursive: true })
-
-  const outputPath = path.join(outputDir, `${randomUUID()}-${fileNamePart}`)
-  const arrayBuffer = await response.arrayBuffer()
-  const content = Buffer.from(arrayBuffer)
-  await fs.promises.writeFile(outputPath, content)
-
-  console.log('[ApiClient:downloadRemoteOutput] complete', {
-    url,
-    outputPath,
-    bytes: content.byteLength
-  })
-
-  return outputPath
 }

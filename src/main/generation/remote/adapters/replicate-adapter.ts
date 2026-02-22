@@ -1,14 +1,8 @@
-import type { SearchResultModel, ProviderModel } from '../../api/types'
-import type { ProviderConfig } from '../provider-config-service'
-import {
-  asRecord,
-  coerceGenerationMode,
-  fallbackRequestSchema,
-  getString,
-  normalizeObjectSchema,
-  resolveSchemaReference,
-  toOptionalNumber
-} from './adapter-utils'
+import { asRecord, asOptionalNumber, coerceGenerationMode, getString } from '../../param-utils'
+import type { SearchResultModel, ProviderModel } from '../../management/types'
+import type { ProviderConfig } from '../../catalog/provider-config'
+import { fallbackRequestSchema, normalizeObjectSchema, resolveSchemaReference } from './schema-utils'
+import type { ProviderAdapter } from './types'
 
 export function normalizeReplicateSearchResult(
   raw: unknown,
@@ -25,7 +19,7 @@ export function normalizeReplicateSearchResult(
     name: getString(source.title) || getString(source.name) || modelId,
     description: getString(source.description) || undefined,
     type: coerceGenerationMode(getString(source.type) || getString(source.category)),
-    runCount: toOptionalNumber(source.run_count) ?? undefined,
+    runCount: asOptionalNumber(source.run_count) ?? undefined,
     raw
   }
 }
@@ -85,4 +79,9 @@ function extractReplicateInputSchema(openApiSchema: Record<string, unknown> | nu
   }
 
   return normalizeObjectSchema(objectSchema)
+}
+
+export const replicateAdapter: ProviderAdapter = {
+  normalizeSearchResult: normalizeReplicateSearchResult,
+  normalizeModelDetail: normalizeReplicateModelDetail
 }

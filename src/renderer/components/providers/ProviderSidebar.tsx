@@ -3,14 +3,9 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemActions,
-  ItemGroup
-} from '@/components/ui/item'
+import { Item, ItemContent, ItemTitle, ItemActions, ItemGroup } from '@/components/ui/item'
 import { useProviderStore } from '@/stores/provider-store'
+import { useModelBrowsingStore } from '@/stores/model-browsing-store'
 
 /**
  * Status dot semantics:
@@ -26,7 +21,7 @@ export function ProviderSidebar(): React.JSX.Element {
   const providers = useProviderStore((s) => s.providers)
   const selectedProviderId = useProviderStore((s) => s.selectedProviderId)
   const selectProvider = useProviderStore((s) => s.selectProvider)
-  const userModelsByProvider = useProviderStore((s) => s.userModelsByProvider)
+  const userModelsByProvider = useModelBrowsingStore((s) => s.userModelsByProvider)
   const hasApiKey = useProviderStore((s) => s.hasApiKey)
 
   // Only show API providers (not local)

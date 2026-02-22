@@ -7,14 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemActions,
-  ItemGroup
-} from '@/components/ui/item'
-import { useProviderStore } from '@/stores/provider-store'
+import { Item, ItemContent, ItemTitle, ItemActions, ItemGroup } from '@/components/ui/item'
+import { useModelBrowsingStore } from '@/stores/model-browsing-store'
 import type { ProviderModel, SearchResultModel } from '@/types'
 
 interface ModelBrowserProps {
@@ -45,10 +39,10 @@ function SearchBrowser({
   providerId: string
   addedModelIds: Set<string>
 }): React.JSX.Element {
-  const searchModels = useProviderStore((s) => s.searchModels)
-  const addUserModel = useProviderStore((s) => s.addUserModel)
-  const searchResults = useProviderStore((s) => s.searchResults)
-  const searchLoading = useProviderStore((s) => s.searchLoading)
+  const searchModels = useModelBrowsingStore((s) => s.searchModels)
+  const addUserModel = useModelBrowsingStore((s) => s.addUserModel)
+  const searchResults = useModelBrowsingStore((s) => s.searchResults)
+  const searchLoading = useModelBrowsingStore((s) => s.searchLoading)
 
   const [query, setQuery] = React.useState('')
   const debounceRef = React.useRef<number | null>(null)
@@ -135,11 +129,7 @@ function SearchBrowser({
               No models found for &ldquo;{query}&rdquo;
             </div>
           ) : (
-            <ModelResultList
-              models={results}
-              addedModelIds={addedModelIds}
-              onAdd={handleAdd}
-            />
+            <ModelResultList models={results} addedModelIds={addedModelIds} onAdd={handleAdd} />
           )}
         </ScrollArea>
       </div>
@@ -158,17 +148,14 @@ function ListBrowser({
   providerId: string
   addedModelIds: Set<string>
 }): React.JSX.Element {
-  const listModels = useProviderStore((s) => s.listModels)
-  const addUserModel = useProviderStore((s) => s.addUserModel)
-  const listCache = useProviderStore((s) => s.listCache)
-  const listLoading = useProviderStore((s) => s.listLoading)
+  const listModels = useModelBrowsingStore((s) => s.listModels)
+  const addUserModel = useModelBrowsingStore((s) => s.addUserModel)
+  const listCache = useModelBrowsingStore((s) => s.listCache)
+  const listLoading = useModelBrowsingStore((s) => s.listLoading)
 
   const [filter, setFilter] = React.useState('')
 
-  const allModels = React.useMemo(
-    () => listCache[providerId] ?? [],
-    [listCache, providerId]
-  )
+  const allModels = React.useMemo(() => listCache[providerId] ?? [], [listCache, providerId])
   const isLoading = listLoading[providerId] ?? false
 
   // Load on mount
@@ -242,11 +229,7 @@ function ListBrowser({
               {allModels.length > 0 ? 'No models match your filter' : 'No models available'}
             </div>
           ) : (
-            <ModelResultList
-              models={filtered}
-              addedModelIds={addedModelIds}
-              onAdd={handleAdd}
-            />
+            <ModelResultList models={filtered} addedModelIds={addedModelIds} onAdd={handleAdd} />
           )}
         </ScrollArea>
       </div>
@@ -298,14 +281,21 @@ function ModelResultList({
         const hasError = errorIds.has(model.modelId)
 
         return (
-          <Item key={model.modelId} variant="outline" size="sm" className="hover:border-border hover:bg-muted/50">
+          <Item
+            key={model.modelId}
+            variant="outline"
+            size="sm"
+            className="hover:border-border hover:bg-muted/50"
+          >
             <ItemContent>
               <ItemTitle className="flex items-center gap-1.5 truncate">
                 <span className="truncate">{model.name}</span>
                 {model.modelId !== model.name && (
                   <>
                     <span className="shrink-0 text-muted-foreground/40">·</span>
-                    <span className="truncate text-muted-foreground font-normal">{model.modelId}</span>
+                    <span className="truncate text-muted-foreground font-normal">
+                      {model.modelId}
+                    </span>
                   </>
                 )}
                 {model.type && (
