@@ -30,6 +30,8 @@ export function createMockMediaPage(count = 96): MediaPage {
       keywords: null,
       generation_id: isGenerated ? `mock-gen-${String(Math.floor(i / 2) + 1).padStart(4, '0')}` : null,
       origin_id: null,
+      active_upscale_id: null,
+      working_file_path: null,
       created_at: isoAgo(i * 1000 * 60 * 10),
       updated_at: isoAgo(i * 1000 * 60 * 10)
     }

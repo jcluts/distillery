@@ -87,6 +87,15 @@ export const IPC_CHANNELS = {
   IDENTITIES_CREATE: 'identities:create',
   IDENTITIES_ADD_MAPPING: 'identities:addMapping',
 
+  // Upscale
+  UPSCALE_GET_MODELS: 'upscale:getModels',
+  UPSCALE_SUBMIT: 'upscale:submit',
+  UPSCALE_CANCEL: 'upscale:cancel',
+  UPSCALE_GET_DATA: 'upscale:getData',
+  UPSCALE_SET_ACTIVE: 'upscale:setActive',
+  UPSCALE_DELETE_VARIANT: 'upscale:deleteVariant',
+  UPSCALE_DELETE_ALL: 'upscale:deleteAll',
+
   // App
   APP_SHOW_OPEN_DIALOG: 'app:showOpenDialog',
   APP_SHOW_SAVE_DIALOG: 'app:showSaveDialog',
@@ -107,7 +116,9 @@ export const IPC_CHANNELS = {
   LIBRARY_UPDATED: 'library:updated',
   COLLECTIONS_UPDATED: 'collections:updated',
   WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged',
-  MODEL_DOWNLOAD_PROGRESS: 'model:download-progress'
+  MODEL_DOWNLOAD_PROGRESS: 'model:download-progress',
+  UPSCALE_PROGRESS: 'upscale:progress',
+  UPSCALE_RESULT: 'upscale:result'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

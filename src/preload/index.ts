@@ -9,7 +9,8 @@ import type {
   MediaQuery,
   MediaUpdate,
   ModelLoadParams,
-  SettingsUpdate
+  SettingsUpdate,
+  UpscaleRequest
 } from '../renderer/types'
 
 const CH = IPC_CHANNELS
@@ -122,6 +123,18 @@ const api: DistilleryAPI = {
       ipcRenderer.invoke(CH.PROVIDERS_TEST_CONNECTION, providerId)
   },
 
+  // Upscale
+  upscale: {
+    getModels: () => ipcRenderer.invoke(CH.UPSCALE_GET_MODELS),
+    submit: (request: UpscaleRequest) => ipcRenderer.invoke(CH.UPSCALE_SUBMIT, request),
+    cancel: (mediaId: string) => ipcRenderer.invoke(CH.UPSCALE_CANCEL, mediaId),
+    getData: (mediaId: string) => ipcRenderer.invoke(CH.UPSCALE_GET_DATA, mediaId),
+    setActive: (mediaId: string, variantId: string | null) =>
+      ipcRenderer.invoke(CH.UPSCALE_SET_ACTIVE, mediaId, variantId),
+    deleteVariant: (variantId: string) => ipcRenderer.invoke(CH.UPSCALE_DELETE_VARIANT, variantId),
+    deleteAll: (mediaId: string) => ipcRenderer.invoke(CH.UPSCALE_DELETE_ALL, mediaId)
+  },
+
   // Model Identities
   identities: {
     getAll: () => ipcRenderer.invoke(CH.IDENTITIES_GET_ALL),
@@ -160,6 +173,8 @@ const api: DistilleryAPI = {
       | typeof CH.COLLECTIONS_UPDATED
       | typeof CH.WINDOW_MAXIMIZED_CHANGED
       | typeof CH.MODEL_DOWNLOAD_PROGRESS
+      | typeof CH.UPSCALE_PROGRESS
+      | typeof CH.UPSCALE_RESULT
 
     const validChannels = new Set<EventChannel>([
       CH.ENGINE_STATUS_CHANGED,
@@ -169,7 +184,9 @@ const api: DistilleryAPI = {
       CH.LIBRARY_UPDATED,
       CH.COLLECTIONS_UPDATED,
       CH.WINDOW_MAXIMIZED_CHANGED,
-      CH.MODEL_DOWNLOAD_PROGRESS
+      CH.MODEL_DOWNLOAD_PROGRESS,
+      CH.UPSCALE_PROGRESS,
+      CH.UPSCALE_RESULT
     ])
 
     if (!validChannels.has(channel as EventChannel)) {

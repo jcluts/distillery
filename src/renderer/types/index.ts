@@ -26,6 +26,8 @@ export interface MediaRecord {
   status: MediaStatus
   generation_id: string | null
   origin_id: string | null
+  active_upscale_id: string | null
+  working_file_path: string | null
   created_at: string
   updated_at: string
 }
@@ -485,6 +487,50 @@ export interface HardwareProfile {
 }
 
 // -----------------------------------------------------------------------------
+// Upscale
+// -----------------------------------------------------------------------------
+
+export interface UpscaleModelInfo {
+  id: string
+  name: string
+  description: string
+  supportedScales: number[]
+  available: boolean
+}
+
+export interface UpscaleVariant {
+  id: string
+  media_id: string
+  file_path: string
+  model_id: string
+  model_name: string
+  scale_factor: number
+  width: number
+  height: number
+  file_size: number | null
+  created_at: string
+}
+
+export interface UpscaleRequest {
+  mediaId: string
+  modelId: string
+  scaleFactor: number
+}
+
+export interface UpscaleProgressEvent {
+  mediaId: string
+  phase: 'preparing' | 'upscaling' | 'saving' | 'complete' | 'error'
+  message?: string
+}
+
+export interface UpscaleResultEvent {
+  mediaId: string
+  success: boolean
+  variant?: UpscaleVariant
+  error?: string
+}
+
+// -----------------------------------------------------------------------------
 // IPC API (exposed via contextBridge)
 // -----------------------------------------------------------------------------
 
@@ -589,6 +635,17 @@ export interface DistilleryAPI {
       initialMapping?: { providerId: string; modelIds: string[] }
     ): Promise<ModelIdentity>
     addMapping(identityId: string, providerId: string, modelIds: string[]): Promise<void>
+  }
+
+  // Upscale
+  upscale: {
+    getModels(): Promise<UpscaleModelInfo[]>
+    submit(request: UpscaleRequest): Promise<string>
+    cancel(mediaId: string): Promise<void>
+    getData(mediaId: string): Promise<{ variants: UpscaleVariant[]; activeVariantId: string | null }>
+    setActive(mediaId: string, variantId: string | null): Promise<void>
+    deleteVariant(variantId: string): Promise<void>
+    deleteAll(mediaId: string): Promise<void>
   }
 
   // App

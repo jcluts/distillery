@@ -14,11 +14,14 @@ import { useEngineStore } from './stores/engine-store'
 import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
 import { useQueueStore } from './stores/queue-store'
+import { useUpscaleStore } from './stores/upscale-store'
 import type {
   GenerationProgressEvent,
   GenerationResultEvent,
   EngineStatus,
-  WorkQueueItem
+  WorkQueueItem,
+  UpscaleProgressEvent,
+  UpscaleResultEvent
 } from './types'
 
 function App(): React.JSX.Element {
@@ -213,6 +216,27 @@ function App(): React.JSX.Element {
     })
     return unsubscribe
   }, [loadMedia, loadQueue, loadTimeline])
+
+  // Upscale progress
+  useEffect(() => {
+    const unsubscribe = window.api.on('upscale:progress', (payload: unknown) => {
+      const evt = payload as UpscaleProgressEvent
+      if (evt) useUpscaleStore.getState().handleProgress(evt)
+    })
+    return unsubscribe
+  }, [])
+
+  // Upscale result -> refresh library to pick up working_file_path
+  useEffect(() => {
+    const unsubscribe = window.api.on('upscale:result', (payload: unknown) => {
+      const evt = payload as UpscaleResultEvent
+      if (evt) {
+        useUpscaleStore.getState().handleResult(evt)
+        void loadMedia()
+      }
+    })
+    return unsubscribe
+  }, [loadMedia])
 
   // Keep elapsed time ticking while active
   useEffect(() => {
