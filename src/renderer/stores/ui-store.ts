@@ -12,7 +12,7 @@ import { THUMBNAIL_SIZE_DEFAULT } from '@/lib/constants'
 
 export type ViewMode = 'grid' | 'loupe'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
-export type RightPanelTab = 'info' | 'generation-info' | 'collections'
+export type RightPanelTab = 'info' | 'generation-info' | 'collections' | 'upscale'
 export type ZoomLevel = 'fit' | 'actual'
 
 const ZOOM_LEVELS: ZoomLevel[] = ['fit', 'actual']

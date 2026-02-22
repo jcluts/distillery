@@ -281,6 +281,56 @@ export class EngineManager extends EventEmitter {
   }
 
   /**
+   * Send an upscale command to the engine.
+   * Does NOT require a diffusion model to be loaded — works in idle state.
+   */
+  async upscale(params: {
+    id: string
+    input: string
+    output: string
+    upscale_model: string
+    upscale_repeats?: number
+    upscale_factor?: number
+  }): Promise<{ success: boolean; outputPath?: string; error?: string }> {
+    if (this.state === 'stopped' || this.state === 'starting') {
+      throw new Error(`Cannot upscale in state: ${this.state}`)
+    }
+
+    const command: EngineCommand = {
+      cmd: 'upscale',
+      id: params.id,
+      params: {
+        input: params.input,
+        output: params.output,
+        upscale_model: params.upscale_model,
+        upscale_repeats: params.upscale_repeats ?? 1,
+        upscale_factor: params.upscale_factor
+      }
+    }
+
+    try {
+      const response = await this.protocol.sendCommand(command, 600_000)
+      const data = response.data ?? (response as any)
+      const success =
+        response.type === 'ok' ? true : Boolean((data as any)?.success)
+      const outputPath =
+        ((data as any)?.output_path as string | undefined) ??
+        ((data as any)?.output as string | undefined)
+      const errorMessage =
+        response.error ?? ((data as any)?.error as string | undefined)
+
+      return {
+        success,
+        outputPath,
+        error: success ? undefined : errorMessage
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { success: false, error: message }
+    }
+  }
+
+  /**
    * Unload the active model by restarting the engine process.
    * After this call the engine is back in 'idle' – ready for a fresh loadModel().
    */

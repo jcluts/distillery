@@ -2,6 +2,7 @@ import { clipboard, ipcMain, nativeImage, shell } from 'electron'
 import { IPC_CHANNELS } from '../channels'
 import { getDatabase } from '../../db/connection'
 import * as mediaRepo from '../../db/repositories/media'
+import * as variantRepo from '../../db/repositories/upscale-variants'
 import type { MediaQuery, MediaRecord, MediaUpdate } from '../../types'
 import { FileManager } from '../../files/file-manager'
 import { v4 as uuidv4 } from 'uuid'
@@ -20,11 +21,20 @@ function toLibraryUrl(relativePath: string): string {
   return `distillery://library/${encoded}`
 }
 
-function mapMediaPaths(record: MediaRecord): MediaRecord {
+function mapMediaPaths(record: MediaRecord, db: import('better-sqlite3').Database): MediaRecord {
+  let workingFilePath: string | null = null
+  if (record.active_upscale_id) {
+    const variant = variantRepo.getVariant(db, record.active_upscale_id)
+    if (variant) {
+      workingFilePath = toLibraryUrl(variant.file_path)
+    }
+  }
+
   return {
     ...record,
     file_path: toLibraryUrl(record.file_path),
-    thumb_path: record.thumb_path ? toLibraryUrl(record.thumb_path) : null
+    thumb_path: record.thumb_path ? toLibraryUrl(record.thumb_path) : null,
+    working_file_path: workingFilePath
   }
 }
 
@@ -35,13 +45,13 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
     const page = mediaRepo.queryMedia(db, params)
     return {
       ...page,
-      items: page.items.map((m) => mapMediaPaths(m))
+      items: page.items.map((m) => mapMediaPaths(m, db))
     }
   })
 
   ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_MEDIA_BY_ID, (_event, id: string) => {
     const record = mediaRepo.getMediaById(db, id)
-    return record ? mapMediaPaths(record) : null
+    return record ? mapMediaPaths(record, db) : null
   })
 
   ipcMain.handle(
@@ -59,6 +69,17 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
       if (!media) continue
       const absFile = fileManager.resolve(media.file_path)
       const absThumb = media.thumb_path ? fileManager.resolve(media.thumb_path) : null
+
+      // Delete upscale variant files from disk (DB rows cascade-delete)
+      const variants = variantRepo.getVariantsForMedia(db, id)
+      for (const v of variants) {
+        try {
+          await fs.promises.unlink(fileManager.resolve(v.file_path))
+        } catch (err: any) {
+          if (err.code !== 'ENOENT') console.error('[Library] Failed to delete variant file:', v.file_path, err)
+        }
+      }
+
       try {
         await fs.promises.unlink(absFile)
       } catch (err: any) {
@@ -116,6 +137,7 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
           status: null,
           generation_id: null,
           origin_id: null,
+          active_upscale_id: null,
           created_at: now,
           updated_at: now
         }
@@ -129,7 +151,7 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
 
     if (imported.length > 0) onLibraryUpdated?.()
 
-    return imported.map((m) => mapMediaPaths(m))
+    return imported.map((m) => mapMediaPaths(m, db))
   })
 
   // Resolve media ID → absolute file path (helper)

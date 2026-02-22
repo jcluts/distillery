@@ -36,6 +36,10 @@ import { registerKeywordsHandlers } from './ipc/handlers/keywords'
 import { registerCollectionsHandlers } from './ipc/handlers/collections'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { registerProviderHandlers } from './ipc/handlers/providers'
+import { registerUpscaleHandlers } from './ipc/handlers/upscale'
+import { UpscaleModelService } from './upscale/upscale-model-service'
+import { UpscaleService } from './upscale/upscale-service'
+import { UpscaleTaskHandler } from './upscale/upscale-task-handler'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
 import * as identityRepo from './db/repositories/model-identities'
 import { ModelCatalogService } from './models/model-catalog-service'
@@ -414,6 +418,29 @@ app.whenReady().then(async () => {
 
   console.log('[Main] Work queue + generation services initialized')
 
+  // Initialize upscale services
+  const upscaleModelService = new UpscaleModelService()
+  const upscaleService = new UpscaleService({
+    db,
+    fileManager,
+    modelService: upscaleModelService,
+    workQueueManager
+  })
+
+  workQueueManager.registerHandler(
+    WORK_TASK_TYPES.UPSCALE,
+    new UpscaleTaskHandler({
+      db,
+      engineManager,
+      modelService: upscaleModelService,
+      upscaleService,
+      fileManager
+    })
+  )
+  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.UPSCALE, 1)
+
+  console.log('[Main] Upscale services initialized')
+
   // Register all IPC handlers
   registerLibraryHandlers(fileManager, () => {
     mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
@@ -451,6 +478,7 @@ app.whenReady().then(async () => {
     providerManagerService,
     modelIdentityService
   })
+  registerUpscaleHandlers(upscaleService)
   console.log('[Main] IPC handlers registered')
 
   // Create window
@@ -468,6 +496,15 @@ app.whenReady().then(async () => {
   if (generationService) {
     setupGenerationEventForwarding(generationService)
   }
+
+  // Forward upscale events to renderer
+  upscaleService.on('progress', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.UPSCALE_PROGRESS, event)
+  })
+  upscaleService.on('result', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.UPSCALE_RESULT, event)
+    mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+  })
 
   // Start engine process if path is configured (model will be lazy-loaded on first generation)
   if (enginePath) {

@@ -281,6 +281,7 @@ export class MediaIngestionService {
       status: null,
       generation_id: generationId,
       origin_id: null,
+      active_upscale_id: null,
       created_at: now,
       updated_at: now
     }

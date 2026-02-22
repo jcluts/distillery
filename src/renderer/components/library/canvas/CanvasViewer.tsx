@@ -84,10 +84,13 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
   const [isPannable, setIsPannable] = React.useState(false)
   const [dragging, setDragging] = React.useState(false)
 
+  // Derive the image URL: working_file_path (active upscale variant) or original file_path
+  const imageUrl = media?.working_file_path ?? media?.file_path ?? null
+
   // Reset pan when zoom or image changes
   React.useEffect(() => {
     panOffset.current = { x: 0, y: 0 }
-  }, [zoom, media?.file_path])
+  }, [zoom, imageUrl])
 
   // Helper to redraw
   const redraw = React.useCallback(() => {
@@ -154,14 +157,14 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      if (!media?.file_path) {
+      if (!imageUrl) {
         imageRef.current = null
         redraw()
         return
       }
 
       try {
-        const img = await loadImage(media.file_path)
+        const img = await loadImage(imageUrl)
         if (cancelled) return
         imageRef.current = img
         redraw()
@@ -176,7 +179,7 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
     return () => {
       cancelled = true
     }
-  }, [media?.file_path, redraw])
+  }, [imageUrl, redraw])
 
   // Redraw when zoom changes (pan already reset via separate effect)
   React.useEffect(() => {

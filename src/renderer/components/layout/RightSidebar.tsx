@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Layers3, Info, Plus, SlidersHorizontal } from 'lucide-react'
+import { Layers3, Info, Maximize2, Plus, SlidersHorizontal } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useUIStore, type RightPanelTab } from '@/stores/ui-store'
@@ -8,6 +8,7 @@ import { AppSidebar, type SidebarTabConfig } from '@/components/layout/AppSideba
 import { MediaInfoPane } from '@/components/panes/MediaInfoPane'
 import { GenerationInfoPane } from '@/components/panes/GenerationInfoPane'
 import { CollectionsPane } from '@/components/panes/CollectionsPane'
+import { UpscalePane } from '@/components/panes/UpscalePane'
 
 function CollectionsHeaderActions(): React.JSX.Element {
   const openModal = useUIStore((s) => s.openModal)
@@ -51,6 +52,13 @@ const RIGHT_TABS: SidebarTabConfig<RightPanelTab>[] = [
     title: 'Generation Info',
     icon: SlidersHorizontal,
     content: <GenerationInfoPane />
+  },
+  {
+    tab: 'upscale',
+    label: 'Upscale',
+    title: 'Upscale',
+    icon: Maximize2,
+    content: <UpscalePane />
   }
 ]
 

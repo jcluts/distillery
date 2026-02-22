@@ -23,8 +23,11 @@ export interface MediaRecord {
   status: MediaStatus
   generation_id: string | null
   origin_id: string | null
+  active_upscale_id: string | null
   created_at: string
   updated_at: string
+  /** Computed at IPC boundary — points to active upscale variant or null */
+  working_file_path?: string | null
 }
 
 export interface MediaUpdate {
@@ -313,4 +316,55 @@ export interface HardwareProfile {
   arch: string
   totalMemory: number
   gpuInfo?: string
+}
+
+// Upscale types
+export interface UpscaleModelConfig {
+  id: string
+  name: string
+  description: string
+  file: string
+  nativeScale: number
+  supportedScales: number[]
+  enabled: boolean
+}
+
+export interface UpscaleModelInfo {
+  id: string
+  name: string
+  description: string
+  supportedScales: number[]
+  available: boolean
+}
+
+export interface UpscaleVariant {
+  id: string
+  media_id: string
+  file_path: string
+  model_id: string
+  model_name: string
+  scale_factor: number
+  width: number
+  height: number
+  file_size: number | null
+  created_at: string
+}
+
+export interface UpscaleRequest {
+  mediaId: string
+  modelId: string
+  scaleFactor: number
+}
+
+export interface UpscaleProgressEvent {
+  mediaId: string
+  phase: 'preparing' | 'upscaling' | 'saving' | 'complete' | 'error'
+  message?: string
+}
+
+export interface UpscaleResultEvent {
+  mediaId: string
+  success: boolean
+  variant?: UpscaleVariant
+  error?: string
 }

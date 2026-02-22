@@ -65,6 +65,13 @@ export class FileManager {
   }
 
   /**
+   * Get the upscaled images directory path.
+   */
+  getUpscaledDir(): string {
+    return join(this.libraryRoot, 'upscaled')
+  }
+
+  /**
    * Get the date-based subdirectory for originals (YYYY/MM/).
    */
   getDateSubdir(): string {
@@ -85,7 +92,8 @@ export class FileManager {
       this.getOriginalsDir(),
       this.getThumbnailsDir(),
       this.getRefCacheDir(),
-      this.getRefThumbsDir()
+      this.getRefThumbsDir(),
+      this.getUpscaledDir()
     ]
 
     for (const dir of dirs) {
