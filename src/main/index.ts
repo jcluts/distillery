@@ -37,6 +37,7 @@ import { registerCollectionsHandlers } from './ipc/handlers/collections'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { registerProviderHandlers } from './ipc/handlers/providers'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
+import * as identityRepo from './db/repositories/model-identities'
 import { ModelCatalogService } from './models/model-catalog-service'
 import { ModelDownloadManager } from './models/model-download-manager'
 import { bootstrapQuantSelections } from './models/selection-bootstrap'
@@ -61,6 +62,48 @@ let engineManager: EngineManager | null = null
 let workQueueManager: WorkQueueManager | null = null
 let generationService: GenerationService | null = null
 let fileManager: FileManager | null = null
+
+/**
+ * Migrate user-created identities from the legacy model-identities.json file
+ * into the new DB tables, then delete the JSON file.
+ */
+function migrateJsonIdentities(db: import('better-sqlite3').Database): void {
+  const jsonPath = path.join(app.getPath('userData'), 'model-identities.json')
+  if (!fs.existsSync(jsonPath)) return
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as Record<
+      string,
+      { id: string; name: string; description?: string; providerMapping?: Record<string, string[]> }
+    >
+
+    db.transaction(() => {
+      for (const [id, identity] of Object.entries(parsed)) {
+        if (!id || !identity?.name) continue
+
+        // Insert identity if it doesn't already exist (seed data may overlap)
+        const existing = identityRepo.getIdentityById(db, id)
+        if (!existing) {
+          identityRepo.createIdentity(db, id, identity.name, identity.description)
+        }
+
+        // Insert any provider mappings
+        for (const [providerId, modelIds] of Object.entries(identity.providerMapping ?? {})) {
+          for (const modelId of modelIds) {
+            if (modelId?.trim()) {
+              identityRepo.addMapping(db, id, providerId, modelId.trim())
+            }
+          }
+        }
+      }
+    })()
+
+    fs.unlinkSync(jsonPath)
+    console.log('[Main] Migrated model-identities.json to DB and deleted JSON file')
+  } catch (error) {
+    console.warn('[Main] Failed to migrate model-identities.json:', error)
+  }
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -305,8 +348,10 @@ app.whenReady().then(async () => {
   workQueueManager = new WorkQueueManager(db)
   const mediaIngestionService = new MediaIngestionService(db, fileManager)
   const providerConfigService = new ProviderConfigService()
-  const modelIdentityService = new ModelIdentityService()
-  modelIdentityService.loadIdentities()
+  const modelIdentityService = new ModelIdentityService(db)
+
+  // Migrate user-created identities from the legacy JSON file (if it exists)
+  migrateJsonIdentities(db)
 
   registerProviderAdapter('fal', falAdapter)
   registerProviderAdapter('replicate', replicateAdapter)

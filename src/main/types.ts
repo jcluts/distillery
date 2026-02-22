@@ -87,7 +87,7 @@ export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'c
 export interface GenerationRecord {
   id: string
   number: number
-  base_model_id: string | null
+  model_identity_id: string | null
   provider: string
   model_file: string | null
   prompt: string | null
@@ -140,13 +140,7 @@ export interface GenerationSubmitInput {
   params: CanonicalGenerationParams
 }
 
-export interface BaseModel {
-  id: string
-  name: string
-  family: string
-  media_type: MediaType
-  created_at: string
-}
+
 
 export interface WorkItem {
   id: string
@@ -227,7 +221,7 @@ export interface CanonicalEndpointDef {
   endpointKey: string
   providerId: string
   providerModelId: string
-  canonicalModelId?: string
+  modelIdentityId?: string
   displayName: string
   modes: GenerationMode[]
   outputType: 'image' | 'video'

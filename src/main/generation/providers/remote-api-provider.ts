@@ -34,7 +34,7 @@ export class RemoteApiProvider implements GenerationProvider {
       name: request.endpoint.displayName,
       providerId: request.endpoint.providerId,
       requestSchema: request.endpoint.requestSchema,
-      modelIdentityId: request.endpoint.canonicalModelId
+      modelIdentityId: request.endpoint.modelIdentityId
     }
 
     const generationResult = await apiClient.generate(

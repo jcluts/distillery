@@ -83,7 +83,7 @@ export function ModelSelector(): React.JSX.Element {
     for (const endpoint of modeEndpoints) {
       const isLocal = endpoint.providerId === 'local'
       const isReady = isLocal ? (filesByModelId[endpoint.providerModelId]?.isReady ?? false) : true
-      const identityId = endpoint.canonicalModelId ?? `${endpoint.providerId}-${endpoint.providerModelId}`
+      const identityId = endpoint.modelIdentityId ?? `${endpoint.providerId}-${endpoint.providerModelId}`
       const identity =
         identities.find((entry) => entry.id === identityId) ??
         identities.find((entry) =>

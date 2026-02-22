@@ -12,13 +12,13 @@ type GenerationRow = Omit<GenerationRecord, 'prompt_cache_hit' | 'ref_latent_cac
 export function insertGeneration(db: Database.Database, gen: GenerationRecord): void {
   db.prepare(
     `INSERT INTO generations (
-      id, number, base_model_id, provider, model_file, prompt,
+      id, number, model_identity_id, provider, model_file, prompt,
       width, height, seed, steps, guidance, sampling_method,
       params_json, status, error, total_time_ms,
       prompt_cache_hit, ref_latent_cache_hit, output_paths,
       created_at, started_at, completed_at
     ) VALUES (
-      @id, @number, @base_model_id, @provider, @model_file, @prompt,
+      @id, @number, @model_identity_id, @provider, @model_file, @prompt,
       @width, @height, @seed, @steps, @guidance, @sampling_method,
       @params_json, @status, @error, @total_time_ms,
       @prompt_cache_hit, @ref_latent_cache_hit, @output_paths,

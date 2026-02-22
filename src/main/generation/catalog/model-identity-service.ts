@@ -1,6 +1,5 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import { app } from 'electron'
+import Database from 'better-sqlite3'
+import * as identityRepo from '../../db/repositories/model-identities'
 
 export interface ModelIdentity {
   id: string
@@ -9,198 +8,125 @@ export interface ModelIdentity {
   providerMapping: Record<string, string[]>
 }
 
-const builtInIdentityModule = import.meta.glob('../../defaults/model-identities.json', {
-  eager: true,
-  import: 'default'
-}) as Record<string, Record<string, ModelIdentity>>
-
-function cloneIdentity(value: ModelIdentity): ModelIdentity {
-  return {
-    id: value.id,
-    name: value.name,
-    description: value.description,
-    providerMapping: Object.fromEntries(
-      Object.entries(value.providerMapping ?? {}).map(([providerId, modelIds]) => [
-        providerId,
-        [...new Set((modelIds ?? []).map((id) => String(id).trim()).filter(Boolean))]
-      ])
-    )
-  }
-}
-
-function mergeIdentity(base: ModelIdentity, override: ModelIdentity): ModelIdentity {
-  const merged = cloneIdentity(base)
-  merged.name = override.name || merged.name
-  merged.description = override.description ?? merged.description
-
-  for (const [providerId, modelIds] of Object.entries(override.providerMapping ?? {})) {
-    const existing = merged.providerMapping[providerId] ?? []
-    merged.providerMapping[providerId] = [...new Set([...existing, ...modelIds])]
-  }
-
-  return merged
-}
-
-function isModelIdentity(value: unknown): value is ModelIdentity {
-  if (!value || typeof value !== 'object') return false
-  const maybe = value as Partial<ModelIdentity>
-  return (
-    typeof maybe.id === 'string' &&
-    typeof maybe.name === 'string' &&
-    maybe.providerMapping !== null &&
-    typeof maybe.providerMapping === 'object'
-  )
-}
-
-function isIdentityMap(value: unknown): value is Record<string, ModelIdentity> {
-  if (!value || typeof value !== 'object') return false
-  return Object.values(value).every((entry) => isModelIdentity(entry))
-}
-
+/**
+ * DB-backed model identity service.
+ *
+ * Replaces the old JSON-file-based implementation. Same public API shape
+ * so callers (IPC handlers, ProviderManager) need minimal changes.
+ */
 export class ModelIdentityService {
-  private identities = new Map<string, ModelIdentity>()
+  private db: Database.Database
 
-  private getDefaults(): Record<string, ModelIdentity> {
-    const first = Object.values(builtInIdentityModule)[0] ?? {}
-    if (!isIdentityMap(first)) return {}
-    return Object.fromEntries(
-      Object.entries(first).map(([id, identity]) => [id, cloneIdentity(identity)])
-    )
+  constructor(db: Database.Database) {
+    this.db = db
   }
 
-  private getRuntimePath(): string {
-    return path.join(app.getPath('userData'), 'model-identities.json')
-  }
+  /**
+   * Load all identities with their provider mappings assembled.
+   */
+  loadIdentities(): Record<string, ModelIdentity> {
+    const rows = identityRepo.getAllIdentities(this.db)
+    const result: Record<string, ModelIdentity> = {}
 
-  private loadOverrides(): Record<string, ModelIdentity> {
-    const filePath = this.getRuntimePath()
+    for (const row of rows) {
+      const mappings = identityRepo.getMappingsForIdentity(this.db, row.id)
+      const providerMapping: Record<string, string[]> = {}
 
-    // Seed from bundled defaults if runtime file doesn't exist
-    if (!fs.existsSync(filePath)) {
-      const defaults = this.getDefaults()
-      fs.mkdirSync(path.dirname(filePath), { recursive: true })
-      fs.writeFileSync(filePath, JSON.stringify(defaults, null, 2), 'utf8')
-      return defaults
-    }
-
-    try {
-      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown
-      if (!isIdentityMap(parsed)) {
-        return {}
+      for (const mapping of mappings) {
+        if (!providerMapping[mapping.provider_id]) {
+          providerMapping[mapping.provider_id] = []
+        }
+        providerMapping[mapping.provider_id].push(mapping.provider_model_id)
       }
 
-      return parsed
-    } catch {
-      return {}
+      result[row.id] = {
+        id: row.id,
+        name: row.name,
+        description: row.description ?? undefined,
+        providerMapping
+      }
     }
+
+    return result
   }
 
-  loadIdentities(): Record<string, ModelIdentity> {
-    const defaults = this.getDefaults()
-    const overrides = this.loadOverrides()
-
-    this.identities.clear()
-
-    for (const [id, identity] of Object.entries(defaults)) {
-      this.identities.set(id, cloneIdentity(identity))
-    }
-
-    for (const [id, identity] of Object.entries(overrides)) {
-      const existing = this.identities.get(id)
-      this.identities.set(
-        id,
-        existing ? mergeIdentity(existing, identity) : cloneIdentity(identity)
-      )
-    }
-
-    return Object.fromEntries(this.identities.entries())
-  }
-
+  /**
+   * Find the identity ID for a given provider model.
+   */
   findIdentityId(providerModelId: string, providerId: string): string | null {
-    if (!this.identities.size) {
-      this.loadIdentities()
-    }
-
     const needle = providerModelId.trim()
     if (!needle) return null
-
-    for (const [identityId, identity] of this.identities.entries()) {
-      const mappedIds = identity.providerMapping[providerId] ?? []
-      if (mappedIds.includes(needle)) {
-        return identityId
-      }
-    }
-
-    return null
+    return identityRepo.findIdentityByProviderModel(this.db, providerId, needle)
   }
 
+  /**
+   * Add provider model mapping(s) to an existing identity.
+   */
   addMapping(identityId: string, providerId: string, modelIds: string[]): void {
-    if (!this.identities.size) {
-      this.loadIdentities()
-    }
-
-    const existing = this.identities.get(identityId)
-    if (!existing) {
+    const identity = identityRepo.getIdentityById(this.db, identityId)
+    if (!identity) {
       throw new Error(`Unknown model identity: ${identityId}`)
     }
 
     const normalized = modelIds.map((id) => id.trim()).filter(Boolean)
     if (normalized.length === 0) return
 
-    const prior = existing.providerMapping[providerId] ?? []
-    existing.providerMapping[providerId] = [...new Set([...prior, ...normalized])]
-    this.identities.set(identityId, cloneIdentity(existing))
-    this.persist()
+    this.db.transaction(() => {
+      for (const modelId of normalized) {
+        identityRepo.addMapping(this.db, identityId, providerId, modelId)
+      }
+    })()
   }
 
+  /**
+   * Create a new identity with optional initial provider mapping.
+   */
   createIdentity(
     id: string,
     name: string,
     description: string,
     initialMapping?: { providerId: string; modelIds: string[] }
   ): ModelIdentity {
-    if (!this.identities.size) {
-      this.loadIdentities()
-    }
-
     const normalizedId = id.trim()
     const normalizedName = name.trim()
 
-    if (!normalizedId) {
-      throw new Error('Model identity id is required')
+    if (!normalizedId) throw new Error('Model identity id is required')
+    if (!normalizedName) throw new Error('Model identity name is required')
+
+    const existing = identityRepo.getIdentityById(this.db, normalizedId)
+    if (existing) throw new Error(`Model identity already exists: ${normalizedId}`)
+
+    this.db.transaction(() => {
+      identityRepo.createIdentity(
+        this.db,
+        normalizedId,
+        normalizedName,
+        description.trim() || undefined
+      )
+
+      if (initialMapping?.providerId) {
+        const mappedIds = (initialMapping.modelIds ?? [])
+          .map((value) => value.trim())
+          .filter(Boolean)
+        for (const modelId of new Set(mappedIds)) {
+          identityRepo.addMapping(this.db, normalizedId, initialMapping.providerId, modelId)
+        }
+      }
+    })()
+
+    // Return the fully assembled identity
+    const mappings = identityRepo.getMappingsForIdentity(this.db, normalizedId)
+    const providerMapping: Record<string, string[]> = {}
+    for (const m of mappings) {
+      if (!providerMapping[m.provider_id]) providerMapping[m.provider_id] = []
+      providerMapping[m.provider_id].push(m.provider_model_id)
     }
 
-    if (!normalizedName) {
-      throw new Error('Model identity name is required')
-    }
-
-    if (this.identities.has(normalizedId)) {
-      throw new Error(`Model identity already exists: ${normalizedId}`)
-    }
-
-    const identity: ModelIdentity = {
+    return {
       id: normalizedId,
       name: normalizedName,
       description: description.trim() || undefined,
-      providerMapping: {}
+      providerMapping
     }
-
-    if (initialMapping?.providerId) {
-      const mappedIds = (initialMapping.modelIds ?? []).map((value) => value.trim()).filter(Boolean)
-      if (mappedIds.length > 0) {
-        identity.providerMapping[initialMapping.providerId] = [...new Set(mappedIds)]
-      }
-    }
-
-    this.identities.set(identity.id, identity)
-    this.persist()
-
-    return cloneIdentity(identity)
-  }
-
-  persist(): void {
-    const filePath = this.getRuntimePath()
-    fs.mkdirSync(path.dirname(filePath), { recursive: true })
-    fs.writeFileSync(filePath, JSON.stringify(Object.fromEntries(this.identities), null, 2), 'utf8')
   }
 }
