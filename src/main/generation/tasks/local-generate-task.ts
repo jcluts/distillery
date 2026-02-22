@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import type { WorkItem, WorkTaskResult, CanonicalGenerationParams } from '../../types'
+import type { WorkItem, WorkTaskResult } from '../../types'
 import type { WorkTaskHandler } from '../../queue/work-handler-registry'
 import * as generationRepo from '../../db/repositories/generations'
 import * as settingsRepo from '../../db/repositories/settings'
@@ -10,12 +10,7 @@ import { GenerationService } from '../generation-service'
 import type { EngineManager } from '../../engine/engine-manager'
 import type { ModelCatalogService } from '../../models/model-catalog-service'
 import { ModelResolver } from '../../models/model-resolver'
-
-interface QueuedLocalTaskPayload {
-  generationId: string
-  endpointKey: string
-  params: CanonicalGenerationParams
-}
+import { parseTaskPayload, finalizeAndNotify, handleTaskFailure } from './task-utils'
 
 export class LocalGenerateTaskHandler implements WorkTaskHandler {
   private db: Database.Database
@@ -44,6 +39,43 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
     this.modelCatalogService = args.modelCatalogService
   }
 
+  async execute(item: WorkItem): Promise<WorkTaskResult> {
+    let payload: ReturnType<typeof parseTaskPayload>
+    try {
+      payload = parseTaskPayload(item)
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+
+    const { generationId, endpointKey, params } = payload
+
+    try {
+      const endpoint = await this.providerCatalogService.getEndpoint(endpointKey)
+      if (!endpoint) throw new Error(`Unknown endpointKey: ${endpointKey}`)
+      if (endpoint.executionMode !== 'queued-local' || endpoint.providerId !== 'local') {
+        throw new Error(`Unsupported endpoint for local task handler: ${endpointKey}`)
+      }
+
+      await this.ensureModelLoaded()
+      generationRepo.markGenerationStarted(this.db, generationId)
+
+      const refImages = await this.generationIOService.getRefImagesForProvider(generationId)
+      const outputPath = await this.generationIOService.getTempOutputPath(generationId)
+
+      const result = await this.localProvider.start({
+        generationId,
+        endpoint,
+        params,
+        outputPath,
+        preparedInputs: { refImages }
+      })
+
+      return finalizeAndNotify(this.generationIOService, this.generationService, result)
+    } catch (error) {
+      return handleTaskFailure(this.db, this.generationService, generationId, error)
+    }
+  }
+
   /**
    * Ensure the engine has a model loaded before generation.
    * If the engine is idle (no model), resolve the correct model from settings
@@ -51,9 +83,7 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
    */
   private async ensureModelLoaded(): Promise<void> {
     const status = this.engineManager.getStatus()
-
     if (status.state === 'ready') return
-
     if (status.state !== 'idle') {
       throw new Error(`Engine is in '${status.state}' state; cannot load model`)
     }
@@ -76,87 +106,5 @@ export class LocalGenerateTaskHandler implements WorkTaskHandler {
       vae_on_cpu: settings.vae_on_cpu,
       llm_on_cpu: settings.llm_on_cpu
     })
-  }
-
-  async execute(item: WorkItem): Promise<WorkTaskResult> {
-    let payload: QueuedLocalTaskPayload
-    try {
-      payload = JSON.parse(item.payload_json) as QueuedLocalTaskPayload
-    } catch {
-      return {
-        success: false,
-        error: 'Invalid payload_json for local generation task'
-      }
-    }
-
-    const generationId = payload.generationId
-    if (
-      !generationId ||
-      !payload.endpointKey ||
-      !payload.params ||
-      typeof payload.params !== 'object'
-    ) {
-      return {
-        success: false,
-        error: 'Malformed payload: requires generationId, endpointKey, and params'
-      }
-    }
-
-    try {
-      const endpoint = await this.providerCatalogService.getEndpoint(payload.endpointKey)
-      if (!endpoint) {
-        throw new Error(`Unknown endpointKey: ${payload.endpointKey}`)
-      }
-
-      if (endpoint.executionMode !== 'queued-local' || endpoint.providerId !== 'local') {
-        throw new Error(`Unsupported endpoint for local task handler: ${payload.endpointKey}`)
-      }
-
-      // Lazy-load model if not already in memory
-      await this.ensureModelLoaded()
-
-      generationRepo.markGenerationStarted(this.db, generationId)
-
-      const refImages = await this.generationIOService.getRefImagesForProvider(generationId)
-      const outputPath = await this.generationIOService.getTempOutputPath(generationId)
-
-      const result = await this.localProvider.start({
-        generationId,
-        endpoint,
-        params: payload.params,
-        outputPath,
-        preparedInputs: { refImages }
-      })
-
-      const mediaRecords = await this.generationIOService.finalize(result)
-
-      this.generationService.emitResult(result)
-      if (mediaRecords.length > 0) {
-        this.generationService.emitLibraryUpdated()
-      }
-
-      return {
-        success: result.success,
-        error: result.error
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-
-      generationRepo.updateGenerationComplete(this.db, generationId, {
-        status: 'failed',
-        error: message
-      })
-
-      this.generationService.emitResult({
-        generationId,
-        success: false,
-        error: message
-      })
-
-      return {
-        success: false,
-        error: message
-      }
-    }
   }
 }

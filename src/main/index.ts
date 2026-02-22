@@ -320,8 +320,6 @@ app.whenReady().then(async () => {
     providerCatalogService
   })
 
-  await generationService.initialize()
-
   localProvider.on('progress', (event) => {
     generationService?.emitProgress(event)
   })
