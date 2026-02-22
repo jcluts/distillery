@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
-import type { GenerationOutputArtifact } from '../../types'
+import type { CanonicalRequestSchema, GenerationOutputArtifact } from '../../types'
 import type { ProviderConfig } from '../catalog/provider-config-service'
 import type { GenerationResult, ProviderModel, SearchResult, SearchResultModel } from './types'
 import { createProviderAdapter } from '../catalog/adapters/adapter-factory'
@@ -10,6 +10,24 @@ import { asRecord, getString, toOptionalNumber } from '../catalog/adapters/adapt
 
 const DEFAULT_POLL_TIMEOUT_MS = 5 * 60 * 1000
 const MAX_LOG_BODY_CHARS = 1600
+
+/**
+ * Known provider field names that represent image/reference-image inputs.
+ * Ordered by priority — the first match wins for single-image injection.
+ */
+const IMAGE_INPUT_FIELD_NAMES = new Set([
+  'images',
+  'image_urls',
+  'image_url',
+  'image',
+  'init_image',
+  'init_image_url',
+  'input_image',
+  'input_image_url',
+  'reference_image',
+  'reference_images',
+  'ref_images'
+])
 
 export class ApiClient {
   private config: ProviderConfig
@@ -316,20 +334,35 @@ export class ApiClient {
 
     const preparedParams = { ...params }
 
+    // Strip Distillery-internal ref image fields — the main-process pipeline
+    // already resolved them; they must not leak into the provider request body.
+    delete preparedParams.ref_image_ids
+    delete preparedParams.ref_image_paths
+
     if (Array.isArray(filePaths) && filePaths.length > 0 && this.config.upload) {
       const uploadedUrls = await Promise.all(filePaths.map((filePath) => this.uploadFile(filePath)))
 
-      if (!('image_urls' in preparedParams)) {
-        preparedParams.image_urls = uploadedUrls
-      }
+      // Detect the correct image field(s) from the model's requestSchema and
+      // inject uploaded URLs.  Array-typed fields receive all URLs; string-
+      // typed fields receive the first URL only.
+      const imageFields = this.detectImageFields(model.requestSchema)
 
-      if (uploadedUrls.length === 1 && !('image_url' in preparedParams)) {
-        preparedParams.image_url = uploadedUrls[0]
+      if (imageFields.length > 0) {
+        for (const { name, isArray } of imageFields) {
+          preparedParams[name] = isArray ? uploadedUrls : uploadedUrls[0]
+        }
+      } else {
+        // Fallback: no known image field detected — use common defaults
+        preparedParams.image_urls = uploadedUrls
+        if (uploadedUrls.length === 1) {
+          preparedParams.image_url = uploadedUrls[0]
+        }
       }
 
       this.logInfo('generate:uploads-prepared', {
         uploadedUrlCount: uploadedUrls.length,
-        uploadedUrls
+        uploadedUrls,
+        targetFields: imageFields.map((f) => f.name)
       })
     }
 
@@ -587,6 +620,25 @@ export class ApiClient {
       })
       return value
     }
+  }
+
+  /**
+   * Scan a model's requestSchema for known image input fields.
+   * Returns a list of `{ name, isArray }` entries so callers can inject
+   * uploaded URLs into the correct parameter(s).
+   */
+  private detectImageFields(
+    schema: CanonicalRequestSchema
+  ): Array<{ name: string; isArray: boolean }> {
+    const result: Array<{ name: string; isArray: boolean }> = []
+    if (!schema?.properties) return result
+
+    for (const [key, prop] of Object.entries(schema.properties)) {
+      if (!IMAGE_INPUT_FIELD_NAMES.has(key)) continue
+      result.push({ name: key, isArray: prop.type === 'array' })
+    }
+
+    return result
   }
 
   private logInfo(event: string, details?: Record<string, unknown>): void {

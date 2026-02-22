@@ -111,9 +111,14 @@ export class GenerationService extends EventEmitter {
     const generationRecord: GenerationRecord = {
       id: generationId,
       number: generationRepo.getNextGenerationNumber(this.db),
-      base_model_id: activeModelId,
+      // base_model_id is a FK to the local base_models table — only valid for
+      // the local provider.  Remote endpoints use canonicalModelId which lives
+      // in the model-identity system, not base_models, so we store null here
+      // and preserve the identity in params_json.model.id instead.
+      base_model_id: endpoint.providerId === 'local' ? activeModelId : null,
       provider: endpoint.providerId,
-      model_file: activeModelId,
+      model_file:
+        endpoint.providerId === 'local' ? activeModelId : endpoint.providerModelId,
       prompt: this.asString(params.prompt),
       width: this.asOptionalNumber(params.width),
       height: this.asOptionalNumber(params.height),
