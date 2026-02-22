@@ -32,7 +32,7 @@ interface ActiveSetup {
 /*  Root component                                                           */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-export function ModelSetupWizard(): React.JSX.Element {
+export function ModelSetupWizard({ targetModelId }: { targetModelId?: string }): React.JSX.Element {
   const [activeSetup, setActiveSetup] = React.useState<ActiveSetup | null>(null)
 
   const catalog = useModelStore((s) => s.catalog)
@@ -43,8 +43,11 @@ export function ModelSetupWizard(): React.JSX.Element {
   const cancelModelDownload = useModelStore((s) => s.cancelModelDownload)
 
   const models = React.useMemo(
-    () => (catalog?.models ?? []).filter((m) => m.type === 'image-generation'),
-    [catalog]
+    () =>
+      (catalog?.models ?? [])
+        .filter((m) => m.type === 'image-generation')
+        .filter((m) => !targetModelId || m.id === targetModelId),
+    [catalog, targetModelId]
   )
 
   /* ── Start a download ─────────────────────────────────────────────────── */

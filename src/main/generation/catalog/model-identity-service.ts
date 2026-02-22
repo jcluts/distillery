@@ -74,7 +74,14 @@ export class ModelIdentityService {
 
   private loadOverrides(): Record<string, ModelIdentity> {
     const filePath = this.getRuntimePath()
-    if (!fs.existsSync(filePath)) return {}
+
+    // Seed from bundled defaults if runtime file doesn't exist
+    if (!fs.existsSync(filePath)) {
+      const defaults = this.getDefaults()
+      fs.mkdirSync(path.dirname(filePath), { recursive: true })
+      fs.writeFileSync(filePath, JSON.stringify(defaults, null, 2), 'utf8')
+      return defaults
+    }
 
     try {
       const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown
@@ -100,7 +107,10 @@ export class ModelIdentityService {
 
     for (const [id, identity] of Object.entries(overrides)) {
       const existing = this.identities.get(id)
-      this.identities.set(id, existing ? mergeIdentity(existing, identity) : cloneIdentity(identity))
+      this.identities.set(
+        id,
+        existing ? mergeIdentity(existing, identity) : cloneIdentity(identity)
+      )
     }
 
     return Object.fromEntries(this.identities.entries())
