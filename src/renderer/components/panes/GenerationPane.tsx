@@ -27,7 +27,6 @@ export function GenerationPane(): React.JSX.Element {
   const fieldsRef = React.useRef<FormFieldConfig[]>([])
 
   const filesByModelId = useModelStore((s) => s.filesByModelId)
-  const anyModelReady = Object.values(filesByModelId).some((f) => f.isReady)
 
   const generationMode = useGenerationStore((s) => s.generationMode)
   const formValues = useGenerationStore((s) => s.formValues)
@@ -55,10 +54,14 @@ export function GenerationPane(): React.JSX.Element {
   }, [endpointKey])
 
   const isRemoteEndpoint = endpoint?.executionMode === 'remote-async'
+  const isLocalEndpoint = endpoint?.providerId === 'local'
+  const selectedLocalModelId = isLocalEndpoint ? endpoint?.providerModelId : null
+  const selectedLocalModelReady = selectedLocalModelId
+    ? (filesByModelId[selectedLocalModelId]?.isReady ?? false)
+    : true
+
   const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
-  const generateDisabled = isRemoteEndpoint
-    ? !prompt.trim()
-    : !engineCanGenerate || !prompt.trim()
+  const generateDisabled = isRemoteEndpoint ? !prompt.trim() : !engineCanGenerate || !prompt.trim()
 
   // Callbacks for DynamicForm
   const handleFieldChange = React.useCallback(
@@ -105,11 +108,13 @@ export function GenerationPane(): React.JSX.Element {
     }
   }, [formValues, buildParams, addGeneration])
 
-  // Show setup wizard only when no local model is ready AND no remote endpoint is selected
-  if (!anyModelReady && !isRemoteEndpoint) {
+  // Show setup wizard when the selected local model needs to be downloaded
+  if (isLocalEndpoint && !selectedLocalModelReady && selectedLocalModelId) {
     return (
       <div className="space-y-4">
-        <ModelSetupWizard />
+        <ModeToggle />
+        <ModelSelector />
+        <ModelSetupWizard targetModelId={selectedLocalModelId} />
       </div>
     )
   }

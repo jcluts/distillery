@@ -133,10 +133,6 @@ export class ProviderConfigService {
   }
 
   private seedProfileProviderFiles(): void {
-    if (!app.isPackaged) {
-      return
-    }
-
     const defaultsByFileName = this.getBuiltInConfigsByFileName()
     seedRuntimeJsonDirectory(defaultsByFileName, this.getProviderOverridesDir())
   }
@@ -146,10 +142,6 @@ export class ProviderConfigService {
   }
 
   loadProfileOverrides(): ProviderConfig[] {
-    if (!app.isPackaged) {
-      return []
-    }
-
     this.seedProfileProviderFiles()
     return readJsonConfigsFromDirectory<ProviderConfig>({
       dirPath: this.getProviderOverridesDir(),
@@ -161,11 +153,6 @@ export class ProviderConfigService {
   loadMergedProviderConfigs(options?: { activeOnly?: boolean }): ProviderConfig[] {
     const activeOnly = options?.activeOnly !== false
     const builtIns = this.loadBuiltInConfigs()
-
-    if (!app.isPackaged) {
-      return activeOnly ? builtIns.filter((config) => config.enabled !== false) : builtIns
-    }
-
     const overrides = this.loadProfileOverrides()
 
     const map = new Map<string, ProviderConfig>()

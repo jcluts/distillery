@@ -25,13 +25,12 @@ interface ProviderOption {
   label: string
   endpointKey: string
   providerId: string
+  providerModelId: string
   isLocal: boolean
   isReady: boolean
 }
 
 export function ModelSelector(): React.JSX.Element {
-  const catalog = useModelStore((s) => s.catalog)
-  const settings = useModelStore((s) => s.settings)
   const filesByModelId = useModelStore((s) => s.filesByModelId)
   const setActiveModel = useModelStore((s) => s.setActiveModel)
 
@@ -53,7 +52,10 @@ export function ModelSelector(): React.JSX.Element {
 
   // Load endpoints and provider data on mount; re-fetch endpoints when user models change
   React.useEffect(() => {
-    window.api.listGenerationEndpoints().then(setEndpoints).catch(() => {})
+    window.api
+      .listGenerationEndpoints()
+      .then(setEndpoints)
+      .catch(() => {})
   }, [catalogVersion])
 
   React.useEffect(() => {
@@ -69,38 +71,23 @@ export function ModelSelector(): React.JSX.Element {
 
   // Build the model identity map: identityId → { identity, providers[] }
   const identityMap = React.useMemo(() => {
-    const map = new Map<
-      string,
-      { identity: ModelIdentity; providerOptions: ProviderOption[] }
-    >()
+    const map = new Map<string, { identity: ModelIdentity; providerOptions: ProviderOption[] }>()
 
-    // Add local models as identity entries
-    const localModels = (catalog?.models ?? []).filter((m) => m.type === 'image-generation')
-    for (const model of localModels) {
-      const isReady = filesByModelId[model.id]?.isReady ?? false
-      // Find matching endpoint
-      const ep =
-        modeEndpoints.find(
-          (e) =>
-            e.providerId === 'local' &&
-            e.providerModelId.includes(model.id.replace(/-/g, ''))
-        ) ?? modeEndpoints.find((e) => e.providerId === 'local')
+    // Add local models from endpoints (local.json is the sole source of truth)
+    const localEndpoints = modeEndpoints.filter((e) => e.providerId === 'local')
+    for (const ep of localEndpoints) {
+      const catalogModelId = ep.providerModelId
+      const isReady = filesByModelId[catalogModelId]?.isReady ?? false
 
-      if (!ep) continue // No endpoint matching current mode — skip this local model
-
-      // Find or create identity for this model
-      const identity = identities.find((id) =>
-        id.providerMapping?.local?.some((mid) =>
-          mid.includes(model.id.replace(/-/g, ''))
-        )
-      )
-      const identityId = identity?.id ?? `local-${model.id}`
+      // Find identity that maps this local model
+      const identity = identities.find((id) => id.providerMapping?.local?.includes(catalogModelId))
+      const identityId = identity?.id ?? `local-${catalogModelId}`
 
       if (!map.has(identityId)) {
         map.set(identityId, {
           identity: identity ?? {
             id: identityId,
-            name: model.name,
+            name: ep.displayName,
             providerMapping: {}
           },
           providerOptions: []
@@ -109,8 +96,9 @@ export function ModelSelector(): React.JSX.Element {
 
       map.get(identityId)!.providerOptions.push({
         label: 'Local (cn-engine)',
-        endpointKey: ep?.endpointKey ?? 'local.flux2-klein.image',
+        endpointKey: ep.endpointKey,
         providerId: 'local',
+        providerModelId: catalogModelId,
         isLocal: true,
         isReady
       })
@@ -125,8 +113,7 @@ export function ModelSelector(): React.JSX.Element {
 
         // Find matching endpoint from catalog.
         const ep = modeEndpoints.find(
-          (e) =>
-            e.providerId === provider.providerId && e.providerModelId === model.modelId
+          (e) => e.providerId === provider.providerId && e.providerModelId === model.modelId
         )
 
         if (!ep) continue // Wait for endpoints to load or skip invalid models
@@ -147,6 +134,7 @@ export function ModelSelector(): React.JSX.Element {
           label: provider.displayName ?? provider.providerId,
           endpointKey: ep.endpointKey,
           providerId: provider.providerId,
+          providerModelId: model.modelId,
           isLocal: false,
           isReady: true // API models are always "ready" if key is configured
         })
@@ -154,7 +142,7 @@ export function ModelSelector(): React.JSX.Element {
     }
 
     return map
-  }, [catalog, modeEndpoints, filesByModelId, identities, providers, userModelsByProvider])
+  }, [modeEndpoints, filesByModelId, identities, providers, userModelsByProvider])
 
   // Find currently selected identity and provider from endpointKey
   const currentEntry = React.useMemo(() => {
@@ -182,18 +170,19 @@ export function ModelSelector(): React.JSX.Element {
   React.useEffect(() => {
     if (currentEntry || identityEntries.length === 0) return
 
-    // Pick the first identity with a ready provider option
-    const firstReady = identityEntries.find((e) =>
-      e.providerOptions.some((p) => p.isReady)
-    )
+    // Pick the first identity with a ready provider option, fall back to first available
+    const firstReady = identityEntries.find((e) => e.providerOptions.some((p) => p.isReady))
     const fallback = firstReady ?? identityEntries[0]
     if (!fallback) return
 
     const local = fallback.providerOptions.find((p) => p.isLocal && p.isReady)
     const first = fallback.providerOptions[0]
     const chosen = local ?? first
-    if (chosen) setEndpointKey(chosen.endpointKey)
-  }, [currentEntry, identityEntries, setEndpointKey])
+    if (chosen) {
+      setEndpointKey(chosen.endpointKey)
+      if (chosen.isLocal) void setActiveModel(chosen.providerModelId)
+    }
+  }, [currentEntry, identityEntries, setEndpointKey, setActiveModel])
 
   // When model identity changes, pick the first available provider
   const handleModelChange = (identityId: string): void => {
@@ -211,14 +200,7 @@ export function ModelSelector(): React.JSX.Element {
     const chosen = local ?? first
     if (chosen) {
       setEndpointKey(chosen.endpointKey)
-
-      // If local, also set active model in model store
-      if (chosen.isLocal) {
-        const localModel = (catalog?.models ?? []).find((m) =>
-          chosen.endpointKey.includes(m.id.replace(/-/g, ''))
-        )
-        if (localModel) void setActiveModel(localModel.id)
-      }
+      if (chosen.isLocal) void setActiveModel(chosen.providerModelId)
     }
   }
 
@@ -229,26 +211,18 @@ export function ModelSelector(): React.JSX.Element {
     }
     setEndpointKey(newEndpointKey)
 
-    // If switching to local, ensure model is set
+    // If switching to local, set active model from the provider option
     const option = currentProviderOptions.find((p) => p.endpointKey === newEndpointKey)
     if (option?.isLocal) {
-      const localModel = (catalog?.models ?? []).find((m) =>
-        newEndpointKey.includes(m.id.replace(/-/g, ''))
-      )
-      if (localModel) void setActiveModel(localModel.id)
+      void setActiveModel(option.providerModelId)
     }
   }
-
-  const activeModelId = settings?.active_model_id ?? ''
 
   return (
     <div className="space-y-2">
       {/* Model selector */}
       <SectionLabel>Model</SectionLabel>
-      <Select
-        value={currentEntry?.identity.id ?? activeModelId}
-        onValueChange={handleModelChange}
-      >
+      <Select value={currentEntry?.identity.id ?? ''} onValueChange={handleModelChange}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select model" />
         </SelectTrigger>

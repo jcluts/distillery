@@ -72,7 +72,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   generationMode: 'text-to-image',
   formValues: {},
   refImages: [],
-  endpointKey: 'local.flux2-klein.image',
+  endpointKey: 'local.flux2-klein-4b.image',
 
   // Timeline
   generations: [],

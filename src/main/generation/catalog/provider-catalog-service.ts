@@ -5,8 +5,6 @@ import { normalizeRequestSchema, normalizeUiSchema } from './schema-normalizer'
 import { inferModeInfo } from './adapters/adapter-utils'
 import type { ProviderModel } from '../api/types'
 
-const DEFAULT_LOCAL_ENDPOINT_KEY = 'local.flux2-klein.image'
-
 /**
  * Provides the interface for user model access — implemented by ProviderManagerService.
  * This avoids a circular dependency: catalog doesn't import the manager, the manager
@@ -86,12 +84,7 @@ export class ProviderCatalogService {
       }
     }
 
-    // 3. Ensure default local endpoint exists
-    if (!endpoints.some((ep) => ep.endpointKey === DEFAULT_LOCAL_ENDPOINT_KEY)) {
-      endpoints.push(this.createDefaultLocalEndpoint())
-    }
-
-    // 4. Deduplicate (last wins)
+    // 3. Deduplicate (last wins)
     this.endpointsByKey = new Map(endpoints.map((ep) => [ep.endpointKey, ep]))
     this.dirty = false
   }
@@ -161,70 +154,6 @@ export class ProviderCatalogService {
       outputType: modeInfo.outputType,
       executionMode: provider.executionMode ?? 'remote-async',
       requestSchema: normalizeRequestSchema(model.requestSchema)
-    }
-  }
-
-  private createDefaultLocalEndpoint(): CanonicalEndpointDef {
-    return {
-      endpointKey: DEFAULT_LOCAL_ENDPOINT_KEY,
-      providerId: 'local',
-      providerModelId: 'flux2-klein',
-      displayName: 'FLUX.2 Klein (Local)',
-      modes: ['text-to-image', 'image-to-image'],
-      outputType: 'image',
-      executionMode: 'queued-local',
-      requestSchema: normalizeRequestSchema({
-        properties: {
-          prompt: {
-            type: 'string',
-            title: 'Prompt',
-            description: 'Describe what you want to see'
-          },
-          size: {
-            type: 'string',
-            title: 'Size',
-            default: '1024*1024',
-            minimum: 256,
-            maximum: 2048,
-            ui: { component: 'local-size', hideLabel: true }
-          },
-          steps: {
-            type: 'integer',
-            title: 'Steps',
-            description: 'Number of diffusion steps',
-            default: 4,
-            minimum: 1,
-            maximum: 10,
-            ui: { hidden: true }
-          },
-          sampling_method: {
-            type: 'string',
-            title: 'Sampler',
-            default: 'euler',
-            ui: { hidden: true, component: 'internal' }
-          },
-          seed: {
-            type: 'integer',
-            title: 'Seed',
-            description: 'Leave empty for random',
-            minimum: 0,
-            maximum: 2147483647,
-            ui: { hidden: true }
-          },
-          ref_image_ids: {
-            type: 'array',
-            items: { type: 'string' },
-            ui: { hidden: true, component: 'internal' }
-          },
-          ref_image_paths: {
-            type: 'array',
-            items: { type: 'string' },
-            ui: { hidden: true, component: 'internal' }
-          }
-        },
-        required: ['prompt'],
-        order: ['prompt', 'size', 'steps', 'seed', 'sampling_method']
-      })
     }
   }
 }

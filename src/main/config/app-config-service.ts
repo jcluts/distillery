@@ -121,9 +121,7 @@ export class AppConfigService {
     this.rawCache = next
     this.resolvedCache = null
 
-    if (app.isPackaged) {
-      writeJsonFile(this.getRuntimeConfigPath(), next)
-    }
+    writeJsonFile(this.getRuntimeConfigPath(), next)
 
     return this.loadResolvedPaths()
   }
