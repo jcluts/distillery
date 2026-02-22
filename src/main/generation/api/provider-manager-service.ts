@@ -75,7 +75,7 @@ export class ProviderManagerService implements UserModelSource {
   getProviders(): ProviderConfig[] {
     return this.configService
       .loadMergedProviderConfigs({ activeOnly: false })
-      .filter((provider) => provider.mode === 'remote-async')
+      .filter((provider) => provider.executionMode === 'remote-async')
   }
 
   getProviderConfig(providerId: string): ProviderConfig | null {

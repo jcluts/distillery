@@ -1,4 +1,4 @@
-import type { CanonicalRequestSchema } from '../../../types'
+import type { CanonicalRequestSchema, GenerationMode } from '../../../types'
 import { normalizeRequestSchema } from '../schema-normalizer'
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
@@ -40,14 +40,63 @@ export function toEndpointKey(providerId: string, modelId: string, outputType: '
   return `${providerId}.${modelId}.${outputType}`
 }
 
+/**
+ * Coerce a free-form type/category string from a provider API into a canonical GenerationMode.
+ * Returns undefined if the string doesn't map to a known mode.
+ */
+export function coerceGenerationMode(raw: string | null | undefined): GenerationMode | undefined {
+  if (!raw) return undefined
+  const haystack = raw.toLowerCase().trim()
+
+  if (haystack === 'text-to-image' || haystack === 'txt2img' || haystack === 't2i') {
+    return 'text-to-image'
+  }
+  if (
+    haystack === 'image-to-image' ||
+    haystack === 'img2img' ||
+    haystack === 'i2i' ||
+    haystack === 'edit' ||
+    haystack === 'image-editing'
+  ) {
+    return 'image-to-image'
+  }
+  if (haystack === 'text-to-video' || haystack === 'txt2vid') {
+    return 'text-to-video'
+  }
+  if (haystack === 'image-to-video' || haystack === 'img2vid') {
+    return 'image-to-video'
+  }
+
+  // Fuzzy fallbacks
+  if (haystack.includes('video')) {
+    return haystack.includes('image') ? 'image-to-video' : 'text-to-video'
+  }
+  if (haystack.includes('edit') || haystack.includes('img2img') || haystack.includes('image-to-image')) {
+    return 'image-to-image'
+  }
+  if (haystack.includes('image') || haystack.includes('generation')) {
+    return 'text-to-image'
+  }
+
+  return undefined
+}
+
 export function inferModeInfo(
-  type: string | undefined,
+  type: GenerationMode | string | undefined,
   modelId: string
 ): {
-  modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+  modes: GenerationMode[]
   outputType: 'image' | 'video'
 } {
-  const haystack = `${type ?? ''} ${modelId}`.toLowerCase()
+  // If type is already a valid GenerationMode, use it directly
+  const coerced = coerceGenerationMode(type)
+  if (coerced) {
+    const isVideo = coerced === 'text-to-video' || coerced === 'image-to-video'
+    return { modes: [coerced], outputType: isVideo ? 'video' : 'image' }
+  }
+
+  // Fall back to inferring from model ID
+  const haystack = modelId.toLowerCase()
 
   if (haystack.includes('video')) {
     return {

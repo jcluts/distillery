@@ -80,6 +80,7 @@ export interface CollectionUpdate {
 }
 
 // Generation types
+export type GenerationMode = 'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'
 export type GenerationStatus = 'pending' | 'completed' | 'failed'
 export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
@@ -246,7 +247,7 @@ export interface CanonicalEndpointDef {
   providerModelId: string
   canonicalModelId?: string
   displayName: string
-  modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+  modes: GenerationMode[]
   outputType: 'image' | 'video'
   executionMode: 'queued-local' | 'remote-async'
   requestSchema: CanonicalRequestSchema

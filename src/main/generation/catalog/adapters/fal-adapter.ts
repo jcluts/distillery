@@ -2,6 +2,7 @@ import type { SearchResultModel, ProviderModel } from '../../api/types'
 import type { ProviderConfig } from '../provider-config-service'
 import {
   asRecord,
+  coerceGenerationMode,
   extractRequestBodySchemaFromOpenApi,
   fallbackRequestSchema,
   getString,
@@ -24,11 +25,12 @@ export function normalizeFalSearchResult(raw: unknown, _config: ProviderConfig):
       modelId,
     description: getString(metadata.description) || getString(source.description) || undefined,
     type:
-      getString(metadata.category) ||
-      getString(source.category) ||
-      getString(source.task) ||
-      getString(source.type) ||
-      undefined,
+      coerceGenerationMode(
+        getString(metadata.category) ||
+        getString(source.category) ||
+        getString(source.task) ||
+        getString(source.type)
+      ),
     runCount: toOptionalNumber(source.run_count) ?? toOptionalNumber(metadata.run_count) ?? undefined,
     raw
   }

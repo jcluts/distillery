@@ -2,7 +2,7 @@
   "providerId": "local",
   "displayName": "Local cn-engine",
   "enabled": true,
-  "mode": "queued-local",
+  "executionMode": "queued-local",
   "endpoints": [
     {
       "endpointKey": "local.flux2-klein.image",

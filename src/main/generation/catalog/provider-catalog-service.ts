@@ -159,7 +159,7 @@ export class ProviderCatalogService {
       displayName: model.name?.trim() || model.modelId,
       modes: modeInfo.modes,
       outputType: modeInfo.outputType,
-      executionMode: provider.mode ?? 'remote-async',
+      executionMode: provider.executionMode ?? 'remote-async',
       requestSchema: normalizeRequestSchema(model.requestSchema)
     }
   }

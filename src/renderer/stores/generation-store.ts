@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GenerationRecord, GenerationSubmitInput } from '../types'
+import type { GenerationMode, GenerationRecord, GenerationSubmitInput } from '../types'
 
 // Populated lazily by App.tsx after the window.api bridge is available.
 // The store must not import from the renderer module graph to stay side-effect
@@ -15,6 +15,9 @@ declare const window: Window & { api: import('../types').DistilleryAPI }
 export type RefImage = { kind: 'id'; id: string } | { kind: 'path'; path: string }
 
 interface GenerationState {
+  // Active generation mode — controls which endpoints/models are shown
+  generationMode: GenerationMode
+
   // Dynamic form values keyed by schema property name
   formValues: Record<string, unknown>
 
@@ -40,6 +43,7 @@ interface GenerationState {
   reorderRefImages: (from: number, to: number) => void
   clearRefImages: () => void
   setEndpointKey: (key: string) => void
+  setGenerationMode: (mode: GenerationMode) => void
   /**
    * Fetch generation record + inputs for `id`, then atomically replace
    * formValues and refImages with the original settings.
@@ -65,6 +69,7 @@ interface GenerationState {
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   // Form defaults — populated by DynamicForm's onSetDefaults
+  generationMode: 'text-to-image',
   formValues: {},
   refImages: [],
   endpointKey: 'local.flux2-klein.image',
@@ -114,6 +119,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   clearRefImages: () => set({ refImages: [] }),
 
   setEndpointKey: (key) => set({ endpointKey: key }),
+
+  setGenerationMode: (mode) => set({ generationMode: mode }),
 
   reloadFromGeneration: async (id) => {
     const [gen, inputs] = await Promise.all([
