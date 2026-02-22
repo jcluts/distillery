@@ -186,28 +186,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   setDetailGenerationId: (id) => set({ detailGenerationId: id }),
 
-  // Build generation params — decompose size field into width/height for local engine
+  // Build generation params
   buildParams: (): GenerationSubmitInput => {
     const state = get()
     const values = { ...state.formValues }
-    const isLocal = state.endpointKey.startsWith('local.')
-
-    // Local engine expects separate width/height — decompose the combined
-    // size preset (e.g. "1024*1024") into numeric fields.  Remote providers
-    // use their own schema fields (which may include a "size" string) so
-    // leave them untouched.
-    if (isLocal) {
-      if (typeof values.size === 'string' && values.size.includes('*')) {
-        const [w, h] = values.size.split('*').map(Number)
-        values.width = Number.isFinite(w) ? w : 1024
-        values.height = Number.isFinite(h) ? h : 1024
-        delete values.size
-      }
-
-      // Default width/height if somehow missing
-      if (!values.width) values.width = 1024
-      if (!values.height) values.height = 1024
-    }
 
     // Attach reference images — split unified list back into ids/paths
     const refImageIds = state.refImages.filter((r) => r.kind === 'id').map((r) => r.id)

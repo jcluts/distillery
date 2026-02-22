@@ -76,11 +76,14 @@ src/
 │   │   ├── file-manager.ts         # Library root, directory layout, path resolution
 │   │   └── image-derivatives.ts    # Thumbnail + reference image generation (sharp)
 │   ├── generation/
-│   │   ├── generation-service.ts   # Submit/cancel orchestration
-│   │   ├── generation-io-service.ts # File I/O for ref images + output ingestion
-│   │   ├── catalog/                # Provider catalog: loading, normalization, adapters
-│   │   ├── providers/              # GenerationProvider interface + LocalCnProvider
-│   │   └── tasks/                  # WorkTaskHandler implementations
+│   │   ├── generation-service.ts    # Submit/cancel orchestration
+│   │   ├── media-ingestion-service.ts # Ref image prep + output ingestion to library
+│   │   ├── generate-task-handler.ts # Unified generation work-task handler
+│   │   ├── param-utils.ts           # Shared generation + adapter coercion utilities
+│   │   ├── providers/               # GenerationProvider interface + local/remote providers
+│   │   ├── remote/                  # API client, output downloader, adapter registry/adapters
+│   │   ├── browsing/                # Provider model browsing + user model management
+│   │   └── catalog/                 # Endpoint catalog + provider config + schema normalization
 │   ├── ipc/
 │   │   ├── channels.ts             # All IPC channel name constants
 │   │   └── handlers/               # IPC handler modules (library, generation, engine,
@@ -115,6 +118,8 @@ src/
     │   ├── library-store.ts        # Media list, selection, filters, sort
     │   ├── engine-store.ts         # Engine state mirror
     │   ├── generation-store.ts     # Form state + timeline records
+    │   ├── provider-store.ts       # Provider configs, API key presence, connection status
+    │   ├── model-browsing-store.ts # Provider model browsing, user models, identity mappings
     │   ├── queue-store.ts          # Work queue + active generation progress
     │   └── model-store.ts          # Catalog, settings, downloads, file presence
     ├── hooks/

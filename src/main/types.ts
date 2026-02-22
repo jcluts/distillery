@@ -184,24 +184,6 @@ export interface WorkTaskResult {
   error?: string
 }
 
-export interface GenerationOutputArtifact {
-  providerPath: string
-  mimeType?: string
-}
-
-export interface GenerationExecutionResult {
-  generationId: string
-  success: boolean
-  outputs?: GenerationOutputArtifact[]
-  metrics?: {
-    seed?: number
-    totalTimeMs?: number
-    promptCacheHit?: boolean
-    refLatentCacheHit?: boolean
-  }
-  error?: string
-}
-
 export interface GenerationProgressEvent {
   generationId: string
   providerId: string
@@ -252,16 +234,6 @@ export interface CanonicalEndpointDef {
   executionMode: 'queued-local' | 'remote-async'
   requestSchema: CanonicalRequestSchema
   uiSchema?: CanonicalUiSchema
-}
-
-export interface GenerationExecutionRequest {
-  generationId: string
-  endpoint: CanonicalEndpointDef
-  params: CanonicalGenerationParams
-  outputPath?: string
-  preparedInputs?: {
-    refImages: string[]
-  }
 }
 
 // Engine types

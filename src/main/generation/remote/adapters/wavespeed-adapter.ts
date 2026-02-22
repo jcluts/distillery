@@ -1,31 +1,22 @@
-import type { SearchResultModel, ProviderModel } from '../../api/types'
-import type { ProviderConfig } from '../provider-config-service'
-import {
-  asRecord,
-  coerceGenerationMode,
-  fallbackRequestSchema,
-  getString,
-  normalizeObjectSchema,
-  toOptionalNumber
-} from './adapter-utils'
+import { asRecord, asOptionalNumber, coerceGenerationMode, getString } from '../../param-utils'
+import type { SearchResultModel, ProviderModel } from '../../management/types'
+import type { ProviderConfig } from '../../catalog/provider-config'
+import { fallbackRequestSchema, normalizeObjectSchema } from './schema-utils'
+import type { ProviderAdapter } from './types'
 
 export function normalizeWavespeedSearchResult(
   raw: unknown,
   _config: ProviderConfig
 ): SearchResultModel {
   const source = asRecord(raw) ?? {}
-  const modelId =
-    getString(source.id) ||
-    getString(source.model_id) ||
-    getString(asRecord(source.data)?.id) ||
-    ''
+  const modelId = getString(source.id) || getString(source.model_id) || getString(asRecord(source.data)?.id) || ''
 
   return {
     modelId,
     name: getString(source.name) || getString(source.title) || modelId,
     description: getString(source.description) || undefined,
     type: coerceGenerationMode(getString(source.type) || getString(source.task_type)),
-    runCount: toOptionalNumber(source.run_count) ?? undefined,
+    runCount: asOptionalNumber(source.run_count) ?? undefined,
     raw
   }
 }
@@ -54,7 +45,7 @@ export function normalizeWavespeedModelDetail(
 
 function extractWavespeedRequestSchema(model: Record<string, unknown>) {
   const apiSchema = asRecord(model.api_schema)
-  const schemaList = Array.isArray(apiSchema?.api_schemas) ? apiSchema?.api_schemas : []
+  const schemaList = Array.isArray(apiSchema?.api_schemas) ? apiSchema.api_schemas : []
 
   for (const entry of schemaList) {
     const requestSchema = asRecord(asRecord(entry)?.request_schema)
@@ -67,4 +58,9 @@ function extractWavespeedRequestSchema(model: Record<string, unknown>) {
   }
 
   return null
+}
+
+export const wavespeedAdapter: ProviderAdapter = {
+  normalizeSearchResult: normalizeWavespeedSearchResult,
+  normalizeModelDetail: normalizeWavespeedModelDetail
 }

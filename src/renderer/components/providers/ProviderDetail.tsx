@@ -8,17 +8,12 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Separator } from '@/components/ui/separator'
-import {
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemActions,
-  ItemGroup
-} from '@/components/ui/item'
+import { Item, ItemContent, ItemTitle, ItemActions, ItemGroup } from '@/components/ui/item'
 import { cn } from '@/lib/utils'
 import { ModelBrowser } from '@/components/providers/ModelBrowser'
 import { IdentityMappingSelect } from '@/components/providers/IdentityMappingSelect'
 import { useProviderStore } from '@/stores/provider-store'
+import { useModelBrowsingStore } from '@/stores/model-browsing-store'
 import type { ProviderConfig } from '@/types'
 
 // Provider key management URLs
@@ -36,11 +31,11 @@ export function ProviderDetail({ providerId }: ProviderDetailProps): React.JSX.E
   const providers = useProviderStore((s) => s.providers)
   const connectionStatus = useProviderStore((s) => s.connectionStatus)
   const testConnection = useProviderStore((s) => s.testConnection)
-  const userModelsByProvider = useProviderStore((s) => s.userModelsByProvider)
-  const removeUserModel = useProviderStore((s) => s.removeUserModel)
-  const loadUserModels = useProviderStore((s) => s.loadUserModels)
   const hasApiKey = useProviderStore((s) => s.hasApiKey)
   const checkApiKeyPresence = useProviderStore((s) => s.checkApiKeyPresence)
+  const userModelsByProvider = useModelBrowsingStore((s) => s.userModelsByProvider)
+  const removeUserModel = useModelBrowsingStore((s) => s.removeUserModel)
+  const loadUserModels = useModelBrowsingStore((s) => s.loadUserModels)
 
   const provider = providers.find((p) => p.providerId === providerId) ?? null
   const connInfo = connectionStatus[providerId]
@@ -123,8 +118,16 @@ export function ProviderDetail({ providerId }: ProviderDetailProps): React.JSX.E
           keyUrl={keyUrl}
           onApiKeyChange={setApiKey}
           onToggleShowKey={() => setShowKey((prev) => !prev)}
-          onStartEditing={() => { setIsEditing(true); setSaveError(null) }}
-          onCancelEditing={() => { setIsEditing(false); setApiKey(''); setShowKey(false); setSaveError(null) }}
+          onStartEditing={() => {
+            setIsEditing(true)
+            setSaveError(null)
+          }}
+          onCancelEditing={() => {
+            setIsEditing(false)
+            setApiKey('')
+            setShowKey(false)
+            setSaveError(null)
+          }}
           onSaveKey={handleSaveKey}
           onTestConnection={handleTestConnection}
         />
@@ -160,7 +163,9 @@ export function ProviderDetail({ providerId }: ProviderDetailProps): React.JSX.E
                         {model.modelId !== model.name && (
                           <>
                             <span className="shrink-0 text-muted-foreground/40">·</span>
-                            <span className="truncate text-muted-foreground font-normal">{model.modelId}</span>
+                            <span className="truncate text-muted-foreground font-normal">
+                              {model.modelId}
+                            </span>
                           </>
                         )}
                       </ItemTitle>
@@ -282,9 +287,7 @@ function ApiKeySection({
             </Button>
           )}
         </div>
-        {saveError && (
-          <p className="text-xs text-destructive pl-[4.5rem]">{saveError}</p>
-        )}
+        {saveError && <p className="text-xs text-destructive pl-[4.5rem]">{saveError}</p>}
       </div>
     )
   }
@@ -293,9 +296,7 @@ function ApiKeySection({
   return (
     <div className="flex items-center gap-2">
       <SectionLabel className="shrink-0">API Key</SectionLabel>
-      <span className="text-xs text-muted-foreground tracking-wider select-none">
-        ••••••••••••
-      </span>
+      <span className="text-xs text-muted-foreground tracking-wider select-none">••••••••••••</span>
 
       <Button variant="ghost" size="sm" className="h-7 px-2" onClick={onStartEditing}>
         <Pencil className="size-3" />

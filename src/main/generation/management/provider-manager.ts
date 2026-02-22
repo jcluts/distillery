@@ -1,13 +1,12 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
-import { getDatabase } from '../../db/connection'
+import type Database from 'better-sqlite3'
 import * as settingsRepo from '../../db/repositories/settings'
 import type { AppSettings } from '../../types'
-import type { UserModelSource, ProviderCatalogService } from '../catalog/provider-catalog-service'
 import type { ModelIdentityService } from '../catalog/model-identity-service'
-import type { ProviderConfigService, ProviderConfig } from '../catalog/provider-config-service'
-import { ApiClient } from './api-client'
+import type { ProviderConfigService, ProviderConfig } from '../catalog/provider-config'
+import { ApiClient } from '../remote/api-client'
 import type { ProviderModel, SearchResult } from './types'
 
 function isProviderModel(value: unknown): value is ProviderModel {
@@ -22,40 +21,30 @@ function isProviderModel(value: unknown): value is ProviderModel {
   )
 }
 
-/**
- * Orchestrates provider state: configs, API keys, model browsing, and user model persistence.
- * Implements UserModelSource so the catalog can pull user models without a circular dependency.
- */
-export class ProviderManagerService implements UserModelSource {
+export class ProviderManager {
+  private db: Database.Database
   private configService: ProviderConfigService
   private identityService: ModelIdentityService
-  private catalogService: ProviderCatalogService | null = null
+  private onModelsChanged?: () => void
   private userModelsByProvider = new Map<string, ProviderModel[]>()
 
-  constructor(configService: ProviderConfigService, identityService: ModelIdentityService) {
-    this.configService = configService
-    this.identityService = identityService
+  constructor(args: {
+    db: Database.Database
+    configService: ProviderConfigService
+    identityService: ModelIdentityService
+    onModelsChanged?: () => void
+  }) {
+    this.db = args.db
+    this.configService = args.configService
+    this.identityService = args.identityService
+    this.onModelsChanged = args.onModelsChanged
   }
-
-  /**
-   * Called once during init, after both services exist.
-   * Registers this service as the catalog's user model source.
-   */
-  setCatalogService(catalogService: ProviderCatalogService): void {
-    this.catalogService = catalogService
-    catalogService.setUserModelSource(this)
-  }
-
-  // ---------------------------------------------------------------------------
-  // UserModelSource implementation (called by ProviderCatalogService)
-  // ---------------------------------------------------------------------------
 
   getProvidersWithUserModels(): Array<{ providerId: string; models: ProviderModel[] }> {
-    // Ensure all remote providers have their user models loaded
     const providers = this.getProviders()
-    for (const p of providers) {
-      if (!this.userModelsByProvider.has(p.providerId)) {
-        this.loadUserModelsFromDisk(p.providerId)
+    for (const provider of providers) {
+      if (!this.userModelsByProvider.has(provider.providerId)) {
+        this.loadUserModelsFromDisk(provider.providerId)
       }
     }
 
@@ -68,10 +57,6 @@ export class ProviderManagerService implements UserModelSource {
     return result
   }
 
-  // ---------------------------------------------------------------------------
-  // Provider queries
-  // ---------------------------------------------------------------------------
-
   getProviders(): ProviderConfig[] {
     return this.configService
       .loadMergedProviderConfigs({ activeOnly: false })
@@ -79,23 +64,18 @@ export class ProviderManagerService implements UserModelSource {
   }
 
   getProviderConfig(providerId: string): ProviderConfig | null {
-    return this.getProviders().find((p) => p.providerId === providerId) ?? null
+    return this.getProviders().find((provider) => provider.providerId === providerId) ?? null
   }
 
   getApiKey(providerId: string): string {
     const provider = this.getProviderConfig(providerId)
     if (!provider?.auth?.settingsKey) return ''
-    const db = getDatabase()
-    return settingsRepo.getSetting(db, provider.auth.settingsKey as keyof AppSettings) as string
+    return settingsRepo.getSetting(this.db, provider.auth.settingsKey as keyof AppSettings) as string
   }
 
   isProviderConfigured(providerId: string): boolean {
     return this.getApiKey(providerId).trim().length > 0
   }
-
-  // ---------------------------------------------------------------------------
-  // Model browsing (delegates to ApiClient)
-  // ---------------------------------------------------------------------------
 
   async searchModels(providerId: string, query: string): Promise<SearchResult> {
     const client = this.createApiClient(providerId)
@@ -114,10 +94,6 @@ export class ProviderManagerService implements UserModelSource {
     return model ? this.attachIdentity(model) : null
   }
 
-  // ---------------------------------------------------------------------------
-  // User model management
-  // ---------------------------------------------------------------------------
-
   getUserModels(providerId: string): ProviderModel[] {
     if (!this.userModelsByProvider.has(providerId)) {
       this.loadUserModelsFromDisk(providerId)
@@ -131,7 +107,7 @@ export class ProviderManagerService implements UserModelSource {
     deduped.push(this.attachIdentity(model))
     this.userModelsByProvider.set(providerId, deduped)
     this.persistUserModels(providerId)
-    this.catalogService?.invalidate()
+    this.onModelsChanged?.()
   }
 
   removeUserModel(providerId: string, modelId: string): void {
@@ -139,12 +115,8 @@ export class ProviderManagerService implements UserModelSource {
     const next = current.filter((entry) => entry.modelId !== modelId)
     this.userModelsByProvider.set(providerId, next)
     this.persistUserModels(providerId)
-    this.catalogService?.invalidate()
+    this.onModelsChanged?.()
   }
-
-  // ---------------------------------------------------------------------------
-  // Connection testing
-  // ---------------------------------------------------------------------------
 
   async testConnection(providerId: string): Promise<{ valid: boolean; error?: string }> {
     try {
@@ -165,10 +137,6 @@ export class ProviderManagerService implements UserModelSource {
       }
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
 
   private createApiClient(providerId: string): ApiClient {
     const provider = this.getProviderConfig(providerId)

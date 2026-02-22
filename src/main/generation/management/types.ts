@@ -1,4 +1,4 @@
-import type { CanonicalRequestSchema, GenerationMode, GenerationOutputArtifact } from '../../types'
+import type { CanonicalRequestSchema, GenerationMode } from '../../types'
 
 export interface SearchResult {
   models: SearchResultModel[]
@@ -22,16 +22,4 @@ export interface ProviderModel {
   providerId: string
   requestSchema: CanonicalRequestSchema
   modelIdentityId?: string
-}
-
-export interface GenerationResult {
-  success: boolean
-  outputs: GenerationOutputArtifact[]
-  error?: string
-  metrics?: {
-    seed?: number
-    totalTimeMs?: number
-    promptCacheHit?: boolean
-    refLatentCacheHit?: boolean
-  }
 }

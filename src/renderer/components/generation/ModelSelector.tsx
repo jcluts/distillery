@@ -11,6 +11,7 @@ import {
 import { SectionLabel } from '@/components/ui/section-label'
 import { useModelStore } from '@/stores/model-store'
 import { useProviderStore } from '@/stores/provider-store'
+import { useModelBrowsingStore } from '@/stores/model-browsing-store'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useUIStore } from '@/stores/ui-store'
 import type { CanonicalEndpointDef, ModelIdentity } from '@/types'
@@ -35,12 +36,11 @@ export function ModelSelector(): React.JSX.Element {
   const setActiveModel = useModelStore((s) => s.setActiveModel)
 
   const providers = useProviderStore((s) => s.providers)
-  const userModelsByProvider = useProviderStore((s) => s.userModelsByProvider)
-  const identities = useProviderStore((s) => s.identities)
   const loadProviders = useProviderStore((s) => s.loadProviders)
-  const loadAllUserModels = useProviderStore((s) => s.loadAllUserModels)
-  const loadIdentities = useProviderStore((s) => s.loadIdentities)
-  const catalogVersion = useProviderStore((s) => s.catalogVersion)
+  const identities = useModelBrowsingStore((s) => s.identities)
+  const loadAllUserModels = useModelBrowsingStore((s) => s.loadAllUserModels)
+  const loadIdentities = useModelBrowsingStore((s) => s.loadIdentities)
+  const catalogVersion = useModelBrowsingStore((s) => s.catalogVersion)
 
   const endpointKey = useGenerationStore((s) => s.endpointKey)
   const setEndpointKey = useGenerationStore((s) => s.setEndpointKey)
@@ -69,80 +69,52 @@ export function ModelSelector(): React.JSX.Element {
     [endpoints, generationMode]
   )
 
-  // Build the model identity map: identityId → { identity, providers[] }
+  const providerDisplayNames = React.useMemo(
+    () =>
+      Object.fromEntries(
+        providers.map((provider) => [provider.providerId, provider.displayName ?? provider.providerId])
+      ),
+    [providers]
+  )
+
   const identityMap = React.useMemo(() => {
     const map = new Map<string, { identity: ModelIdentity; providerOptions: ProviderOption[] }>()
 
-    // Add local models from endpoints (local.json is the sole source of truth)
-    const localEndpoints = modeEndpoints.filter((e) => e.providerId === 'local')
-    for (const ep of localEndpoints) {
-      const catalogModelId = ep.providerModelId
-      const isReady = filesByModelId[catalogModelId]?.isReady ?? false
+    for (const endpoint of modeEndpoints) {
+      const isLocal = endpoint.providerId === 'local'
+      const isReady = isLocal ? (filesByModelId[endpoint.providerModelId]?.isReady ?? false) : true
+      const identityId = endpoint.canonicalModelId ?? `${endpoint.providerId}-${endpoint.providerModelId}`
+      const identity =
+        identities.find((entry) => entry.id === identityId) ??
+        identities.find((entry) =>
+          entry.providerMapping?.[endpoint.providerId]?.includes(endpoint.providerModelId)
+        )
+      const resolvedIdentityId = identity?.id ?? identityId
+      const label = isLocal ? 'Local (cn-engine)' : (providerDisplayNames[endpoint.providerId] ?? endpoint.providerId)
 
-      // Find identity that maps this local model
-      const identity = identities.find((id) => id.providerMapping?.local?.includes(catalogModelId))
-      const identityId = identity?.id ?? `local-${catalogModelId}`
-
-      if (!map.has(identityId)) {
-        map.set(identityId, {
+      if (!map.has(resolvedIdentityId)) {
+        map.set(resolvedIdentityId, {
           identity: identity ?? {
-            id: identityId,
-            name: ep.displayName,
+            id: resolvedIdentityId,
+            name: endpoint.displayName,
             providerMapping: {}
           },
           providerOptions: []
         })
       }
 
-      map.get(identityId)!.providerOptions.push({
-        label: 'Local (cn-engine)',
-        endpointKey: ep.endpointKey,
-        providerId: 'local',
-        providerModelId: catalogModelId,
-        isLocal: true,
+      map.get(resolvedIdentityId)!.providerOptions.push({
+        label,
+        endpointKey: endpoint.endpointKey,
+        providerId: endpoint.providerId,
+        providerModelId: endpoint.providerModelId,
+        isLocal,
         isReady
       })
     }
 
-    // Add API provider models
-    const apiProviders = providers.filter((p) => p.executionMode === 'remote-async')
-    for (const provider of apiProviders) {
-      const userModels = userModelsByProvider[provider.providerId] ?? []
-      for (const model of userModels) {
-        const identityId = model.modelIdentityId ?? `${provider.providerId}-${model.modelId}`
-
-        // Find matching endpoint from catalog.
-        const ep = modeEndpoints.find(
-          (e) => e.providerId === provider.providerId && e.providerModelId === model.modelId
-        )
-
-        if (!ep) continue // Wait for endpoints to load or skip invalid models
-
-        if (!map.has(identityId)) {
-          const existingIdentity = identities.find((i) => i.id === identityId)
-          map.set(identityId, {
-            identity: existingIdentity ?? {
-              id: identityId,
-              name: model.name,
-              providerMapping: {}
-            },
-            providerOptions: []
-          })
-        }
-
-        map.get(identityId)!.providerOptions.push({
-          label: provider.displayName ?? provider.providerId,
-          endpointKey: ep.endpointKey,
-          providerId: provider.providerId,
-          providerModelId: model.modelId,
-          isLocal: false,
-          isReady: true // API models are always "ready" if key is configured
-        })
-      }
-    }
-
     return map
-  }, [modeEndpoints, filesByModelId, identities, providers, userModelsByProvider])
+  }, [modeEndpoints, filesByModelId, identities, providerDisplayNames])
 
   // Find currently selected identity and provider from endpointKey
   const currentEntry = React.useMemo(() => {

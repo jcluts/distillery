@@ -10,15 +10,20 @@ import { TimelineService } from './timeline/timeline-service'
 import { WorkQueueManager } from './queue/work-queue-manager'
 import { WORK_TASK_TYPES } from './queue/work-task-types'
 import { FileManager } from './files/file-manager'
-import { GenerationIOService } from './generation/generation-io-service'
+import { MediaIngestionService } from './generation/media-ingestion-service'
 import { GenerationService } from './generation/generation-service'
-import { LocalCnEngineProvider } from './generation/providers/local-cn-provider'
-import { ProviderCatalogService } from './generation/catalog/provider-catalog-service'
-import { ProviderConfigService } from './generation/catalog/provider-config-service'
+import { LocalCnProvider } from './generation/providers/local-cn-provider'
+import { RemoteApiProvider } from './generation/providers/remote-api-provider'
+import { ProviderRegistry } from './generation/providers/provider-registry'
+import { EndpointCatalog } from './generation/catalog/endpoint-catalog'
+import { ProviderConfigService } from './generation/catalog/provider-config'
 import { ModelIdentityService } from './generation/catalog/model-identity-service'
-import { ProviderManagerService } from './generation/api/provider-manager-service'
-import { LocalGenerateTaskHandler } from './generation/tasks/local-generate-task'
-import { RemoteGenerateTaskHandler } from './generation/tasks/remote-generate-task'
+import { ProviderManager } from './generation/management/provider-manager'
+import { GenerateTaskHandler } from './generation/generate-task-handler'
+import { registerProviderAdapter } from './generation/remote/adapters/adapter-registry'
+import { falAdapter } from './generation/remote/adapters/fal-adapter'
+import { replicateAdapter } from './generation/remote/adapters/replicate-adapter'
+import { wavespeedAdapter } from './generation/remote/adapters/wavespeed-adapter'
 import { IPC_CHANNELS } from './ipc/channels'
 import { registerLibraryHandlers } from './ipc/handlers/library'
 import { registerGenerationHandlers } from './ipc/handlers/generation'
@@ -298,57 +303,69 @@ app.whenReady().then(async () => {
 
   // Initialize work queue + generation services
   workQueueManager = new WorkQueueManager(db)
-  const generationIOService = new GenerationIOService(db, fileManager)
+  const mediaIngestionService = new MediaIngestionService(db, fileManager)
   const providerConfigService = new ProviderConfigService()
   const modelIdentityService = new ModelIdentityService()
   modelIdentityService.loadIdentities()
 
-  const providerCatalogService = new ProviderCatalogService(providerConfigService)
-  const providerManagerService = new ProviderManagerService(
-    providerConfigService,
-    modelIdentityService
-  )
-  // Wire the two-way relationship: manager provides user models to catalog
-  providerManagerService.setCatalogService(providerCatalogService)
+  registerProviderAdapter('fal', falAdapter)
+  registerProviderAdapter('replicate', replicateAdapter)
+  registerProviderAdapter('wavespeed', wavespeedAdapter)
 
-  const localProvider = new LocalCnEngineProvider(engineManager)
+  let endpointCatalog: EndpointCatalog
+  const providerManagerService = new ProviderManager({
+    db,
+    configService: providerConfigService,
+    identityService: modelIdentityService,
+    onModelsChanged: () => endpointCatalog.invalidate()
+  })
+
+  endpointCatalog = new EndpointCatalog(providerConfigService, () =>
+    providerManagerService.getProvidersWithUserModels()
+  )
+
+  const providerRegistry = new ProviderRegistry()
+  const localProvider = new LocalCnProvider({
+    engineManager,
+    db,
+    modelCatalogService
+  })
+  providerRegistry.register(localProvider)
+
+  const remoteProviderConfigs = providerManagerService.getProviders()
+  for (const providerConfig of remoteProviderConfigs) {
+    providerRegistry.register(
+      new RemoteApiProvider(providerConfig, () =>
+        providerManagerService.getApiKey(providerConfig.providerId)
+      )
+    )
+  }
 
   generationService = new GenerationService({
     db,
     workQueueManager,
-    generationIOService,
-    providerCatalogService
+    mediaIngestionService,
+    endpointCatalog
   })
 
-  localProvider.on('progress', (event) => {
-    generationService?.emitProgress(event)
-  })
+  for (const provider of providerRegistry.list()) {
+    provider.on?.('progress', (event) => {
+      generationService?.emitProgress(event)
+    })
+  }
 
   workQueueManager.registerHandler(
-    WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE,
-    new LocalGenerateTaskHandler({
+    WORK_TASK_TYPES.GENERATION,
+    new GenerateTaskHandler({
       db,
-      generationIOService,
-      localProvider,
-      providerCatalogService,
       generationService,
-      engineManager,
-      modelCatalogService
+      mediaIngestionService,
+      endpointCatalog,
+      providerRegistry
     })
   )
 
-  workQueueManager.registerHandler(
-    WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE,
-    new RemoteGenerateTaskHandler(
-      db,
-      generationService,
-      generationIOService,
-      providerManagerService
-    )
-  )
-
-  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE, 1)
-  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.GENERATION_REMOTE_IMAGE, 4)
+  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.GENERATION, 4)
 
   console.log('[Main] Work queue + generation services initialized')
 

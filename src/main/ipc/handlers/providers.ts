@@ -1,11 +1,11 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../channels'
-import type { ProviderManagerService } from '../../generation/api/provider-manager-service'
-import type { ProviderModel } from '../../generation/api/types'
+import type { ProviderManager } from '../../generation/management/provider-manager'
+import type { ProviderModel } from '../../generation/management/types'
 import type { ModelIdentityService } from '../../generation/catalog/model-identity-service'
 
 export function registerProviderHandlers(options: {
-  providerManagerService: ProviderManagerService
+  providerManagerService: ProviderManager
   modelIdentityService: ModelIdentityService
 }): void {
   const { providerManagerService, modelIdentityService } = options

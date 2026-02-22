@@ -1,11 +1,22 @@
 import { randomInt } from 'crypto'
-import type { CanonicalGenerationParams } from '../types'
+import type { CanonicalGenerationParams, GenerationMode } from '../types'
 
 /**
  * Coerce an unknown value to a string. Returns '' for null/undefined.
  */
 export function asString(value: unknown): string {
   return typeof value === 'string' ? value : String(value ?? '')
+}
+
+export function getString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+export function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') return null
+  return value as Record<string, unknown>
 }
 
 /**
@@ -25,6 +36,8 @@ export function asOptionalNumber(value: unknown): number | null {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }
+
+export const toOptionalNumber = asOptionalNumber
 
 /**
  * Parse width and height from params. Handles both separate width/height
@@ -69,8 +82,77 @@ export function resolveOrGenerateSeed(value: unknown): number {
 /**
  * Return params with a resolved seed (random if blank/missing).
  */
-export function withResolvedSeed(
-  params: CanonicalGenerationParams
-): CanonicalGenerationParams {
+export function withResolvedSeed(params: CanonicalGenerationParams): CanonicalGenerationParams {
   return { ...params, seed: resolveOrGenerateSeed(params.seed) }
+}
+
+export function coerceGenerationMode(raw: string | null | undefined): GenerationMode | undefined {
+  if (!raw) return undefined
+  const haystack = raw.toLowerCase().trim()
+
+  if (haystack === 'text-to-image' || haystack === 'txt2img' || haystack === 't2i') {
+    return 'text-to-image'
+  }
+  if (
+    haystack === 'image-to-image' ||
+    haystack === 'img2img' ||
+    haystack === 'i2i' ||
+    haystack === 'edit' ||
+    haystack === 'image-editing'
+  ) {
+    return 'image-to-image'
+  }
+  if (haystack === 'text-to-video' || haystack === 'txt2vid') {
+    return 'text-to-video'
+  }
+  if (haystack === 'image-to-video' || haystack === 'img2vid') {
+    return 'image-to-video'
+  }
+
+  if (haystack.includes('video')) {
+    return haystack.includes('image') ? 'image-to-video' : 'text-to-video'
+  }
+  if (
+    haystack.includes('edit') ||
+    haystack.includes('img2img') ||
+    haystack.includes('image-to-image')
+  ) {
+    return 'image-to-image'
+  }
+  if (haystack.includes('image') || haystack.includes('generation')) {
+    return 'text-to-image'
+  }
+
+  return undefined
+}
+
+export function inferModeInfo(
+  type: GenerationMode | string | undefined,
+  modelId: string
+): {
+  modes: GenerationMode[]
+  outputType: 'image' | 'video'
+} {
+  const coerced = coerceGenerationMode(type)
+  if (coerced) {
+    const isVideo = coerced === 'text-to-video' || coerced === 'image-to-video'
+    return { modes: [coerced], outputType: isVideo ? 'video' : 'image' }
+  }
+
+  const haystack = modelId.toLowerCase()
+
+  if (haystack.includes('video')) {
+    return {
+      modes: haystack.includes('image') ? ['image-to-video'] : ['text-to-video'],
+      outputType: 'video'
+    }
+  }
+
+  return {
+    modes:
+      haystack.includes('edit') || haystack.includes('image-to-image')
+        ? ['image-to-image']
+        : ['text-to-image'],
+    outputType: 'image'
+  }
 }

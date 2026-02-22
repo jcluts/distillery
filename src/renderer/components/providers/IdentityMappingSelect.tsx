@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { useProviderStore } from '@/stores/provider-store'
+import { useModelBrowsingStore } from '@/stores/model-browsing-store'
 
 const NONE_VALUE = '__none__'
 const CREATE_VALUE = '__create__'
@@ -45,9 +45,9 @@ export function IdentityMappingSelect({
   modelId,
   currentIdentityId
 }: IdentityMappingSelectProps): React.JSX.Element {
-  const identities = useProviderStore((s) => s.identities)
-  const setModelIdentity = useProviderStore((s) => s.setModelIdentity)
-  const loadIdentities = useProviderStore((s) => s.loadIdentities)
+  const identities = useModelBrowsingStore((s) => s.identities)
+  const setModelIdentity = useModelBrowsingStore((s) => s.setModelIdentity)
+  const loadIdentities = useModelBrowsingStore((s) => s.loadIdentities)
 
   const [showCreate, setShowCreate] = React.useState(false)
   const [newName, setNewName] = React.useState('')
@@ -84,10 +84,7 @@ export function IdentityMappingSelect({
 
   return (
     <>
-      <Select
-        value={currentIdentityId ?? NONE_VALUE}
-        onValueChange={handleChange}
-      >
+      <Select value={currentIdentityId ?? NONE_VALUE} onValueChange={handleChange}>
         <SelectTrigger className="h-7 w-[140px] text-xs">
           <SelectValue placeholder="Link identity…" />
         </SelectTrigger>
@@ -145,7 +142,11 @@ export function IdentityMappingSelect({
             <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>
               Cancel
             </Button>
-            <Button size="sm" disabled={!newName.trim() || !derivedId} onClick={() => void handleCreate()}>
+            <Button
+              size="sm"
+              disabled={!newName.trim() || !derivedId}
+              onClick={() => void handleCreate()}
+            >
               Create
             </Button>
           </DialogFooter>
