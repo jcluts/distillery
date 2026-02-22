@@ -14,16 +14,22 @@ Distillery is a desktop application for local AI image generation and media mana
 
 ## 2. Agent Rules
 
-### CSS and Components
-- **Religiously use shadcn/ui for any UI elements where they have a suitable component.**
-- **Use Tailwind for all other CSS.**
-- **Custom CSS classes should be a last resort when a UI element cannot otherwise be realized.**
+### Important Architecture Guidance
 
-### Leave No Legacy
-- This application is a fresh start. There are no users other than the developer.
-- Never, under any circumstance, leave behind "legacy" code or "compatibility" code.
+**The following rules most be followed at all times:**
 - Relentlessly pursue a clean, uncluttered, solid foundation.
-- Always leave the application working and fully functional after every update or refactor, but never leave code behind "just in case".
+- Always take a holistic view of the architecture and work towards the cleanest, most elegant solution. 
+- Do not overengineer solutions and create an overcomplicated codebase, *use the simplest architecture that satisfies all requirements*. 
+- Adhere to DRY principles at all times, reducing redundant code and looking for opportunities to consolidate similar code.  
+- Always delete dead code, never keep something "just in case". You're not going to need it. 
+- Never, under any circumstance, leave behind "legacy" or "compatibility" code.
+- Never take an ad-hoc approach, slapping on band-aids to address issues rather than creating the properly architected solution. 
+- This application is a fresh start with zero users at the moment, never worry about breaking changes or backwards compatibility.
+
+### CSS and Components
+- Religiously use shadcn/ui for any UI elements where they have a suitable component.
+- Use Tailwind for all other CSS.
+- Custom CSS classes should be a last resort when a UI element cannot otherwise be realized.
 
 ### UI/UX Aesthetic
 - Professional, clean, and elegant at all times.
