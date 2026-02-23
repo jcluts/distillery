@@ -11,7 +11,8 @@
       "mcp__ide__getDiagnostics",
       "WebFetch(domain:docs.fal.ai)",
       "WebFetch(domain:wavespeed.ai)",
-      "WebFetch(domain:replicate.com)"
+      "WebFetch(domain:replicate.com)",
+      "Bash(npx shadcn@latest list:*)"
     ]
   }
 }
