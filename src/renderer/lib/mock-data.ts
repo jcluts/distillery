@@ -24,6 +24,7 @@ export function createMockMediaPage(count = 96): MediaPage {
       origin: isGenerated ? 'generation' : 'import',
       width,
       height,
+      duration: null,
       file_size: 1024 * 1024 * (i % 7 === 0 ? 3 : 2),
       rating: clampRating((i % 7) - 1),
       status: i % 11 === 0 ? 'selected' : i % 13 === 0 ? 'rejected' : null,

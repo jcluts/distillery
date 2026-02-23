@@ -32,6 +32,7 @@ import { InfoTable } from '@/components/ui/info-table'
 import { useCollectionStore } from '@/stores/collection-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { cn } from '@/lib/utils'
+import { formatDuration } from '@/lib/media'
 import type { MediaStatus, MediaUpdate } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -444,13 +445,18 @@ export function MediaInfoPane(): React.JSX.Element {
                 label: 'Dimensions',
                 value: media?.width && media?.height ? `${media.width} × ${media.height}` : '—'
               },
-              {
-                label: 'Megapixels',
-                value:
-                  media?.width && media?.height
-                    ? `${((media.width * media.height) / 1_000_000).toFixed(1)} MP`
-                    : '—'
-              },
+              media?.media_type === 'video'
+                ? {
+                    label: 'Duration',
+                    value: media.duration !== null ? formatDuration(media.duration) : '—'
+                  }
+                : {
+                    label: 'Megapixels',
+                    value:
+                      media?.width && media?.height
+                        ? `${((media.width * media.height) / 1_000_000).toFixed(1)} MP`
+                        : '—'
+                  },
               { label: 'Origin', value: media?.origin ?? '—' }
             ]}
           />
@@ -502,7 +508,7 @@ export function MediaInfoPane(): React.JSX.Element {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  {isMulti ? `Delete ${deleteCount} images` : 'Delete image'}
+                  {isMulti ? `Delete ${deleteCount} items` : 'Delete item'}
                 </TooltipContent>
               </Tooltip>
               {canRemoveFromCollection && (

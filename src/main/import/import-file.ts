@@ -6,6 +6,11 @@ import { v4 as uuidv4 } from 'uuid'
 
 import { FileManager } from '../files/file-manager'
 import { createThumbnail } from '../files/image-derivatives'
+import {
+  extractVideoThumbnail,
+  getVideoMetadata,
+  isVideoExtension
+} from '../files/video-derivatives'
 import type { ImportFolderMode, MediaRecord } from '../types'
 import * as mediaRepo from '../db/repositories/media'
 import * as keywordsRepo from '../db/repositories/keywords'
@@ -53,6 +58,8 @@ export async function importSingleFile(
 
   const mediaId = uuidv4()
   const now = new Date().toISOString()
+  const sourceExt = path.extname(sourceAbsPath).toLowerCase()
+  const isVideo = isVideoExtension(sourceExt)
 
   let storedFilePath: string
   let fileName: string
@@ -85,13 +92,29 @@ export async function importSingleFile(
 
   try {
     const stat = await fs.promises.stat(finalAbsPath)
-    const meta = await sharp(finalAbsPath).metadata()
 
-    const thumbAbsPath = await createThumbnail(
-      finalAbsPath,
-      fileManager.getThumbnailsDir(),
-      mediaId
-    )
+    let width: number | null = null
+    let height: number | null = null
+    let duration: number | null = null
+    let thumbAbsPath: string | null = null
+
+    if (isVideo) {
+      const metadata = await getVideoMetadata(finalAbsPath)
+      width = metadata.width
+      height = metadata.height
+      duration = metadata.duration
+      thumbAbsPath = await extractVideoThumbnail(
+        finalAbsPath,
+        fileManager.getThumbnailsDir(),
+        mediaId
+      )
+    } else {
+      const meta = await sharp(finalAbsPath).metadata()
+      width = meta.width ?? null
+      height = meta.height ?? null
+      thumbAbsPath = await createThumbnail(finalAbsPath, fileManager.getThumbnailsDir(), mediaId)
+    }
+
     const thumbRelPath = thumbAbsPath ? path.join('thumbnails', `${mediaId}_thumb.jpg`) : null
 
     const record: MediaRecord = {
@@ -99,10 +122,11 @@ export async function importSingleFile(
       file_path: storedFilePath,
       thumb_path: thumbRelPath,
       file_name: fileName,
-      media_type: 'image',
+      media_type: isVideo ? 'video' : 'image',
       origin: 'import',
-      width: meta.width ?? null,
-      height: meta.height ?? null,
+      width,
+      height,
+      duration,
       file_size: stat.size,
       rating: 0,
       status: null,

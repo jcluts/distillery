@@ -15,6 +15,11 @@ import {
   createThumbnail,
   REFERENCE_IMAGE_MAX_PIXELS
 } from '../files/image-derivatives'
+import {
+  extractVideoThumbnail,
+  getVideoMetadata,
+  isVideoExtension
+} from '../files/video-derivatives'
 import type { CanonicalGenerationParams, GenerationInput, MediaRecord } from '../types'
 import type { GenerationResult } from './providers/types'
 
@@ -173,7 +178,11 @@ export class MediaIngestionService {
     return base
   }
 
-  async finalize(generationId: string, result: GenerationResult): Promise<MediaRecord[]> {
+  async finalize(
+    generationId: string,
+    result: GenerationResult,
+    outputType: 'image' | 'video'
+  ): Promise<MediaRecord[]> {
     if (!result.success) {
       generationRepo.updateGenerationComplete(this.db, generationId, {
         status: 'failed',
@@ -194,7 +203,12 @@ export class MediaIngestionService {
     const mediaRecords: MediaRecord[] = []
     for (const output of outputs) {
       const resolvedPath = await this.resolveProviderOutputPath(generationId, output.localPath)
-      const media = await this.ingestGenerationOutput(generationId, resolvedPath, output.mimeType)
+      const media = await this.ingestGenerationOutput(
+        generationId,
+        resolvedPath,
+        output.mimeType,
+        outputType
+      )
       mediaRecords.push(media)
     }
 
@@ -237,12 +251,14 @@ export class MediaIngestionService {
   private async ingestGenerationOutput(
     generationId: string,
     providerOutputPath: string,
-    mimeType?: string
+    mimeType: string | undefined,
+    outputType: 'image' | 'video'
   ): Promise<MediaRecord> {
     const mediaId = uuidv4()
     const now = new Date().toISOString()
 
-    const ext = this.resolveExtensionFromMimeOrPath(providerOutputPath, mimeType)
+    const ext = this.resolveExtensionFromMimeOrPath(providerOutputPath, mimeType, outputType)
+    const isVideoOutput = outputType === 'video' || isVideoExtension(ext)
     const relDir = this.fileManager.getDateSubdir()
     const absDir = this.fileManager.resolve(relDir)
     await fs.promises.mkdir(absDir, { recursive: true })
@@ -254,21 +270,32 @@ export class MediaIngestionService {
 
     const stat = await fs.promises.stat(absFilePath)
 
-    const thumbAbs = await createThumbnail(
-      absFilePath,
-      this.fileManager.getThumbnailsDir(),
-      mediaId
-    )
+    const thumbAbs = isVideoOutput
+      ? await extractVideoThumbnail(absFilePath, this.fileManager.getThumbnailsDir(), mediaId)
+      : await createThumbnail(absFilePath, this.fileManager.getThumbnailsDir(), mediaId)
     const relThumbPath = thumbAbs ? path.join('thumbnails', `${mediaId}_thumb.jpg`) : null
 
     let width: number | null = null
     let height: number | null = null
-    try {
-      const meta = await sharp(absFilePath).metadata()
-      width = meta.width ?? null
-      height = meta.height ?? null
-    } catch {
-      // ignore
+    let duration: number | null = null
+
+    if (isVideoOutput) {
+      try {
+        const metadata = await getVideoMetadata(absFilePath)
+        width = metadata.width
+        height = metadata.height
+        duration = metadata.duration
+      } catch {
+        // ignore
+      }
+    } else {
+      try {
+        const meta = await sharp(absFilePath).metadata()
+        width = meta.width ?? null
+        height = meta.height ?? null
+      } catch {
+        // ignore
+      }
     }
 
     const record: MediaRecord = {
@@ -276,10 +303,11 @@ export class MediaIngestionService {
       file_path: relFilePath,
       thumb_path: relThumbPath,
       file_name: `${mediaId}.${ext}`,
-      media_type: 'image',
+      media_type: isVideoOutput ? 'video' : 'image',
       origin: 'generation',
       width,
       height,
+      duration,
       file_size: stat.size,
       rating: 0,
       status: null,
@@ -295,8 +323,15 @@ export class MediaIngestionService {
     return record
   }
 
-  private resolveExtensionFromMimeOrPath(filePath: string, mimeType?: string): string {
+  private resolveExtensionFromMimeOrPath(
+    filePath: string,
+    mimeType: string | undefined,
+    outputType: 'image' | 'video'
+  ): string {
     if (mimeType) {
+      if (mimeType.includes('video/mp4')) return 'mp4'
+      if (mimeType.includes('video/webm')) return 'webm'
+      if (mimeType.includes('video/quicktime')) return 'mov'
       if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return 'jpg'
       if (mimeType.includes('webp')) return 'webp'
       if (mimeType.includes('png')) return 'png'
@@ -306,8 +341,11 @@ export class MediaIngestionService {
     if (ext === 'jpg' || ext === 'jpeg' || ext === 'webp' || ext === 'png') {
       return ext === 'jpeg' ? 'jpg' : ext
     }
+    if (ext === 'mp4' || ext === 'webm' || ext === 'mov') {
+      return ext
+    }
 
-    return 'png'
+    return outputType === 'video' ? 'mp4' : 'png'
   }
 
   private async persistInputThumbnail(media: MediaRecord, outputAbsPath: string): Promise<void> {

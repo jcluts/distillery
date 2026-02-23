@@ -4,7 +4,7 @@
 // =============================================================================
 
 // Media types
-export type MediaType = 'image'
+export type MediaType = 'image' | 'video'
 export type MediaOriginKind = 'generation' | 'import'
 export type MediaStatus = 'selected' | 'rejected' | null
 export type MediaSortField = 'created_at' | 'rating' | 'file_name'
@@ -18,6 +18,7 @@ export interface MediaRecord {
   origin: MediaOriginKind
   width: number | null
   height: number | null
+  duration: number | null
   file_size: number | null
   rating: number
   status: MediaStatus

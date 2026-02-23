@@ -3,24 +3,28 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { FileManager } from '../files/file-manager'
+import { isVideoExtension } from '../files/video-derivatives'
 import type { ImportFolderCreate, ImportFolderRecord, ImportScanProgress } from '../types'
 import * as importFoldersRepo from '../db/repositories/import-folders'
 import * as mediaRepo from '../db/repositories/media'
 import { importSingleFile } from './import-file'
 
-const SUPPORTED_IMAGE_EXTENSIONS = new Set([
+const SUPPORTED_EXTENSIONS = new Set([
   '.png',
   '.jpg',
   '.jpeg',
   '.webp',
   '.bmp',
   '.tif',
-  '.tiff'
+  '.tiff',
+  '.mp4',
+  '.webm',
+  '.mov'
 ])
 
-function isSupportedImageFile(filePath: string): boolean {
+function isSupportedMediaFile(filePath: string): boolean {
   const ext = path.extname(filePath).toLowerCase()
-  return SUPPORTED_IMAGE_EXTENSIONS.has(ext)
+  return SUPPORTED_EXTENSIONS.has(ext) || isVideoExtension(ext)
 }
 
 function listImportableFiles(rootPath: string, recursive: boolean): string[] {
@@ -44,7 +48,7 @@ function listImportableFiles(rootPath: string, recursive: boolean): string[] {
         continue
       }
 
-      if (isSupportedImageFile(fullPath)) {
+      if (isSupportedMediaFile(fullPath)) {
         discovered.push(fullPath)
       }
     }

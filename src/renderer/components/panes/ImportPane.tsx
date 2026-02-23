@@ -162,10 +162,13 @@ export function ImportPane(): React.JSX.Element {
 
   const onChooseFiles = React.useCallback(async () => {
     const paths = await window.api.showOpenDialog({
-      title: 'Import images',
+      title: 'Import media',
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff'] }
+        {
+          name: 'Media',
+          extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff', 'mp4', 'webm', 'mov']
+        }
       ]
     })
 
