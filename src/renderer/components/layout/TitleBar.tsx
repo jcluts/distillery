@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Boxes, Cloud, Copy, Minus, Settings, Square, X } from 'lucide-react'
+import { Cloud, Copy, Minus, Settings, Square, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -98,18 +98,6 @@ export function TitleBar(): React.JSX.Element {
         >
           <Cloud className="size-4" />
           Providers
-        </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8"
-          onClick={() => openModal('models')}
-          aria-label="Open model manager"
-        >
-          <Boxes className="size-4" />
-          Models
         </Button>
 
         <Button
