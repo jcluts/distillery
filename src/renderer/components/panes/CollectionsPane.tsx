@@ -17,6 +17,13 @@ import { useCollectionStore } from '@/stores/collection-store'
 import { useUIStore } from '@/stores/ui-store'
 import type { CollectionRecord } from '@/types'
 
+function hasMediaDragData(e: React.DragEvent): boolean {
+  return (
+    e.dataTransfer.types.includes('application/x-distillery-media-ids') ||
+    e.dataTransfer.types.includes('application/x-distillery-media-id')
+  )
+}
+
 function parseDroppedMediaIds(e: React.DragEvent): string[] {
   const multiIdsRaw = e.dataTransfer.getData('application/x-distillery-media-ids')
   const singleId = e.dataTransfer.getData('application/x-distillery-media-id')
@@ -39,6 +46,7 @@ function CollectionRow({
   collection,
   active,
   isReorderDragOver,
+  isMediaDragOver,
   onSelect,
   onEdit,
   onDragStart,
@@ -50,6 +58,7 @@ function CollectionRow({
   collection: CollectionRecord
   active: boolean
   isReorderDragOver: boolean
+  isMediaDragOver: boolean
   onSelect: () => void
   onEdit: () => void
   onDragStart: (e: React.DragEvent) => void
@@ -69,7 +78,8 @@ function CollectionRow({
         active
           ? 'border-primary/40 bg-primary/10'
           : 'border-transparent hover:border-border hover:bg-muted/50',
-        isReorderDragOver && 'border-primary/50 bg-primary/5'
+        isReorderDragOver && 'border-primary/50 bg-primary/5',
+        isMediaDragOver && 'border-primary bg-primary/10'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -134,6 +144,7 @@ export function CollectionsPane(): React.JSX.Element {
 
   const [draggingCollectionId, setDraggingCollectionId] = React.useState<string | null>(null)
   const [dragOverCollectionId, setDragOverCollectionId] = React.useState<string | null>(null)
+  const [mediaDragOverId, setMediaDragOverId] = React.useState<string | null>(null)
 
   const specialCollections = collections.filter((collection) => collection.type === 'special')
   const manualCollections = collections.filter((collection) => collection.type !== 'special')
@@ -154,21 +165,17 @@ export function CollectionsPane(): React.JSX.Element {
           collection={collection}
           active={collection.id === activeCollectionId}
           isReorderDragOver={false}
+          isMediaDragOver={false}
           onSelect={() => setActiveCollection(collection.id)}
-          onEdit={() => { }}
-          onDragStart={() => { }}
+          onEdit={() => {}}
+          onDragStart={() => {}}
           onDragEnd={() => {
             setDraggingCollectionId(null)
             setDragOverCollectionId(null)
           }}
-          onDragOver={(e) => {
-            const mediaIds = parseDroppedMediaIds(e)
-            if (mediaIds.length > 0) e.preventDefault()
-          }}
-          onDragLeave={() => setDragOverCollectionId(null)}
-          onDrop={() => {
-            setDragOverCollectionId(null)
-          }}
+          onDragOver={() => {}}
+          onDragLeave={() => {}}
+          onDrop={() => {}}
         />
       ))}
 
@@ -180,6 +187,7 @@ export function CollectionsPane(): React.JSX.Element {
           collection={collection}
           active={collection.id === activeCollectionId}
           isReorderDragOver={dragOverCollectionId === collection.id}
+          isMediaDragOver={mediaDragOverId === collection.id}
           onSelect={() => setActiveCollection(collection.id)}
           onEdit={() => openEditModal(collection.id)}
           onDragStart={(e) => {
@@ -192,24 +200,24 @@ export function CollectionsPane(): React.JSX.Element {
             setDragOverCollectionId(null)
           }}
           onDragOver={(e) => {
-            const mediaIds = parseDroppedMediaIds(e)
-            const draggedCollectionId =
-              e.dataTransfer.getData('application/x-distillery-collection-id') ||
-              draggingCollectionId
-
-            if (mediaIds.length > 0) {
+            if (hasMediaDragData(e)) {
               e.preventDefault()
+              setMediaDragOverId(collection.id)
               return
             }
 
-            if (draggedCollectionId && draggedCollectionId !== collection.id) {
+            if (draggingCollectionId && draggingCollectionId !== collection.id) {
               e.preventDefault()
               setDragOverCollectionId(collection.id)
             }
           }}
-          onDragLeave={() => setDragOverCollectionId(null)}
+          onDragLeave={() => {
+            setDragOverCollectionId(null)
+            setMediaDragOverId(null)
+          }}
           onDrop={(e) => {
             e.preventDefault()
+            setMediaDragOverId(null)
 
             const mediaIds = parseDroppedMediaIds(e)
             if (mediaIds.length > 0) {
