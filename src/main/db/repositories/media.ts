@@ -95,6 +95,19 @@ export function getMediaById(
 }
 
 /**
+ * Get a single media record by stored file path.
+ */
+export function getMediaByFilePath(
+  db: Database.Database,
+  filePath: string
+): MediaRecord | null {
+  return (
+    (db.prepare('SELECT * FROM media WHERE file_path = ?').get(filePath) as MediaRecord | undefined) ??
+    null
+  )
+}
+
+/**
  * Get the most recent output media record for a generation.
  *
  * MVP assumes a generation produces at least one output media item.

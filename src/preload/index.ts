@@ -6,6 +6,8 @@ import type {
   CollectionUpdate,
   DistilleryAPI,
   GenerationSubmitInput,
+  ImportFolderCreate,
+  ImportFolderUpdate,
   MediaQuery,
   MediaUpdate,
   ModelLoadParams,
@@ -57,6 +59,16 @@ const api: DistilleryAPI = {
       ipcRenderer.invoke(CH.COLLECTIONS_ADD_MEDIA, collectionId, mediaIds),
     removeMedia: (collectionId: string, mediaIds: string[]) =>
       ipcRenderer.invoke(CH.COLLECTIONS_REMOVE_MEDIA, collectionId, mediaIds)
+  },
+
+  // Import folders
+  importFolders: {
+    getAll: () => ipcRenderer.invoke(CH.IMPORT_FOLDERS_GET_ALL),
+    create: (data: ImportFolderCreate) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_CREATE, data),
+    update: (data: ImportFolderUpdate) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_UPDATE, data),
+    delete: (id: string) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_DELETE, id),
+    scan: (id: string) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_SCAN, id),
+    start: (data: ImportFolderCreate) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_START, data)
   },
 
   // Generation
@@ -171,6 +183,8 @@ const api: DistilleryAPI = {
       | typeof CH.QUEUE_UPDATED
       | typeof CH.LIBRARY_UPDATED
       | typeof CH.COLLECTIONS_UPDATED
+      | typeof CH.IMPORT_FOLDERS_UPDATED
+      | typeof CH.IMPORT_SCAN_PROGRESS
       | typeof CH.WINDOW_MAXIMIZED_CHANGED
       | typeof CH.MODEL_DOWNLOAD_PROGRESS
       | typeof CH.UPSCALE_PROGRESS
@@ -183,6 +197,8 @@ const api: DistilleryAPI = {
       CH.QUEUE_UPDATED,
       CH.LIBRARY_UPDATED,
       CH.COLLECTIONS_UPDATED,
+      CH.IMPORT_FOLDERS_UPDATED,
+      CH.IMPORT_SCAN_PROGRESS,
       CH.WINDOW_MAXIMIZED_CHANGED,
       CH.MODEL_DOWNLOAD_PROGRESS,
       CH.UPSCALE_PROGRESS,

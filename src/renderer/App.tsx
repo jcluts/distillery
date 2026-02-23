@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { AppLayout } from '@/components/layout/AppLayout'
 import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
+import { ImportFolderDialog } from '@/components/modals/ImportFolderDialog'
 import { ProviderManagerModal } from '@/components/modals/ProviderManagerModal'
 import { SettingsModal } from '@/components/modals/SettingsModal'
 import { CollectionModal } from '@/components/modals/CollectionModal'
@@ -14,13 +15,15 @@ import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
 import { useQueueStore } from './stores/queue-store'
 import { useUpscaleStore } from './stores/upscale-store'
+import { useImportFolderStore } from './stores/import-folder-store'
 import type {
   GenerationProgressEvent,
   GenerationResultEvent,
   EngineStatus,
   WorkQueueItem,
   UpscaleProgressEvent,
-  UpscaleResultEvent
+  UpscaleResultEvent,
+  ImportScanProgress
 } from './types'
 
 function App(): React.JSX.Element {
@@ -47,6 +50,9 @@ function App(): React.JSX.Element {
 
   const loadCollections = useCollectionStore((s) => s.loadCollections)
   const activeCollectionId = useCollectionStore((s) => s.activeCollectionId)
+
+  const loadImportFolders = useImportFolderStore((s) => s.loadFolders)
+  const setImportScanProgress = useImportFolderStore((s) => s.setScanProgress)
 
   const setQueueItems = useQueueStore((s) => s.setItems)
   const startTimer = useQueueStore((s) => s.startTimer)
@@ -136,7 +142,8 @@ function App(): React.JSX.Element {
     void loadTimeline()
     void loadQueue()
     void loadCollections()
-  }, [loadCollections, loadMedia, loadQueue, loadTimeline])
+    void loadImportFolders()
+  }, [loadCollections, loadImportFolders, loadMedia, loadQueue, loadTimeline])
 
   useEffect(() => {
     setLibraryPage(1)
@@ -192,6 +199,22 @@ function App(): React.JSX.Element {
     })
     return unsubscribe
   }, [loadCollections])
+
+  useEffect(() => {
+    const unsubscribe = window.api.on('importFolders:updated', () => {
+      void loadImportFolders()
+    })
+    return unsubscribe
+  }, [loadImportFolders])
+
+  useEffect(() => {
+    const unsubscribe = window.api.on('importFolders:scanProgress', (payload: unknown) => {
+      const progress = payload as ImportScanProgress
+      if (!progress?.folder_id) return
+      setImportScanProgress(progress)
+    })
+    return unsubscribe
+  }, [setImportScanProgress])
 
   // Generation progress -> status bar / queue progress
   useEffect(() => {
@@ -259,6 +282,7 @@ function App(): React.JSX.Element {
       <SettingsModal />
       <ProviderManagerModal />
       <CollectionModal />
+      <ImportFolderDialog />
     </TooltipProvider>
   )
 }
