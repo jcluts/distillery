@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { Download, X } from 'lucide-react'
+import { Download, Globe, HardDrive, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { useModelStore } from '@/stores/model-store'
+import { useUIStore } from '@/stores/ui-store'
 import { formatApproxSize, toPercent } from '@/lib/format'
 import type { DownloadProgressEvent, ModelDefinition } from '@/types'
 import { cn } from '@/lib/utils'
@@ -32,7 +33,7 @@ interface ActiveSetup {
 /*  Root component                                                           */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-export function ModelSetupWizard({ targetModelId }: { targetModelId?: string }): React.JSX.Element {
+export function ModelSetupWizard(): React.JSX.Element {
   const [activeSetup, setActiveSetup] = React.useState<ActiveSetup | null>(null)
 
   const catalog = useModelStore((s) => s.catalog)
@@ -41,13 +42,11 @@ export function ModelSetupWizard({ targetModelId }: { targetModelId?: string }):
   const setActiveModel = useModelStore((s) => s.setActiveModel)
   const setModelQuantSelection = useModelStore((s) => s.setModelQuantSelection)
   const cancelModelDownload = useModelStore((s) => s.cancelModelDownload)
+  const openModal = useUIStore((s) => s.openModal)
 
   const models = React.useMemo(
-    () =>
-      (catalog?.models ?? [])
-        .filter((m) => m.type === 'image-generation')
-        .filter((m) => !targetModelId || m.id === targetModelId),
-    [catalog, targetModelId]
+    () => (catalog?.models ?? []).filter((m) => m.type === 'image-generation'),
+    [catalog]
   )
 
   /* ── Start a download ─────────────────────────────────────────────────── */
@@ -119,21 +118,60 @@ export function ModelSetupWizard({ targetModelId }: { targetModelId?: string }):
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <div className="text-sm font-medium">Download a model to start generating</div>
-        <p className="text-xs text-muted-foreground">
-          Choose a quality preset below. All required files will be downloaded automatically.
-        </p>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Get started by downloading a model for local generation, or connect a cloud API provider.
+      </p>
 
-      {models.map((model) => (
-        <ModelGroup
-          key={model.id}
-          model={model}
-          recommendedQuantId={RECOMMENDED_QUANTS[model.id]}
-          onSelect={(quantIndex) => void startSetup(model.id, quantIndex)}
-        />
-      ))}
+      {/* Local generation */}
+      <Card className="space-y-3 p-3">
+        <div className="flex items-center gap-2">
+          <HardDrive className="size-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium">Local generation</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Generate images on your own hardware &mdash; fully offline, no API key needed.
+        </p>
+
+        {models.map((model) => (
+          <ModelGroup
+            key={model.id}
+            model={model}
+            recommendedQuantId={RECOMMENDED_QUANTS[model.id]}
+            onSelect={(quantIndex) => void startSetup(model.id, quantIndex)}
+          />
+        ))}
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => openModal('models')}
+        >
+          Manage local models
+        </Button>
+      </Card>
+
+      {/* API providers */}
+      <Card className="space-y-2 p-3">
+        <div className="flex items-center gap-2">
+          <Globe className="size-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium">API providers</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Generate images using cloud APIs from providers like fal, Replicate, or WaveSpeed &mdash;
+          no model download required.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => openModal('providers')}
+        >
+          Set up API providers
+        </Button>
+      </Card>
     </div>
   )
 }
@@ -152,10 +190,10 @@ function ModelGroup({
   onSelect: (quantIndex: number) => void
 }): React.JSX.Element {
   return (
-    <Card className="space-y-2 p-3">
+    <div className="space-y-1.5">
       <div>
-        <div className="text-sm font-medium">{model.name}</div>
-        <div className="text-xs text-muted-foreground">{model.description}</div>
+        <div className="text-xs font-medium">{model.name}</div>
+        <div className="text-[11px] text-muted-foreground">{model.description}</div>
       </div>
 
       <div className="space-y-0.5">
@@ -191,7 +229,7 @@ function ModelGroup({
           )
         })}
       </div>
-    </Card>
+    </div>
   )
 }
 
