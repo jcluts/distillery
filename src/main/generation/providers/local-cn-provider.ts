@@ -18,6 +18,7 @@ export class LocalCnProvider implements GenerationProvider {
   private modelCatalogService: ModelCatalogService
   private progressListeners = new Set<(event: GenerationProgressEvent) => void>()
   private executionLock: Promise<void> = Promise.resolve()
+  private inFlightGenerationIds = new Set<string>()
 
   constructor(args: {
     engineManager: EngineManager
@@ -29,6 +30,8 @@ export class LocalCnProvider implements GenerationProvider {
     this.modelCatalogService = args.modelCatalogService
 
     this.engineManager.on('progress', (event) => {
+      if (!this.inFlightGenerationIds.has(event.jobId)) return
+
       const progress: GenerationProgressEvent = {
         generationId: event.jobId,
         providerId: this.providerId,
@@ -90,6 +93,7 @@ export class LocalCnProvider implements GenerationProvider {
       const outputPath = path.join(request.outputDir, `gen-${request.generationId}.png`)
 
       const params = request.params
+      this.inFlightGenerationIds.add(request.generationId)
       const result = await this.engineManager.generate({
         id: request.generationId,
         prompt: asString(params.prompt),
@@ -104,6 +108,8 @@ export class LocalCnProvider implements GenerationProvider {
         output: outputPath,
         use_prompt_cache: true,
         use_ref_latent_cache: true
+      }).finally(() => {
+        this.inFlightGenerationIds.delete(request.generationId)
       })
 
       if (!result.success) {

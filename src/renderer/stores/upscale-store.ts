@@ -16,6 +16,9 @@ interface UpscaleState {
   isUpscaling: boolean
   progressPhase: string | null
   progressMessage: string | null
+  progressStep: number | null
+  progressTotalSteps: number | null
+  lastUpscaleTimeMs: number | null
 
   loadModels: () => Promise<void>
   loadUpscaleData: (mediaId: string) => Promise<void>
@@ -39,6 +42,9 @@ export const useUpscaleStore = create<UpscaleState>((set, get) => ({
   isUpscaling: false,
   progressPhase: null,
   progressMessage: null,
+  progressStep: null,
+  progressTotalSteps: null,
+  lastUpscaleTimeMs: null,
 
   loadModels: async () => {
     try {
@@ -59,7 +65,8 @@ export const useUpscaleStore = create<UpscaleState>((set, get) => ({
       const data = await window.api.upscale.getData(mediaId)
       set({
         variants: data.variants,
-        activeVariantId: data.activeVariantId
+        activeVariantId: data.activeVariantId,
+        lastUpscaleTimeMs: null
       })
     } catch {
       // ignore
@@ -67,14 +74,21 @@ export const useUpscaleStore = create<UpscaleState>((set, get) => ({
   },
 
   clearUpscaleData: () => {
-    set({ variants: [], activeVariantId: null })
+    set({ variants: [], activeVariantId: null, lastUpscaleTimeMs: null })
   },
 
   submit: async (mediaId: string) => {
     const { selectedModelId, selectedScale } = get()
     if (!selectedModelId) return
 
-    set({ isUpscaling: true, progressPhase: 'preparing', progressMessage: null })
+    set({ 
+      isUpscaling: true, 
+      progressPhase: 'preparing', 
+      progressMessage: null,
+      progressStep: null,
+      progressTotalSteps: null,
+      lastUpscaleTimeMs: null
+    })
     try {
       await window.api.upscale.submit({
         mediaId,
@@ -142,19 +156,30 @@ export const useUpscaleStore = create<UpscaleState>((set, get) => ({
       set({
         isUpscaling: false,
         progressPhase: null,
-        progressMessage: null
+        progressMessage: null,
+        progressStep: null,
+        progressTotalSteps: null
       })
     } else {
       set({
         isUpscaling: true,
         progressPhase: event.phase,
-        progressMessage: event.message ?? null
+        progressMessage: event.message ?? null,
+        progressStep: event.step ?? null,
+        progressTotalSteps: event.totalSteps ?? null
       })
     }
   },
 
   handleResult: (event: UpscaleResultEvent) => {
-    set({ isUpscaling: false, progressPhase: null, progressMessage: null })
+    set({ 
+      isUpscaling: false, 
+      progressPhase: null, 
+      progressMessage: null,
+      progressStep: null,
+      progressTotalSteps: null,
+      lastUpscaleTimeMs: event.totalTimeMs ?? null
+    })
     if (event.success && event.variant) {
       set((state) => ({
         variants: [event.variant!, ...state.variants],

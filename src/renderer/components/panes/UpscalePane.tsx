@@ -20,6 +20,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { UpscaleStatus } from '@/components/upscale/UpscaleStatus'
 import { useUpscaleStore } from '@/stores/upscale-store'
 import { useLibraryStore } from '@/stores/library-store'
 import { cn } from '@/lib/utils'
@@ -111,7 +112,6 @@ export function UpscalePane(): React.JSX.Element {
   const variants = useUpscaleStore((s) => s.variants)
   const activeVariantId = useUpscaleStore((s) => s.activeVariantId)
   const isUpscaling = useUpscaleStore((s) => s.isUpscaling)
-  const progressPhase = useUpscaleStore((s) => s.progressPhase)
   const setSelectedModelId = useUpscaleStore((s) => s.setSelectedModelId)
   const setSelectedScale = useUpscaleStore((s) => s.setSelectedScale)
   const submit = useUpscaleStore((s) => s.submit)
@@ -207,19 +207,16 @@ export function UpscalePane(): React.JSX.Element {
           {isUpscaling ? (
             <>
               <Loader2 className="size-4 animate-spin mr-2" />
-              {progressPhase === 'preparing'
-                ? 'Preparing…'
-                : progressPhase === 'upscaling'
-                  ? 'Upscaling…'
-                  : progressPhase === 'saving'
-                    ? 'Saving…'
-                    : 'Processing…'}
+              Upscaling…
             </>
           ) : (
             'Upscale'
           )}
         </Button>
       </div>
+
+      <UpscaleStatus />
+
       {/* Variants list */}
       {(variants.length > 0 || activeVariantId !== null) && (
         <div className="space-y-2">

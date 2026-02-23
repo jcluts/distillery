@@ -291,7 +291,7 @@ export class EngineManager extends EventEmitter {
     upscale_model: string
     upscale_repeats?: number
     upscale_factor?: number
-  }): Promise<{ success: boolean; outputPath?: string; error?: string }> {
+  }): Promise<{ success: boolean; outputPath?: string; totalTimeMs?: number; error?: string }> {
     if (this.state === 'stopped' || this.state === 'starting') {
       throw new Error(`Cannot upscale in state: ${this.state}`)
     }
@@ -316,12 +316,16 @@ export class EngineManager extends EventEmitter {
       const outputPath =
         ((data as any)?.output_path as string | undefined) ??
         ((data as any)?.output as string | undefined)
+      const totalTimeMs =
+        ((data as any)?.total_time_ms as number | undefined) ??
+        ((data as any)?.totalTimeMs as number | undefined)
       const errorMessage =
         response.error ?? ((data as any)?.error as string | undefined)
 
       return {
         success,
         outputPath,
+        totalTimeMs,
         error: success ? undefined : errorMessage
       }
     } catch (err) {
