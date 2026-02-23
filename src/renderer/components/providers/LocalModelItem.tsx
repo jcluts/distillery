@@ -8,9 +8,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Progress } from '@/components/ui/progress'
 import { SectionHeader } from '@/components/ui/section-header'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatApproxSize, toPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { DownloadProgressEvent, ModelDefinition, ModelFileRef, QuantVariant } from '@/types'
-import { formatApproxSize, toPercent } from '@/components/models/utils'
 
 interface LocalModelItemProps {
   model: ModelDefinition

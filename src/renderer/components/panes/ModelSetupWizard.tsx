@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { useModelStore } from '@/stores/model-store'
-import { formatApproxSize, toPercent } from '@/components/models/utils'
+import { formatApproxSize, toPercent } from '@/lib/format'
 import type { DownloadProgressEvent, ModelDefinition } from '@/types'
 import { cn } from '@/lib/utils'
 
