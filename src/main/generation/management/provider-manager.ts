@@ -78,17 +78,26 @@ export class ProviderManager {
   }
 
   async searchModels(providerId: string, query: string): Promise<SearchResult> {
+    if (this.isAuthMissing(providerId)) {
+      return { models: [] }
+    }
     const client = this.createApiClient(providerId)
     return await client.searchModels(query)
   }
 
   async listModels(providerId: string): Promise<ProviderModel[]> {
+    if (this.isAuthMissing(providerId)) {
+      return []
+    }
     const client = this.createApiClient(providerId)
     const models = await client.fetchModelList()
     return models.map((model) => this.attachIdentity(model))
   }
 
   async fetchModelDetail(providerId: string, modelId: string): Promise<ProviderModel | null> {
+    if (this.isAuthMissing(providerId)) {
+      return null
+    }
     const client = this.createApiClient(providerId)
     const model = await client.fetchModelDetail(modelId)
     return model ? this.attachIdentity(model) : null
@@ -149,6 +158,13 @@ export class ProviderManager {
       )
     }
     return new ApiClient(provider, apiKey)
+  }
+
+  private isAuthMissing(providerId: string): boolean {
+    const provider = this.getProviderConfig(providerId)
+    if (!provider) throw new Error(`Unknown provider: ${providerId}`)
+    if (!provider.auth) return false
+    return !this.isProviderConfigured(providerId)
   }
 
   private attachIdentity(model: ProviderModel): ProviderModel {
