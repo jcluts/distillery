@@ -72,7 +72,10 @@ export function ModelSelector(): React.JSX.Element {
   const providerDisplayNames = React.useMemo(
     () =>
       Object.fromEntries(
-        providers.map((provider) => [provider.providerId, provider.displayName ?? provider.providerId])
+        providers.map((provider) => [
+          provider.providerId,
+          provider.displayName ?? provider.providerId
+        ])
       ),
     [providers]
   )
@@ -83,14 +86,17 @@ export function ModelSelector(): React.JSX.Element {
     for (const endpoint of modeEndpoints) {
       const isLocal = endpoint.providerId === 'local'
       const isReady = isLocal ? (filesByModelId[endpoint.providerModelId]?.isReady ?? false) : true
-      const identityId = endpoint.modelIdentityId ?? `${endpoint.providerId}-${endpoint.providerModelId}`
+      const identityId =
+        endpoint.modelIdentityId ?? `${endpoint.providerId}-${endpoint.providerModelId}`
       const identity =
         identities.find((entry) => entry.id === identityId) ??
         identities.find((entry) =>
           entry.providerMapping?.[endpoint.providerId]?.includes(endpoint.providerModelId)
         )
       const resolvedIdentityId = identity?.id ?? identityId
-      const label = isLocal ? 'Local (cn-engine)' : (providerDisplayNames[endpoint.providerId] ?? endpoint.providerId)
+      const label = isLocal
+        ? 'Local (cn-engine)'
+        : (providerDisplayNames[endpoint.providerId] ?? endpoint.providerId)
 
       if (!map.has(resolvedIdentityId)) {
         map.set(resolvedIdentityId, {
@@ -117,13 +123,13 @@ export function ModelSelector(): React.JSX.Element {
   }, [modeEndpoints, filesByModelId, identities, providerDisplayNames])
 
   // Find currently selected identity and provider from endpointKey
-  const currentEntry = React.useMemo(() => {
-    for (const [, entry] of identityMap) {
+  const currentEntry = (() => {
+    for (const entry of identityMap.values()) {
       const match = entry.providerOptions.find((p) => p.endpointKey === endpointKey)
       if (match) return { identity: entry.identity, provider: match, entry }
     }
     return null
-  }, [identityMap, endpointKey])
+  })()
 
   // Available identities as sorted array
   const identityEntries = React.useMemo(
@@ -209,7 +215,6 @@ export function ModelSelector(): React.JSX.Element {
             )
           })}
           <SelectSeparator />
-          <SelectItem value={MANAGE_MODELS_VALUE}>Manage Models…</SelectItem>
         </SelectContent>
       </Select>
 
@@ -229,23 +234,11 @@ export function ModelSelector(): React.JSX.Element {
                 </SelectItem>
               ))}
               <SelectSeparator />
-              <SelectItem value={MANAGE_PROVIDERS_VALUE}>Manage Providers…</SelectItem>
             </SelectContent>
           </Select>
         </>
       )}
 
-      {/* When only one provider, show a subtle link to manage if API providers exist */}
-      {currentProviderOptions.length <= 1 &&
-        providers.some((p) => p.executionMode === 'remote-async') && (
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => openModal('providers')}
-          >
-            Manage API Providers…
-          </button>
-        )}
     </div>
   )
 }

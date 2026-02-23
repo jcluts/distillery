@@ -5,9 +5,6 @@
 		},
 		{
 			"path": "../../AppData/Roaming/distillery"
-		},
-		{
-			"path": "../../condenser.cpp"
 		}
 	],
 	"settings": {}
