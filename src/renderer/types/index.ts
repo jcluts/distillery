@@ -520,6 +520,8 @@ export interface UpscaleRequest {
 export interface UpscaleProgressEvent {
   mediaId: string
   phase: 'preparing' | 'upscaling' | 'saving' | 'complete' | 'error'
+  step?: number
+  totalSteps?: number
   message?: string
 }
 
@@ -527,6 +529,7 @@ export interface UpscaleResultEvent {
   mediaId: string
   success: boolean
   variant?: UpscaleVariant
+  totalTimeMs?: number
   error?: string
 }
 

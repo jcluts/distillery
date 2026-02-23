@@ -66,13 +66,31 @@ export class UpscaleTaskHandler implements WorkTaskHandler {
       // 5. Send upscale command to engine
       this.upscaleService.emitProgress({ mediaId, phase: 'upscaling' })
 
-      const result = await this.engineManager.upscale({
-        id: `upscale-${variantId}`,
-        input: inputAbsPath,
-        output: outputAbsPath,
-        upscale_model: modelAbsPath,
-        upscale_repeats: 1
-      })
+      const progressListener = (event: any) => {
+        if (event.jobId === `upscale-${variantId}`) {
+          this.upscaleService.emitProgress({
+            mediaId,
+            phase: 'upscaling',
+            step: event.step,
+            totalSteps: event.totalSteps,
+            message: event.message
+          })
+        }
+      }
+      this.engineManager.on('progress', progressListener)
+
+      let result
+      try {
+        result = await this.engineManager.upscale({
+          id: `upscale-${variantId}`,
+          input: inputAbsPath,
+          output: outputAbsPath,
+          upscale_model: modelAbsPath,
+          upscale_repeats: 1
+        })
+      } finally {
+        this.engineManager.off('progress', progressListener)
+      }
 
       if (!result.success) {
         throw new Error(result.error ?? 'Upscale failed')
@@ -128,7 +146,12 @@ export class UpscaleTaskHandler implements WorkTaskHandler {
 
       // 10. Emit result
       this.upscaleService.emitProgress({ mediaId, phase: 'complete' })
-      this.upscaleService.emitResult({ mediaId, success: true, variant })
+      this.upscaleService.emitResult({ 
+        mediaId, 
+        success: true, 
+        variant,
+        totalTimeMs: result.totalTimeMs
+      })
 
       return { success: true }
     } catch (err) {
