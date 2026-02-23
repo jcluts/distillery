@@ -34,6 +34,7 @@ import { registerSettingsHandlers } from './ipc/handlers/settings'
 import { registerModelHandlers } from './ipc/handlers/models'
 import { registerKeywordsHandlers } from './ipc/handlers/keywords'
 import { registerCollectionsHandlers } from './ipc/handlers/collections'
+import { registerImportFolderHandlers } from './ipc/handlers/import-folders'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { registerProviderHandlers } from './ipc/handlers/providers'
 import { registerUpscaleHandlers } from './ipc/handlers/upscale'
@@ -45,6 +46,7 @@ import * as identityRepo from './db/repositories/model-identities'
 import { ModelCatalogService } from './models/model-catalog-service'
 import { ModelDownloadManager } from './models/model-download-manager'
 import { bootstrapQuantSelections } from './models/selection-bootstrap'
+import { initializeAutoImportFolders } from './import/import-folder-service'
 
 // Allow the renderer to load library files via a safe custom protocol.
 // This avoids `file://` restrictions when running the renderer from http:// (dev server).
@@ -318,26 +320,39 @@ app.whenReady().then(async () => {
 
     try {
       const url = new URL(request.url)
-      if (url.hostname !== 'library') {
-        callback({ error: -6 })
+      if (url.hostname === 'library') {
+        const raw = decodeURIComponent(url.pathname.replace(/^\//, ''))
+        const rel = raw.replace(/\//g, path.sep)
+        const abs = fileManager.resolve(rel)
+
+        const root = path.resolve(fileManager.getLibraryRoot())
+        const resolved = path.resolve(abs)
+        const rootNorm = process.platform === 'win32' ? root.toLowerCase() : root
+        const resolvedNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
+
+        if (!resolvedNorm.startsWith(rootNorm + path.sep) && resolvedNorm !== rootNorm) {
+          callback({ error: -10 })
+          return
+        }
+
+        callback({ path: resolved })
         return
       }
 
-      const raw = decodeURIComponent(url.pathname.replace(/^\//, ''))
-      const rel = raw.replace(/\//g, path.sep)
-      const abs = fileManager.resolve(rel)
+      if (url.hostname === 'external') {
+        const encoded = url.pathname.replace(/^\//, '')
+        const decoded = decodeURIComponent(encoded)
+        if (!path.isAbsolute(decoded)) {
+          callback({ error: -10 })
+          return
+        }
 
-      const root = path.resolve(fileManager.getLibraryRoot())
-      const resolved = path.resolve(abs)
-      const rootNorm = process.platform === 'win32' ? root.toLowerCase() : root
-      const resolvedNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
-
-      if (!resolvedNorm.startsWith(rootNorm + path.sep) && resolvedNorm !== rootNorm) {
-        callback({ error: -10 })
+        callback({ path: decoded })
         return
       }
 
-      callback({ path: resolved })
+      callback({ error: -6 })
+      return
     } catch {
       callback({ error: -6 })
     }
@@ -459,6 +474,17 @@ app.whenReady().then(async () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
     }
   })
+  registerImportFolderHandlers(fileManager, {
+    onImportFoldersUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_FOLDERS_UPDATED)
+    },
+    onLibraryUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    },
+    onScanProgress: (progress) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_SCAN_PROGRESS, progress)
+    }
+  })
   registerSettingsHandlers({
     engineManager,
     fileManager,
@@ -484,6 +510,18 @@ app.whenReady().then(async () => {
 
   // Create window
   createWindow()
+
+  // Auto-scan persisted import folders configured for startup import.
+  await initializeAutoImportFolders(db, fileManager, (progress) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_SCAN_PROGRESS, progress)
+
+    if (progress.status === 'complete') {
+      mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_FOLDERS_UPDATED)
+      if (progress.files_imported > 0) {
+        mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+      }
+    }
+  })
 
   // Forward engine events to renderer
   if (engineManager) {

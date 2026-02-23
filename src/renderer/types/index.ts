@@ -90,6 +90,43 @@ export interface CollectionUpdate {
 }
 
 // -----------------------------------------------------------------------------
+// Import Folders
+// -----------------------------------------------------------------------------
+
+export type ImportFolderMode = 'reference' | 'copy' | 'move'
+
+export interface ImportFolderRecord {
+  id: string
+  name: string
+  path: string
+  import_mode: ImportFolderMode
+  recursive: boolean
+  persist: boolean
+  auto_import: boolean
+  target_collection_id?: string
+  initial_keywords?: string[]
+  last_scanned?: string
+  created_at: string
+}
+
+export type ImportFolderCreate = Omit<ImportFolderRecord, 'id' | 'last_scanned' | 'created_at'>
+
+export type ImportFolderUpdate =
+  Partial<Omit<ImportFolderRecord, 'id' | 'path' | 'created_at'>> & { id: string }
+
+export interface ImportScanProgress {
+  folder_id: string
+  folder_name: string
+  files_found: number
+  files_processed: number
+  files_imported: number
+  files_skipped: number
+  files_errored: number
+  status: 'scanning' | 'importing' | 'complete' | 'error'
+  error?: string
+}
+
+// -----------------------------------------------------------------------------
 // Generation
 // -----------------------------------------------------------------------------
 
@@ -570,6 +607,16 @@ export interface DistilleryAPI {
     reorder(orderedIds: string[]): Promise<void>
     addMedia(collectionId: string, mediaIds: string[]): Promise<void>
     removeMedia(collectionId: string, mediaIds: string[]): Promise<void>
+  }
+
+  // Import folders
+  importFolders: {
+    getAll(): Promise<ImportFolderRecord[]>
+    create(data: ImportFolderCreate): Promise<ImportFolderRecord>
+    update(data: ImportFolderUpdate): Promise<ImportFolderRecord | undefined>
+    delete(id: string): Promise<void>
+    scan(id: string): Promise<ImportScanProgress>
+    start(data: ImportFolderCreate): Promise<ImportScanProgress>
   }
 
   // Generation

@@ -102,7 +102,9 @@ export class MediaIngestionService {
 
     const sourceAbsPath =
       args.sourceType === 'library'
-        ? this.fileManager.resolve(args.originalPath)
+        ? path.isAbsolute(args.originalPath)
+          ? args.originalPath
+          : this.fileManager.resolve(args.originalPath)
         : args.originalPath
 
     const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath)
@@ -146,7 +148,9 @@ export class MediaIngestionService {
 
         const sourceAbsPath =
           input.source_type === 'library'
-            ? this.fileManager.resolve(input.original_path)
+            ? path.isAbsolute(input.original_path)
+              ? input.original_path
+              : this.fileManager.resolve(input.original_path)
             : input.original_path
 
         const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath)
@@ -317,8 +321,10 @@ export class MediaIngestionService {
       }
     }
 
-    const originalAbs = this.fileManager.resolve(media.file_path)
-    await this.persistExternalThumbnail(originalAbs, outputAbsPath)
+    const originalSourceAbs = path.isAbsolute(media.file_path)
+      ? media.file_path
+      : this.fileManager.resolve(media.file_path)
+    await this.persistExternalThumbnail(originalSourceAbs, outputAbsPath)
   }
 
   private async persistExternalThumbnail(sourceAbsPath: string, outputAbsPath: string): Promise<void> {

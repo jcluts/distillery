@@ -49,7 +49,9 @@ export class UpscaleTaskHandler implements WorkTaskHandler {
       const media = mediaRepo.getMediaById(this.db, mediaId)
       if (!media) throw new Error(`Media not found: ${mediaId}`)
 
-      const inputAbsPath = this.fileManager.resolve(media.file_path)
+      const inputAbsPath = path.isAbsolute(media.file_path)
+        ? media.file_path
+        : this.fileManager.resolve(media.file_path)
 
       // 3. Resolve the upscale model path
       const modelAbsPath = this.modelService.resolveModelAbsolutePath(modelId)

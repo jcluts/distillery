@@ -34,6 +34,14 @@ export const IPC_CHANNELS = {
   COLLECTIONS_ADD_MEDIA: 'collections:addMedia',
   COLLECTIONS_REMOVE_MEDIA: 'collections:removeMedia',
 
+  // Import Folders
+  IMPORT_FOLDERS_GET_ALL: 'importFolders:getAll',
+  IMPORT_FOLDERS_CREATE: 'importFolders:create',
+  IMPORT_FOLDERS_UPDATE: 'importFolders:update',
+  IMPORT_FOLDERS_DELETE: 'importFolders:delete',
+  IMPORT_FOLDERS_SCAN: 'importFolders:scan',
+  IMPORT_FOLDERS_START: 'importFolders:start',
+
   // Generation
   GENERATION_SUBMIT: 'generation:submit',
   GENERATION_CANCEL: 'generation:cancel',
@@ -115,6 +123,8 @@ export const IPC_CHANNELS = {
   QUEUE_UPDATED: 'queue:updated',
   LIBRARY_UPDATED: 'library:updated',
   COLLECTIONS_UPDATED: 'collections:updated',
+  IMPORT_FOLDERS_UPDATED: 'importFolders:updated',
+  IMPORT_SCAN_PROGRESS: 'importFolders:scanProgress',
   WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged',
   MODEL_DOWNLOAD_PROGRESS: 'model:download-progress',
   UPSCALE_PROGRESS: 'upscale:progress',
