@@ -10,15 +10,18 @@ type UserModelProviderEntries = Array<{ providerId: string; models: ProviderMode
 export class EndpointCatalog {
   private configService: ProviderConfigService
   private getUserModels: () => UserModelProviderEntries
+  private resolveIdentityId?: (providerId: string, providerModelId: string) => string | null
   private endpointsByKey = new Map<string, CanonicalEndpointDef>()
   private dirty = true
 
   constructor(
     configService: ProviderConfigService,
-    getUserModels: () => UserModelProviderEntries
+    getUserModels: () => UserModelProviderEntries,
+    resolveIdentityId?: (providerId: string, providerModelId: string) => string | null
   ) {
     this.configService = configService
     this.getUserModels = getUserModels
+    this.resolveIdentityId = resolveIdentityId
   }
 
   invalidate(): void {
@@ -88,11 +91,17 @@ export class EndpointCatalog {
     provider: ProviderConfig,
     endpoint: ProviderEndpointConfig
   ): CanonicalEndpointDef {
+    const modelIdentityId =
+      endpoint.canonicalModelId ??
+      endpoint.modelIdentityId ??
+      this.resolveIdentityId?.(provider.providerId, endpoint.providerModelId) ??
+      undefined
+
     return {
       endpointKey: endpoint.endpointKey,
       providerId: provider.providerId,
       providerModelId: endpoint.providerModelId,
-      modelIdentityId: endpoint.canonicalModelId ?? endpoint.modelIdentityId,
+      modelIdentityId,
       displayName: endpoint.displayName,
       modes: endpoint.modes,
       outputType: endpoint.outputType,
@@ -106,12 +115,16 @@ export class EndpointCatalog {
     if (!model.modelId?.trim()) return null
 
     const modeInfo = inferModeInfo(model.type, model.modelId)
+    const modelIdentityId =
+      model.modelIdentityId ??
+      this.resolveIdentityId?.(provider.providerId, model.modelId) ??
+      undefined
 
     return {
       endpointKey: `${provider.providerId}.${model.modelId}.${modeInfo.outputType}`,
       providerId: provider.providerId,
       providerModelId: model.modelId,
-      modelIdentityId: model.modelIdentityId,
+      modelIdentityId,
       displayName: model.name?.trim() || model.modelId,
       modes: modeInfo.modes,
       outputType: modeInfo.outputType,
