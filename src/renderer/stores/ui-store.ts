@@ -12,7 +12,7 @@ import { THUMBNAIL_SIZE_DEFAULT } from '@/lib/constants'
 
 export type ViewMode = 'grid' | 'loupe'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
-export type RightPanelTab = 'info' | 'generation-info'
+export type RightPanelTab = 'info' | 'generation-info' | 'collections' | 'upscale'
 export type ZoomLevel = 'fit' | 'actual'
 
 const ZOOM_LEVELS: ZoomLevel[] = ['fit', 'actual']
@@ -60,7 +60,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   leftPanelTab: 'generation',
   leftPanelWidth: LEFT_PANEL_WIDTH_PX,
   rightPanelOpen: true,
-  rightPanelTab: 'info',
+  rightPanelTab: 'collections',
   rightPanelWidth: RIGHT_PANEL_WIDTH_PX,
   viewMode: 'grid',
   thumbnailSize: THUMBNAIL_SIZE_DEFAULT,

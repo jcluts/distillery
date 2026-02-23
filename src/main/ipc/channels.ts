@@ -24,6 +24,24 @@ export const IPC_CHANNELS = {
   KEYWORDS_SEARCH: 'keywords:search',
   KEYWORDS_GET_ALL: 'keywords:getAll',
 
+  // Collections
+  COLLECTIONS_GET_ALL: 'collections:getAll',
+  COLLECTIONS_GET: 'collections:get',
+  COLLECTIONS_CREATE: 'collections:create',
+  COLLECTIONS_UPDATE: 'collections:update',
+  COLLECTIONS_DELETE: 'collections:delete',
+  COLLECTIONS_REORDER: 'collections:reorder',
+  COLLECTIONS_ADD_MEDIA: 'collections:addMedia',
+  COLLECTIONS_REMOVE_MEDIA: 'collections:removeMedia',
+
+  // Import Folders
+  IMPORT_FOLDERS_GET_ALL: 'importFolders:getAll',
+  IMPORT_FOLDERS_CREATE: 'importFolders:create',
+  IMPORT_FOLDERS_UPDATE: 'importFolders:update',
+  IMPORT_FOLDERS_DELETE: 'importFolders:delete',
+  IMPORT_FOLDERS_SCAN: 'importFolders:scan',
+  IMPORT_FOLDERS_START: 'importFolders:start',
+
   // Generation
   GENERATION_SUBMIT: 'generation:submit',
   GENERATION_CANCEL: 'generation:cancel',
@@ -61,6 +79,31 @@ export const IPC_CHANNELS = {
   MODEL_REMOVE_FILE: 'model:remove-file',
   MODEL_CHECK_FILES: 'model:check-files',
 
+  // Providers
+  PROVIDERS_GET_ALL: 'providers:getAll',
+  PROVIDERS_GET_CONFIG: 'providers:getConfig',
+  PROVIDERS_SEARCH_MODELS: 'providers:searchModels',
+  PROVIDERS_LIST_MODELS: 'providers:listModels',
+  PROVIDERS_FETCH_MODEL_DETAIL: 'providers:fetchModelDetail',
+  PROVIDERS_GET_USER_MODELS: 'providers:getUserModels',
+  PROVIDERS_ADD_USER_MODEL: 'providers:addUserModel',
+  PROVIDERS_REMOVE_USER_MODEL: 'providers:removeUserModel',
+  PROVIDERS_TEST_CONNECTION: 'providers:testConnection',
+
+  // Model Identities
+  IDENTITIES_GET_ALL: 'identities:getAll',
+  IDENTITIES_CREATE: 'identities:create',
+  IDENTITIES_ADD_MAPPING: 'identities:addMapping',
+
+  // Upscale
+  UPSCALE_GET_MODELS: 'upscale:getModels',
+  UPSCALE_SUBMIT: 'upscale:submit',
+  UPSCALE_CANCEL: 'upscale:cancel',
+  UPSCALE_GET_DATA: 'upscale:getData',
+  UPSCALE_SET_ACTIVE: 'upscale:setActive',
+  UPSCALE_DELETE_VARIANT: 'upscale:deleteVariant',
+  UPSCALE_DELETE_ALL: 'upscale:deleteAll',
+
   // App
   APP_SHOW_OPEN_DIALOG: 'app:showOpenDialog',
   APP_SHOW_SAVE_DIALOG: 'app:showSaveDialog',
@@ -79,8 +122,13 @@ export const IPC_CHANNELS = {
   GENERATION_RESULT: 'generation:result',
   QUEUE_UPDATED: 'queue:updated',
   LIBRARY_UPDATED: 'library:updated',
+  COLLECTIONS_UPDATED: 'collections:updated',
+  IMPORT_FOLDERS_UPDATED: 'importFolders:updated',
+  IMPORT_SCAN_PROGRESS: 'importFolders:scanProgress',
   WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged',
-  MODEL_DOWNLOAD_PROGRESS: 'model:download-progress'
+  MODEL_DOWNLOAD_PROGRESS: 'model:download-progress',
+  UPSCALE_PROGRESS: 'upscale:progress',
+  UPSCALE_RESULT: 'upscale:result'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

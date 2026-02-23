@@ -1,0 +1,68 @@
+{
+  "configVersion": 1,
+  "models": [
+    {
+      "id": "realesrgan-x4plus",
+      "name": "Real-ESRGAN x4+",
+      "description": "General-purpose photo upscaler. Good all-round quality.",
+      "file": "upscaling/RealESRGAN_x4plus.gguf",
+      "nativeScale": 4,
+      "supportedScales": [2, 3, 4],
+      "enabled": true
+    },
+    {
+      "id": "4x-ultrasharp",
+      "name": "UltraSharp",
+      "description": "Excellent detail preservation and sharpness.",
+      "file": "upscaling/4xUltrasharpV10.gguf",
+      "nativeScale": 4,
+      "supportedScales": [2, 3, 4],
+      "enabled": true
+    },
+    {
+      "id": "4x-nomos-webphoto",
+      "name": "Nomos WebPhoto",
+      "description": "Optimized for web and product photography.",
+      "file": "upscaling/4xNomosWebPhoto_esrgan.gguf",
+      "nativeScale": 4,
+      "supportedScales": [2, 3, 4],
+      "enabled": true
+    },
+    {
+      "id": "4x-nomos8k-sc",
+      "name": "Nomos 8K SC",
+      "description": "Cinematic and high-resolution source material.",
+      "file": "upscaling/4xNomos8kSC.gguf",
+      "nativeScale": 4,
+      "supportedScales": [2, 3, 4],
+      "enabled": true
+    },
+    {
+      "id": "4x-nickelback-fs",
+      "name": "Nickelback FS",
+      "description": "Film scan restoration and upscaling.",
+      "file": "upscaling/4x_NickelbackFS_72000_G.gguf",
+      "nativeScale": 4,
+      "supportedScales": [2, 3, 4],
+      "enabled": true
+    },
+    {
+      "id": "4x-nickelback",
+      "name": "Nickelback",
+      "description": "General purpose upscaler with natural texture.",
+      "file": "upscaling/4x_Nickelback_70000G.gguf",
+      "nativeScale": 4,
+      "supportedScales": [2, 3, 4],
+      "enabled": true
+    },
+    {
+      "id": "2x-esrgan",
+      "name": "ESRGAN 2×",
+      "description": "Native 2× upscaler. Faster than running a 4× model at 2×.",
+      "file": "upscaling/2x-ESRGAN.gguf",
+      "nativeScale": 2,
+      "supportedScales": [2],
+      "enabled": true
+    }
+  ]
+}

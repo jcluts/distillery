@@ -10,11 +10,20 @@ import { TimelineService } from './timeline/timeline-service'
 import { WorkQueueManager } from './queue/work-queue-manager'
 import { WORK_TASK_TYPES } from './queue/work-task-types'
 import { FileManager } from './files/file-manager'
-import { GenerationIOService } from './generation/generation-io-service'
+import { MediaIngestionService } from './generation/media-ingestion-service'
 import { GenerationService } from './generation/generation-service'
-import { LocalCnEngineProvider } from './generation/providers/local-cn-provider'
-import { ProviderCatalogService } from './generation/catalog/provider-catalog-service'
-import { LocalGenerateTaskHandler } from './generation/tasks/local-generate-task'
+import { LocalCnProvider } from './generation/providers/local-cn-provider'
+import { RemoteApiProvider } from './generation/providers/remote-api-provider'
+import { ProviderRegistry } from './generation/providers/provider-registry'
+import { EndpointCatalog } from './generation/catalog/endpoint-catalog'
+import { ProviderConfigService } from './generation/catalog/provider-config'
+import { ModelIdentityService } from './generation/catalog/model-identity-service'
+import { ProviderManager } from './generation/management/provider-manager'
+import { GenerateTaskHandler } from './generation/generate-task-handler'
+import { registerProviderAdapter } from './generation/remote/adapters/adapter-registry'
+import { falAdapter } from './generation/remote/adapters/fal-adapter'
+import { replicateAdapter } from './generation/remote/adapters/replicate-adapter'
+import { wavespeedAdapter } from './generation/remote/adapters/wavespeed-adapter'
 import { IPC_CHANNELS } from './ipc/channels'
 import { registerLibraryHandlers } from './ipc/handlers/library'
 import { registerGenerationHandlers } from './ipc/handlers/generation'
@@ -24,11 +33,20 @@ import { registerTimelineHandlers } from './ipc/handlers/timeline'
 import { registerSettingsHandlers } from './ipc/handlers/settings'
 import { registerModelHandlers } from './ipc/handlers/models'
 import { registerKeywordsHandlers } from './ipc/handlers/keywords'
+import { registerCollectionsHandlers } from './ipc/handlers/collections'
+import { registerImportFolderHandlers } from './ipc/handlers/import-folders'
 import { registerWindowHandlers } from './ipc/handlers/window'
+import { registerProviderHandlers } from './ipc/handlers/providers'
+import { registerUpscaleHandlers } from './ipc/handlers/upscale'
+import { UpscaleModelService } from './upscale/upscale-model-service'
+import { UpscaleService } from './upscale/upscale-service'
+import { UpscaleTaskHandler } from './upscale/upscale-task-handler'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
+import * as identityRepo from './db/repositories/model-identities'
 import { ModelCatalogService } from './models/model-catalog-service'
 import { ModelDownloadManager } from './models/model-download-manager'
 import { bootstrapQuantSelections } from './models/selection-bootstrap'
+import { initializeAutoImportFolders } from './import/import-folder-service'
 
 // Allow the renderer to load library files via a safe custom protocol.
 // This avoids `file://` restrictions when running the renderer from http:// (dev server).
@@ -50,6 +68,48 @@ let engineManager: EngineManager | null = null
 let workQueueManager: WorkQueueManager | null = null
 let generationService: GenerationService | null = null
 let fileManager: FileManager | null = null
+
+/**
+ * Migrate user-created identities from the legacy model-identities.json file
+ * into the new DB tables, then delete the JSON file.
+ */
+function migrateJsonIdentities(db: import('better-sqlite3').Database): void {
+  const jsonPath = path.join(app.getPath('userData'), 'model-identities.json')
+  if (!fs.existsSync(jsonPath)) return
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as Record<
+      string,
+      { id: string; name: string; description?: string; providerMapping?: Record<string, string[]> }
+    >
+
+    db.transaction(() => {
+      for (const [id, identity] of Object.entries(parsed)) {
+        if (!id || !identity?.name) continue
+
+        // Insert identity if it doesn't already exist (seed data may overlap)
+        const existing = identityRepo.getIdentityById(db, id)
+        if (!existing) {
+          identityRepo.createIdentity(db, id, identity.name, identity.description)
+        }
+
+        // Insert any provider mappings
+        for (const [providerId, modelIds] of Object.entries(identity.providerMapping ?? {})) {
+          for (const modelId of modelIds) {
+            if (modelId?.trim()) {
+              identityRepo.addMapping(db, id, providerId, modelId.trim())
+            }
+          }
+        }
+      }
+    })()
+
+    fs.unlinkSync(jsonPath)
+    console.log('[Main] Migrated model-identities.json to DB and deleted JSON file')
+  } catch (error) {
+    console.warn('[Main] Failed to migrate model-identities.json:', error)
+  }
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -260,26 +320,39 @@ app.whenReady().then(async () => {
 
     try {
       const url = new URL(request.url)
-      if (url.hostname !== 'library') {
-        callback({ error: -6 })
+      if (url.hostname === 'library') {
+        const raw = decodeURIComponent(url.pathname.replace(/^\//, ''))
+        const rel = raw.replace(/\//g, path.sep)
+        const abs = fileManager.resolve(rel)
+
+        const root = path.resolve(fileManager.getLibraryRoot())
+        const resolved = path.resolve(abs)
+        const rootNorm = process.platform === 'win32' ? root.toLowerCase() : root
+        const resolvedNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
+
+        if (!resolvedNorm.startsWith(rootNorm + path.sep) && resolvedNorm !== rootNorm) {
+          callback({ error: -10 })
+          return
+        }
+
+        callback({ path: resolved })
         return
       }
 
-      const raw = decodeURIComponent(url.pathname.replace(/^\//, ''))
-      const rel = raw.replace(/\//g, path.sep)
-      const abs = fileManager.resolve(rel)
+      if (url.hostname === 'external') {
+        const encoded = url.pathname.replace(/^\//, '')
+        const decoded = decodeURIComponent(encoded)
+        if (!path.isAbsolute(decoded)) {
+          callback({ error: -10 })
+          return
+        }
 
-      const root = path.resolve(fileManager.getLibraryRoot())
-      const resolved = path.resolve(abs)
-      const rootNorm = process.platform === 'win32' ? root.toLowerCase() : root
-      const resolvedNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
-
-      if (!resolvedNorm.startsWith(rootNorm + path.sep) && resolvedNorm !== rootNorm) {
-        callback({ error: -10 })
+        callback({ path: decoded })
         return
       }
 
-      callback({ path: resolved })
+      callback({ error: -6 })
+      return
     } catch {
       callback({ error: -6 })
     }
@@ -292,37 +365,97 @@ app.whenReady().then(async () => {
 
   // Initialize work queue + generation services
   workQueueManager = new WorkQueueManager(db)
-  const generationIOService = new GenerationIOService(db, fileManager)
-  const providerCatalogService = new ProviderCatalogService()
-  const localProvider = new LocalCnEngineProvider(engineManager)
+  const mediaIngestionService = new MediaIngestionService(db, fileManager)
+  const providerConfigService = new ProviderConfigService()
+  const modelIdentityService = new ModelIdentityService(db)
+
+  // Migrate user-created identities from the legacy JSON file (if it exists)
+  migrateJsonIdentities(db)
+
+  registerProviderAdapter('fal', falAdapter)
+  registerProviderAdapter('replicate', replicateAdapter)
+  registerProviderAdapter('wavespeed', wavespeedAdapter)
+
+  let endpointCatalog: EndpointCatalog
+  const providerManagerService = new ProviderManager({
+    db,
+    configService: providerConfigService,
+    identityService: modelIdentityService,
+    onModelsChanged: () => endpointCatalog.invalidate()
+  })
+
+  endpointCatalog = new EndpointCatalog(providerConfigService, () =>
+    providerManagerService.getProvidersWithUserModels(),
+  (providerId, providerModelId) => modelIdentityService.findIdentityId(providerModelId, providerId)
+  )
+
+  const providerRegistry = new ProviderRegistry()
+  const localProvider = new LocalCnProvider({
+    engineManager,
+    db,
+    modelCatalogService
+  })
+  providerRegistry.register(localProvider)
+
+  const remoteProviderConfigs = providerManagerService.getProviders()
+  for (const providerConfig of remoteProviderConfigs) {
+    providerRegistry.register(
+      new RemoteApiProvider(providerConfig, () =>
+        providerManagerService.getApiKey(providerConfig.providerId)
+      )
+    )
+  }
 
   generationService = new GenerationService({
     db,
     workQueueManager,
-    generationIOService,
-    providerCatalogService
+    mediaIngestionService,
+    endpointCatalog
   })
 
-  await generationService.initialize()
-
-  localProvider.on('progress', (event) => {
-    generationService?.emitProgress(event)
-  })
+  for (const provider of providerRegistry.list()) {
+    provider.on?.('progress', (event) => {
+      generationService?.emitProgress(event)
+    })
+  }
 
   workQueueManager.registerHandler(
-    WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE,
-    new LocalGenerateTaskHandler({
+    WORK_TASK_TYPES.GENERATION,
+    new GenerateTaskHandler({
       db,
-      generationIOService,
-      localProvider,
-      providerCatalogService,
       generationService,
-      engineManager,
-      modelCatalogService
+      mediaIngestionService,
+      endpointCatalog,
+      providerRegistry
     })
   )
 
+  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.GENERATION, 4)
+
   console.log('[Main] Work queue + generation services initialized')
+
+  // Initialize upscale services
+  const upscaleModelService = new UpscaleModelService()
+  const upscaleService = new UpscaleService({
+    db,
+    fileManager,
+    modelService: upscaleModelService,
+    workQueueManager
+  })
+
+  workQueueManager.registerHandler(
+    WORK_TASK_TYPES.UPSCALE,
+    new UpscaleTaskHandler({
+      db,
+      engineManager,
+      modelService: upscaleModelService,
+      upscaleService,
+      fileManager
+    })
+  )
+  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.UPSCALE, 1)
+
+  console.log('[Main] Upscale services initialized')
 
   // Register all IPC handlers
   registerLibraryHandlers(fileManager, () => {
@@ -333,6 +466,25 @@ app.whenReady().then(async () => {
   registerQueueHandlers(workQueueManager)
   registerTimelineHandlers()
   registerKeywordsHandlers()
+  registerCollectionsHandlers({
+    onCollectionsUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.COLLECTIONS_UPDATED)
+    },
+    onLibraryUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
+  })
+  registerImportFolderHandlers(fileManager, {
+    onImportFoldersUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_FOLDERS_UPDATED)
+    },
+    onLibraryUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    },
+    onScanProgress: (progress) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_SCAN_PROGRESS, progress)
+    }
+  })
   registerSettingsHandlers({
     engineManager,
     fileManager,
@@ -349,10 +501,27 @@ app.whenReady().then(async () => {
     }
   })
   registerWindowHandlers(() => mainWindow)
+  registerProviderHandlers({
+    providerManagerService,
+    modelIdentityService
+  })
+  registerUpscaleHandlers(upscaleService)
   console.log('[Main] IPC handlers registered')
 
   // Create window
   createWindow()
+
+  // Auto-scan persisted import folders configured for startup import.
+  await initializeAutoImportFolders(db, fileManager, (progress) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_SCAN_PROGRESS, progress)
+
+    if (progress.status === 'complete') {
+      mainWindow?.webContents.send(IPC_CHANNELS.IMPORT_FOLDERS_UPDATED)
+      if (progress.files_imported > 0) {
+        mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+      }
+    }
+  })
 
   // Forward engine events to renderer
   if (engineManager) {
@@ -366,6 +535,15 @@ app.whenReady().then(async () => {
   if (generationService) {
     setupGenerationEventForwarding(generationService)
   }
+
+  // Forward upscale events to renderer
+  upscaleService.on('progress', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.UPSCALE_PROGRESS, event)
+  })
+  upscaleService.on('result', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.UPSCALE_RESULT, event)
+    mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+  })
 
   // Start engine process if path is configured (model will be lazy-loaded on first generation)
   if (enginePath) {

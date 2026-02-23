@@ -1,35 +1,7 @@
 import { useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { SectionLabel } from '@/components/ui/section-label'
-
-// ---------------------------------------------------------------------------
-// Aspect ratio icon — compact visual indicator
-// ---------------------------------------------------------------------------
-
-function AspectIcon({ ratio }: { ratio: string }): React.JSX.Element {
-  const getDimensions = (): { w: number; h: number } => {
-    switch (ratio) {
-      case '1:1':
-        return { w: 10, h: 10 }
-      case '16:9':
-        return { w: 12, h: 7 }
-      case '9:16':
-        return { w: 7, h: 12 }
-      case '4:3':
-        return { w: 12, h: 9 }
-      case '3:4':
-        return { w: 9, h: 12 }
-      case '3:2':
-        return { w: 12, h: 8 }
-      case '2:3':
-        return { w: 8, h: 12 }
-      default:
-        return { w: 10, h: 10 }
-    }
-  }
-  const { w, h } = getDimensions()
-  return <div className="border border-current rounded-[1px]" style={{ width: w, height: h }} />
-}
+import { AspectIcon } from './AspectIcon'
 
 // ---------------------------------------------------------------------------
 // Constants

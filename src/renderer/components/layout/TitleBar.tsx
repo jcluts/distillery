@@ -93,8 +93,8 @@ export function TitleBar(): React.JSX.Element {
           variant="ghost"
           size="sm"
           className="h-8"
-          onClick={() => openModal('models')}
-          aria-label="Open model manager"
+          onClick={() => openModal('providers')}
+          aria-label="Open provider manager"
         >
           <Boxes className="size-4" />
           Models

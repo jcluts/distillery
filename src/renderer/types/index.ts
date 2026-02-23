@@ -6,7 +6,7 @@
 // Media
 // -----------------------------------------------------------------------------
 
-export type MediaType = 'image' // future: | 'video'
+export type MediaType = 'image' | 'video'
 
 export type MediaOriginKind = 'generation' | 'import' // future: | 'duplicate' | 'sketch'
 
@@ -21,11 +21,14 @@ export interface MediaRecord {
   origin: MediaOriginKind
   width: number | null
   height: number | null
+  duration: number | null
   file_size: number | null
   rating: number // 0-5
   status: MediaStatus
   generation_id: string | null
   origin_id: string | null
+  active_upscale_id: string | null
+  working_file_path: string | null
   created_at: string
   updated_at: string
 }
@@ -45,6 +48,7 @@ export interface MediaQuery {
   sort?: MediaSortField
   sortDirection?: 'asc' | 'desc'
   search?: string
+  collectionId?: string
 }
 
 export type MediaSortField = 'created_at' | 'rating' | 'file_name'
@@ -57,15 +61,85 @@ export interface MediaPage {
 }
 
 // -----------------------------------------------------------------------------
+// Collections
+// -----------------------------------------------------------------------------
+
+export type CollectionType = 'manual' | 'special' | 'live'
+
+export interface CollectionRecord {
+  id: string
+  name: string
+  color: string
+  type: CollectionType
+  system_key: string | null
+  sort_order: number
+  filter_json: string | null
+  created_at: string
+  updated_at: string
+  media_count: number
+}
+
+export interface CollectionCreate {
+  name: string
+  color: string
+  media_ids?: string[]
+}
+
+export interface CollectionUpdate {
+  name?: string
+  color?: string
+}
+
+// -----------------------------------------------------------------------------
+// Import Folders
+// -----------------------------------------------------------------------------
+
+export type ImportFolderMode = 'reference' | 'copy' | 'move'
+
+export interface ImportFolderRecord {
+  id: string
+  name: string
+  path: string
+  import_mode: ImportFolderMode
+  recursive: boolean
+  persist: boolean
+  auto_import: boolean
+  target_collection_id?: string
+  initial_keywords?: string[]
+  last_scanned?: string
+  created_at: string
+}
+
+export type ImportFolderCreate = Omit<ImportFolderRecord, 'id' | 'last_scanned' | 'created_at'>
+
+export type ImportFolderUpdate = Partial<Omit<ImportFolderRecord, 'id' | 'path' | 'created_at'>> & {
+  id: string
+}
+
+export interface ImportScanProgress {
+  folder_id: string
+  folder_name: string
+  files_found: number
+  files_processed: number
+  files_imported: number
+  files_skipped: number
+  files_errored: number
+  status: 'scanning' | 'importing' | 'complete' | 'error'
+  error?: string
+}
+
+// -----------------------------------------------------------------------------
 // Generation
 // -----------------------------------------------------------------------------
+
+export type GenerationMode = 'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'
 
 export type GenerationStatus = 'pending' | 'completed' | 'failed'
 
 export interface GenerationRecord {
   id: string
   number: number
-  base_model_id: string | null
+  model_identity_id: string | null
   provider: string
   model_file: string | null
   prompt: string | null
@@ -116,18 +190,6 @@ export interface CanonicalGenerationParams {
 export interface GenerationSubmitInput {
   endpointKey: string
   params: CanonicalGenerationParams
-}
-
-// -----------------------------------------------------------------------------
-// Base Models
-// -----------------------------------------------------------------------------
-
-export interface BaseModel {
-  id: string
-  name: string
-  family: string
-  media_type: MediaType
-  created_at: string
 }
 
 // -----------------------------------------------------------------------------
@@ -185,9 +247,9 @@ export interface CanonicalEndpointDef {
   endpointKey: string
   providerId: string
   providerModelId: string
-  canonicalModelId?: string
+  modelIdentityId?: string
   displayName: string
-  modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+  modes: GenerationMode[]
   outputType: 'image' | 'video'
   executionMode: 'queued-local' | 'remote-async'
   requestSchema: CanonicalRequestSchema
@@ -217,6 +279,101 @@ export interface GenerationResultEvent {
     refLatentCacheHit?: boolean
   }
   error?: string
+}
+
+export interface ProviderConfig {
+  providerId: string
+  displayName?: string
+  enabled?: boolean
+  executionMode?: 'queued-local' | 'remote-async'
+  adapter?: 'wavespeed' | 'fal' | 'replicate'
+  feedFile?: string
+  endpoints?: Array<{
+    endpointKey: string
+    providerModelId: string
+    canonicalModelId?: string // preserved for provider config JSON compatibility
+    modelIdentityId?: string
+    displayName: string
+    modes: GenerationMode[]
+    outputType: 'image' | 'video'
+    executionMode: 'queued-local' | 'remote-async'
+    requestSchema: unknown
+    uiSchema?: unknown
+  }>
+  baseUrl?: string
+  auth?: {
+    type: 'bearer' | 'key'
+    header?: string
+    prefix?: string
+    settingsKey: keyof AppSettings
+  }
+  search?: {
+    endpoint: string
+    method: 'GET' | 'QUERY'
+    queryParam?: string
+    limitParam?: string
+    extraParams?: Record<string, string>
+    maxResults?: number
+    detailEndpoint?: string
+    detailQueryParam?: string
+    searchOnly?: boolean
+  }
+  browse?: {
+    mode: 'search' | 'list'
+  }
+  upload?: {
+    endpoint: string
+    method: 'multipart' | 'json'
+    fileField?: string
+    responseField: string
+  }
+  async?: {
+    enabled: boolean
+    requestIdPath: string
+    pollEndpoint: string
+    pollUrlPath?: string
+    pollInterval?: number
+    maxPollTime?: number
+    statusPath: string
+    completedValue: string
+    failedValue: string
+    errorPath?: string
+    outputsPath: string
+  }
+  request?: {
+    endpointTemplate?: string
+  }
+}
+
+export interface SearchResult {
+  models: SearchResultModel[]
+  hasMore?: boolean
+}
+
+export interface SearchResultModel {
+  modelId: string
+  name: string
+  description?: string
+  type?: GenerationMode
+  runCount?: number
+  raw?: unknown
+}
+
+export interface ProviderModel {
+  modelId: string
+  name: string
+  description?: string
+  type?: GenerationMode
+  providerId: string
+  requestSchema: CanonicalRequestSchema
+  modelIdentityId?: string
+}
+
+export interface ModelIdentity {
+  id: string
+  name: string
+  description?: string
+  providerMapping: Record<string, string[]>
 }
 
 // -----------------------------------------------------------------------------
@@ -339,6 +496,11 @@ export interface AppSettings {
   thumbnail_size: number
   view_mode: 'grid' | 'loupe'
 
+  // API Provider Keys
+  fal_api_key: string
+  replicate_api_key: string
+  wavespeed_api_key: string
+
   // Window
   window_x?: number
   window_y?: number
@@ -361,6 +523,53 @@ export interface HardwareProfile {
   arch: string
   totalMemory: number
   gpuInfo?: string
+}
+
+// -----------------------------------------------------------------------------
+// Upscale
+// -----------------------------------------------------------------------------
+
+export interface UpscaleModelInfo {
+  id: string
+  name: string
+  description: string
+  supportedScales: number[]
+  available: boolean
+}
+
+export interface UpscaleVariant {
+  id: string
+  media_id: string
+  file_path: string
+  model_id: string
+  model_name: string
+  scale_factor: number
+  width: number
+  height: number
+  file_size: number | null
+  created_at: string
+}
+
+export interface UpscaleRequest {
+  mediaId: string
+  modelId: string
+  scaleFactor: number
+}
+
+export interface UpscaleProgressEvent {
+  mediaId: string
+  phase: 'preparing' | 'upscaling' | 'saving' | 'complete' | 'error'
+  step?: number
+  totalSteps?: number
+  message?: string
+}
+
+export interface UpscaleResultEvent {
+  mediaId: string
+  success: boolean
+  variant?: UpscaleVariant
+  totalTimeMs?: number
+  error?: string
 }
 
 // -----------------------------------------------------------------------------
@@ -388,6 +597,28 @@ export interface DistilleryAPI {
     removeFromMedia(mediaId: string, keyword: string): Promise<void>
     search(prefix: string, limit?: number): Promise<string[]>
     getAll(): Promise<{ keyword: string; count: number }[]>
+  }
+
+  // Collections
+  collections: {
+    getAll(): Promise<CollectionRecord[]>
+    get(id: string): Promise<CollectionRecord | null>
+    create(data: CollectionCreate): Promise<CollectionRecord>
+    update(id: string, data: CollectionUpdate): Promise<void>
+    delete(id: string): Promise<void>
+    reorder(orderedIds: string[]): Promise<void>
+    addMedia(collectionId: string, mediaIds: string[]): Promise<void>
+    removeMedia(collectionId: string, mediaIds: string[]): Promise<void>
+  }
+
+  // Import folders
+  importFolders: {
+    getAll(): Promise<ImportFolderRecord[]>
+    create(data: ImportFolderCreate): Promise<ImportFolderRecord>
+    update(data: ImportFolderUpdate): Promise<ImportFolderRecord | undefined>
+    delete(id: string): Promise<void>
+    scan(id: string): Promise<ImportScanProgress>
+    start(data: ImportFolderCreate): Promise<ImportScanProgress>
   }
 
   // Generation
@@ -432,6 +663,44 @@ export interface DistilleryAPI {
   cancelModelDownload(payload: { relativePath: string }): Promise<void>
   removeModelFile(payload: { relativePath: string }): Promise<void>
   checkModelFiles(payload: { modelId: string }): Promise<ModelFilesCheckResult>
+
+  // Providers
+  providers: {
+    getAll(): Promise<ProviderConfig[]>
+    getConfig(providerId: string): Promise<ProviderConfig | null>
+    searchModels(providerId: string, query: string): Promise<SearchResult>
+    listModels(providerId: string): Promise<ProviderModel[]>
+    fetchModelDetail(providerId: string, modelId: string): Promise<ProviderModel | null>
+    getUserModels(providerId: string): Promise<ProviderModel[]>
+    addUserModel(providerId: string, model: ProviderModel): Promise<void>
+    removeUserModel(providerId: string, modelId: string): Promise<void>
+    testConnection(providerId: string): Promise<{ valid: boolean; error?: string }>
+  }
+
+  // Model Identities
+  identities: {
+    getAll(): Promise<ModelIdentity[]>
+    create(
+      id: string,
+      name: string,
+      description: string,
+      initialMapping?: { providerId: string; modelIds: string[] }
+    ): Promise<ModelIdentity>
+    addMapping(identityId: string, providerId: string, modelIds: string[]): Promise<void>
+  }
+
+  // Upscale
+  upscale: {
+    getModels(): Promise<UpscaleModelInfo[]>
+    submit(request: UpscaleRequest): Promise<string>
+    cancel(mediaId: string): Promise<void>
+    getData(
+      mediaId: string
+    ): Promise<{ variants: UpscaleVariant[]; activeVariantId: string | null }>
+    setActive(mediaId: string, variantId: string | null): Promise<void>
+    deleteVariant(variantId: string): Promise<void>
+    deleteAll(mediaId: string): Promise<void>
+  }
 
   // App
   showOpenDialog(options: Electron.OpenDialogOptions): Promise<string[] | null>

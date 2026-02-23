@@ -4,7 +4,7 @@
 // =============================================================================
 
 // Media types
-export type MediaType = 'image'
+export type MediaType = 'image' | 'video'
 export type MediaOriginKind = 'generation' | 'import'
 export type MediaStatus = 'selected' | 'rejected' | null
 export type MediaSortField = 'created_at' | 'rating' | 'file_name'
@@ -18,13 +18,17 @@ export interface MediaRecord {
   origin: MediaOriginKind
   width: number | null
   height: number | null
+  duration: number | null
   file_size: number | null
   rating: number
   status: MediaStatus
   generation_id: string | null
   origin_id: string | null
+  active_upscale_id: string | null
   created_at: string
   updated_at: string
+  /** Computed at IPC boundary — points to active upscale variant or null */
+  working_file_path?: string | null
 }
 
 export interface MediaUpdate {
@@ -42,6 +46,7 @@ export interface MediaQuery {
   sort?: MediaSortField
   sortDirection?: 'asc' | 'desc'
   search?: string
+  collectionId?: string
 }
 
 export interface MediaPage {
@@ -51,14 +56,76 @@ export interface MediaPage {
   pageSize: number
 }
 
+// Collection types
+export type CollectionType = 'manual' | 'special' | 'live'
+
+export interface CollectionRecord {
+  id: string
+  name: string
+  color: string
+  type: CollectionType
+  system_key: string | null
+  sort_order: number
+  filter_json: string | null
+  created_at: string
+  updated_at: string
+  media_count: number
+}
+
+export interface CollectionCreate {
+  name: string
+  color: string
+  media_ids?: string[]
+}
+
+export interface CollectionUpdate {
+  name?: string
+  color?: string
+}
+
+// Import folder types
+export type ImportFolderMode = 'reference' | 'copy' | 'move'
+
+export interface ImportFolderRecord {
+  id: string
+  name: string
+  path: string
+  import_mode: ImportFolderMode
+  recursive: boolean
+  persist: boolean
+  auto_import: boolean
+  target_collection_id?: string
+  initial_keywords?: string[]
+  last_scanned?: string
+  created_at: string
+}
+
+export type ImportFolderCreate = Omit<ImportFolderRecord, 'id' | 'last_scanned' | 'created_at'>
+
+export type ImportFolderUpdate =
+  Partial<Omit<ImportFolderRecord, 'id' | 'path' | 'created_at'>> & { id: string }
+
+export interface ImportScanProgress {
+  folder_id: string
+  folder_name: string
+  files_found: number
+  files_processed: number
+  files_imported: number
+  files_skipped: number
+  files_errored: number
+  status: 'scanning' | 'importing' | 'complete' | 'error'
+  error?: string
+}
+
 // Generation types
+export type GenerationMode = 'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'
 export type GenerationStatus = 'pending' | 'completed' | 'failed'
 export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 export interface GenerationRecord {
   id: string
   number: number
-  base_model_id: string | null
+  model_identity_id: string | null
   provider: string
   model_file: string | null
   prompt: string | null
@@ -111,13 +178,7 @@ export interface GenerationSubmitInput {
   params: CanonicalGenerationParams
 }
 
-export interface BaseModel {
-  id: string
-  name: string
-  family: string
-  media_type: MediaType
-  created_at: string
-}
+
 
 export interface WorkItem {
   id: string
@@ -152,24 +213,6 @@ export interface WorkFilter {
 
 export interface WorkTaskResult {
   success: boolean
-  error?: string
-}
-
-export interface GenerationOutputArtifact {
-  providerPath: string
-  mimeType?: string
-}
-
-export interface GenerationExecutionResult {
-  generationId: string
-  success: boolean
-  outputs?: GenerationOutputArtifact[]
-  metrics?: {
-    seed?: number
-    totalTimeMs?: number
-    promptCacheHit?: boolean
-    refLatentCacheHit?: boolean
-  }
   error?: string
 }
 
@@ -216,23 +259,13 @@ export interface CanonicalEndpointDef {
   endpointKey: string
   providerId: string
   providerModelId: string
-  canonicalModelId?: string
+  modelIdentityId?: string
   displayName: string
-  modes: Array<'text-to-image' | 'image-to-image' | 'text-to-video' | 'image-to-video'>
+  modes: GenerationMode[]
   outputType: 'image' | 'video'
   executionMode: 'queued-local' | 'remote-async'
   requestSchema: CanonicalRequestSchema
   uiSchema?: CanonicalUiSchema
-}
-
-export interface GenerationExecutionRequest {
-  generationId: string
-  endpoint: CanonicalEndpointDef
-  params: CanonicalGenerationParams
-  outputPath?: string
-  preparedInputs?: {
-    refImages: string[]
-  }
 }
 
 // Engine types
@@ -300,6 +333,9 @@ export interface AppSettings {
   right_panel_width: number
   thumbnail_size: number
   view_mode: 'grid' | 'loupe'
+  fal_api_key: string
+  replicate_api_key: string
+  wavespeed_api_key: string
   window_x?: number
   window_y?: number
   window_width?: number
@@ -315,4 +351,58 @@ export interface HardwareProfile {
   arch: string
   totalMemory: number
   gpuInfo?: string
+}
+
+// Upscale types
+export interface UpscaleModelConfig {
+  id: string
+  name: string
+  description: string
+  file: string
+  nativeScale: number
+  supportedScales: number[]
+  enabled: boolean
+}
+
+export interface UpscaleModelInfo {
+  id: string
+  name: string
+  description: string
+  supportedScales: number[]
+  available: boolean
+}
+
+export interface UpscaleVariant {
+  id: string
+  media_id: string
+  file_path: string
+  model_id: string
+  model_name: string
+  scale_factor: number
+  width: number
+  height: number
+  file_size: number | null
+  created_at: string
+}
+
+export interface UpscaleRequest {
+  mediaId: string
+  modelId: string
+  scaleFactor: number
+}
+
+export interface UpscaleProgressEvent {
+  mediaId: string
+  phase: 'preparing' | 'upscaling' | 'saving' | 'complete' | 'error'
+  step?: number
+  totalSteps?: number
+  message?: string
+}
+
+export interface UpscaleResultEvent {
+  mediaId: string
+  success: boolean
+  variant?: UpscaleVariant
+  totalTimeMs?: number
+  error?: string
 }

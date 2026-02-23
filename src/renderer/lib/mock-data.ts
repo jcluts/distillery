@@ -24,12 +24,15 @@ export function createMockMediaPage(count = 96): MediaPage {
       origin: isGenerated ? 'generation' : 'import',
       width,
       height,
+      duration: null,
       file_size: 1024 * 1024 * (i % 7 === 0 ? 3 : 2),
       rating: clampRating((i % 7) - 1),
       status: i % 11 === 0 ? 'selected' : i % 13 === 0 ? 'rejected' : null,
       keywords: null,
       generation_id: isGenerated ? `mock-gen-${String(Math.floor(i / 2) + 1).padStart(4, '0')}` : null,
       origin_id: null,
+      active_upscale_id: null,
+      working_file_path: null,
       created_at: isoAgo(i * 1000 * 60 * 10),
       updated_at: isoAgo(i * 1000 * 60 * 10)
     }
@@ -52,7 +55,7 @@ export function createMockGenerations(count = 24): GenerationRecord[] {
     return {
       id,
       number: 1000 + i,
-      base_model_id: null,
+      model_identity_id: null,
       provider: 'local',
       model_file: 'FLUX.2 Klein (mock)',
       prompt:

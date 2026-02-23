@@ -1,8 +1,9 @@
 import * as React from 'react'
-import { Check, Star, X } from 'lucide-react'
+import { Check, Play, Star, X } from 'lucide-react'
 
 import type { MediaRecord } from '@/types'
 import { cn } from '@/lib/utils'
+import { formatDuration } from '@/lib/media'
 
 type OverlaySize = 'grid' | 'filmstrip'
 
@@ -47,6 +48,7 @@ export const MediaThumbnail = React.memo(function MediaThumbnail({
 }: MediaThumbnailProps): React.JSX.Element {
   const overlayClasses = overlayClassBySize[overlaySize]
   const starCount = Math.max(0, Math.min(5, Math.floor(media.rating)))
+  const isVideo = media.media_type === 'video'
 
   return (
     <div className={cn('relative h-full w-full overflow-hidden rounded-md border bg-muted', className)}>
@@ -89,6 +91,19 @@ export const MediaThumbnail = React.memo(function MediaThumbnail({
             />
           ))}
         </div>
+      )}
+
+      {isVideo && (
+        <>
+          <div className="absolute bottom-1.5 left-1.5 rounded-full bg-black/65 p-1 text-white shadow-sm">
+            <Play className="size-3 fill-current" />
+          </div>
+          {media.duration !== null && (
+            <div className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white shadow-sm">
+              {formatDuration(media.duration)}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

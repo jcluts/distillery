@@ -39,8 +39,31 @@ export interface FormFieldConfig {
 // Fields that should render as textarea
 const TEXTAREA_FIELDS = ['prompt', 'negative_prompt']
 
-// Internal fields that should never appear in the form
-const INTERNAL_FIELDS = ['ref_image_ids', 'ref_image_paths']
+// Internal fields that should never appear in the form.
+// Image/mask input fields are handled by the RefImageDropzone and the main-
+// process upload pipeline — they must never surface as dynamic form controls.
+const INTERNAL_FIELDS = [
+  // Distillery internal
+  'ref_image_ids',
+  'ref_image_paths',
+  // Common provider image input fields
+  'image',
+  'images',
+  'image_url',
+  'image_urls',
+  'init_image',
+  'init_image_url',
+  'input_image',
+  'input_image_url',
+  'reference_image',
+  'reference_images',
+  'ref_images',
+  // Mask fields
+  'mask',
+  'mask_image',
+  'mask_url',
+  'mask_image_url'
+]
 
 // Fields managed outside the dynamic form (rendered directly by the pane)
 const PANE_MANAGED_FIELDS = ['prompt']
