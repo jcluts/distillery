@@ -370,7 +370,8 @@ app.whenReady().then(async () => {
   })
 
   endpointCatalog = new EndpointCatalog(providerConfigService, () =>
-    providerManagerService.getProvidersWithUserModels()
+    providerManagerService.getProvidersWithUserModels(),
+  (providerId, providerModelId) => modelIdentityService.findIdentityId(providerModelId, providerId)
   )
 
   const providerRegistry = new ProviderRegistry()
