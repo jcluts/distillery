@@ -25,7 +25,7 @@ export function ProviderManagerModal(): React.JSX.Element {
     >
       <DialogContent className="top-[4vh] h-[82vh] w-[96vw] sm:max-w-[1100px] translate-y-0 flex flex-col overflow-hidden p-4 data-[state=closed]:slide-out-to-top-[4vh] data-[state=open]:slide-in-from-top-[4vh] sm:rounded-xl">
         <DialogHeader>
-          <DialogTitle>Providers</DialogTitle>
+          <DialogTitle>Models</DialogTitle>
           <DialogDescription>
             Manage API providers, local models, and available endpoints
           </DialogDescription>

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Cloud, Copy, Minus, Settings, Square, X } from 'lucide-react'
+import { Boxes, Copy, Minus, Settings, Square, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -96,8 +96,8 @@ export function TitleBar(): React.JSX.Element {
           onClick={() => openModal('providers')}
           aria-label="Open provider manager"
         >
-          <Cloud className="size-4" />
-          Providers
+          <Boxes className="size-4" />
+          Models
         </Button>
 
         <Button
