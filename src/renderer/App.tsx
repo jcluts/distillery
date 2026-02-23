@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { AppLayout } from '@/components/layout/AppLayout'
 import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
-import { ModelManagerModal } from '@/components/modals/ModelManagerModal'
 import { ProviderManagerModal } from '@/components/modals/ProviderManagerModal'
 import { SettingsModal } from '@/components/modals/SettingsModal'
 import { CollectionModal } from '@/components/modals/CollectionModal'
@@ -258,7 +257,6 @@ function App(): React.JSX.Element {
       <AppLayout />
       <GenerationDetailModal />
       <SettingsModal />
-      <ModelManagerModal />
       <ProviderManagerModal />
       <CollectionModal />
     </TooltipProvider>

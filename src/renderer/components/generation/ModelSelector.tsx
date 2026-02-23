@@ -36,6 +36,7 @@ export function ModelSelector(): React.JSX.Element {
   const setActiveModel = useModelStore((s) => s.setActiveModel)
 
   const providers = useProviderStore((s) => s.providers)
+  const selectProvider = useProviderStore((s) => s.selectProvider)
   const loadProviders = useProviderStore((s) => s.loadProviders)
   const identities = useModelBrowsingStore((s) => s.identities)
   const loadAllUserModels = useModelBrowsingStore((s) => s.loadAllUserModels)
@@ -165,7 +166,8 @@ export function ModelSelector(): React.JSX.Element {
   // When model identity changes, pick the first available provider
   const handleModelChange = (identityId: string): void => {
     if (identityId === MANAGE_MODELS_VALUE) {
-      openModal('models')
+      selectProvider('local')
+      openModal('providers')
       return
     }
 
@@ -215,6 +217,7 @@ export function ModelSelector(): React.JSX.Element {
             )
           })}
           <SelectSeparator />
+          <SelectItem value={MANAGE_MODELS_VALUE}>Manage local models...</SelectItem>
         </SelectContent>
       </Select>
 
@@ -234,11 +237,11 @@ export function ModelSelector(): React.JSX.Element {
                 </SelectItem>
               ))}
               <SelectSeparator />
+              <SelectItem value={MANAGE_PROVIDERS_VALUE}>Manage providers...</SelectItem>
             </SelectContent>
           </Select>
         </>
       )}
-
     </div>
   )
 }

@@ -3,17 +3,21 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 import { Item, ItemContent, ItemTitle, ItemActions, ItemGroup } from '@/components/ui/item'
 import { useProviderStore } from '@/stores/provider-store'
 import { useModelBrowsingStore } from '@/stores/model-browsing-store'
+import { useModelStore } from '@/stores/model-store'
 
 /**
  * Status dot semantics:
- *  green  — API key saved
- *  gray   — no API key configured
+ *  ready    — configured/ready
+ *  warning  — setup required
+ *  inactive — unavailable/not configured
  */
-function statusDot(hasKey: boolean): React.JSX.Element {
-  const color = hasKey ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+function statusDot(tone: 'ready' | 'warning' | 'inactive'): React.JSX.Element {
+  const color =
+    tone === 'ready' ? 'bg-emerald-500' : tone === 'warning' ? 'bg-amber-500' : 'bg-muted-foreground/40'
   return <span className={cn('size-2 shrink-0 rounded-full', color)} />
 }
 
@@ -23,6 +27,12 @@ export function ProviderSidebar(): React.JSX.Element {
   const selectProvider = useProviderStore((s) => s.selectProvider)
   const userModelsByProvider = useModelBrowsingStore((s) => s.userModelsByProvider)
   const hasApiKey = useProviderStore((s) => s.hasApiKey)
+  const catalog = useModelStore((s) => s.catalog)
+  const filesByModelId = useModelStore((s) => s.filesByModelId)
+
+  const localModelCount = catalog?.models.length ?? 0
+  const allLocalReady =
+    catalog?.models.every((model) => filesByModelId[model.id]?.isReady) ?? false
 
   // Only show API providers (not local)
   const apiProviders = React.useMemo(
@@ -61,7 +71,7 @@ export function ProviderSidebar(): React.JSX.Element {
             >
               <ItemContent>
                 <ItemTitle>
-                  {statusDot(keyPresent)}
+                  {statusDot(keyPresent ? 'ready' : 'inactive')}
                   {provider.displayName ?? provider.providerId}
                 </ItemTitle>
               </ItemContent>
@@ -81,6 +91,40 @@ export function ProviderSidebar(): React.JSX.Element {
             No API providers configured
           </div>
         )}
+
+        <Separator className="my-2" />
+
+        <Item
+          variant="outline"
+          size="sm"
+          role="listitem"
+          tabIndex={0}
+          className={cn(
+            'cursor-pointer',
+            selectedProviderId === 'local'
+              ? 'border-primary/40 bg-primary/10'
+              : 'hover:border-border hover:bg-muted/50'
+          )}
+          onClick={() => selectProvider('local')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              selectProvider('local')
+            }
+          }}
+        >
+          <ItemContent>
+            <ItemTitle>
+              {statusDot(allLocalReady ? 'ready' : 'warning')}
+              Local
+            </ItemTitle>
+          </ItemContent>
+          <ItemActions>
+            <Badge variant="secondary" className="text-[10px] px-1.5">
+              {localModelCount}
+            </Badge>
+          </ItemActions>
+        </Item>
       </ItemGroup>
     </ScrollArea>
   )
