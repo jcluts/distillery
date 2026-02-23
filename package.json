@@ -21,6 +21,7 @@
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
+    "@base-ui/react": "^1.2.0",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@fontsource-variable/geist": "^5.2.8",
@@ -29,6 +30,8 @@
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-toggle": "^1.1.10",
     "better-sqlite3": "^12.6.2",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
     "lucide-react": "^0.563.0",
     "radix-ui": "^1.4.3",
     "react-resizable-panels": "^4.6.2",

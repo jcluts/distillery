@@ -1,6 +1,5 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { app } from 'electron'
 
 export function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -25,10 +24,6 @@ export function loadEditableJsonConfig<T>(options: {
   isValid: (value: unknown) => value is T
 }): T {
   const { configName, bundledDefault, runtimePath, isValid } = options
-
-  if (!app.isPackaged) {
-    return cloneJson(bundledDefault)
-  }
 
   if (!fs.existsSync(runtimePath)) {
     writeJsonFile(runtimePath, bundledDefault)

@@ -2,6 +2,45 @@
   "providerId": "fal",
   "displayName": "Fal",
   "enabled": true,
-  "mode": "remote-async",
-  "adapter": "fal"
+  "executionMode": "remote-async",
+  "adapter": "fal",
+  "baseUrl": "https://api.fal.ai",
+  "auth": {
+    "type": "key",
+    "header": "Authorization",
+    "prefix": "Key",
+    "settingsKey": "fal_api_key"
+  },
+  "browse": { "mode": "search" },
+  "search": {
+    "endpoint": "/v1/models",
+    "method": "GET",
+    "queryParam": "q",
+    "limitParam": "limit",
+    "extraParams": { "expand": "openapi-3.0" },
+    "maxResults": 10,
+    "detailEndpoint": "/v1/models",
+    "detailQueryParam": "endpoint_id",
+    "searchOnly": true
+  },
+  "upload": {
+    "endpoint": "/storage/upload/initiate",
+    "method": "multipart",
+    "fileField": "file",
+    "responseField": "file_url"
+  },
+  "async": {
+    "enabled": true,
+    "requestIdPath": "request_id",
+    "pollEndpoint": "/queue/requests/{requestId}",
+    "pollUrlPath": "status_url",
+    "pollInterval": 500,
+    "statusPath": "status",
+    "completedValue": "COMPLETED",
+    "failedValue": "FAILED",
+    "outputsPath": "response_url"
+  },
+  "request": {
+    "endpointTemplate": "https://queue.fal.run/{model_id}"
+  }
 }

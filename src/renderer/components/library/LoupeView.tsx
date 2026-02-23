@@ -3,6 +3,7 @@ import * as React from 'react'
 import { useLibraryStore } from '@/stores/library-store'
 import { useUIStore } from '@/stores/ui-store'
 import { CanvasViewer } from '@/components/library/canvas/CanvasViewer'
+import { VideoPlayer } from '@/components/library/VideoPlayer'
 import { LoupeFilmstrip } from '@/components/library/LoupeFilmstrip'
 
 export function LoupeView(): React.JSX.Element {
@@ -23,7 +24,11 @@ export function LoupeView(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-hidden pt-4 px-4 pb-2">
-        <CanvasViewer media={current} zoom={loupeZoom} />
+        {current?.media_type === 'video' ? (
+          <VideoPlayer media={current} zoom={loupeZoom} />
+        ) : (
+          <CanvasViewer media={current} zoom={loupeZoom} />
+        )}
       </div>
 
       <LoupeFilmstrip items={items} currentIndex={currentIndex} onSelect={selectSingle} />

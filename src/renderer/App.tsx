@@ -2,20 +2,28 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { AppLayout } from '@/components/layout/AppLayout'
 import { GenerationDetailModal } from '@/components/modals/GenerationDetailModal'
-import { ModelManagerModal } from '@/components/modals/ModelManagerModal'
+import { ImportFolderDialog } from '@/components/modals/ImportFolderDialog'
+import { ProviderManagerModal } from '@/components/modals/ProviderManagerModal'
 import { SettingsModal } from '@/components/modals/SettingsModal'
+import { CollectionModal } from '@/components/modals/CollectionModal'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useModelCatalog } from '@/hooks/useModelCatalog'
 import { useModelDownload } from '@/hooks/useModelDownload'
+import { useCollectionStore } from './stores/collection-store'
 import { useEngineStore } from './stores/engine-store'
 import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
 import { useQueueStore } from './stores/queue-store'
+import { useUpscaleStore } from './stores/upscale-store'
+import { useImportFolderStore } from './stores/import-folder-store'
 import type {
   GenerationProgressEvent,
   GenerationResultEvent,
   EngineStatus,
-  WorkQueueItem
+  WorkQueueItem,
+  UpscaleProgressEvent,
+  UpscaleResultEvent,
+  ImportScanProgress
 } from './types'
 
 function App(): React.JSX.Element {
@@ -29,6 +37,7 @@ function App(): React.JSX.Element {
   const focusedId = useLibraryStore((s) => s.focusedId)
   const buildLibraryQuery = useLibraryStore((s) => s.buildQuery)
   const setLibraryLoading = useLibraryStore((s) => s.setLoading)
+  const setLibraryPage = useLibraryStore((s) => s.setPage)
   const page = useLibraryStore((s) => s.page)
   const pageSize = useLibraryStore((s) => s.pageSize)
   const ratingFilter = useLibraryStore((s) => s.ratingFilter)
@@ -38,6 +47,12 @@ function App(): React.JSX.Element {
   const sortDirection = useLibraryStore((s) => s.sortDirection)
 
   const setGenerations = useGenerationStore((s) => s.setGenerations)
+
+  const loadCollections = useCollectionStore((s) => s.loadCollections)
+  const activeCollectionId = useCollectionStore((s) => s.activeCollectionId)
+
+  const loadImportFolders = useImportFolderStore((s) => s.loadFolders)
+  const setImportScanProgress = useImportFolderStore((s) => s.setScanProgress)
 
   const setQueueItems = useQueueStore((s) => s.setItems)
   const startTimer = useQueueStore((s) => s.startTimer)
@@ -126,7 +141,13 @@ function App(): React.JSX.Element {
     void loadMedia()
     void loadTimeline()
     void loadQueue()
-  }, [loadMedia, loadQueue, loadTimeline])
+    void loadCollections()
+    void loadImportFolders()
+  }, [loadCollections, loadImportFolders, loadMedia, loadQueue, loadTimeline])
+
+  useEffect(() => {
+    setLibraryPage(1)
+  }, [activeCollectionId, setLibraryPage])
 
   // Re-query library on filter changes.
   useEffect(() => {
@@ -142,7 +163,17 @@ function App(): React.JSX.Element {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current)
     }
-  }, [loadMedia, page, pageSize, ratingFilter, searchQuery, sortDirection, sortField, statusFilter])
+  }, [
+    activeCollectionId,
+    loadMedia,
+    page,
+    pageSize,
+    ratingFilter,
+    searchQuery,
+    sortDirection,
+    sortField,
+    statusFilter
+  ])
 
   // Queue updates
   useEffect(() => {
@@ -161,6 +192,29 @@ function App(): React.JSX.Element {
     })
     return unsubscribe
   }, [loadMedia])
+
+  useEffect(() => {
+    const unsubscribe = window.api.on('collections:updated', () => {
+      void loadCollections()
+    })
+    return unsubscribe
+  }, [loadCollections])
+
+  useEffect(() => {
+    const unsubscribe = window.api.on('importFolders:updated', () => {
+      void loadImportFolders()
+    })
+    return unsubscribe
+  }, [loadImportFolders])
+
+  useEffect(() => {
+    const unsubscribe = window.api.on('importFolders:scanProgress', (payload: unknown) => {
+      const progress = payload as ImportScanProgress
+      if (!progress?.folder_id) return
+      setImportScanProgress(progress)
+    })
+    return unsubscribe
+  }, [setImportScanProgress])
 
   // Generation progress -> status bar / queue progress
   useEffect(() => {
@@ -185,6 +239,27 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [loadMedia, loadQueue, loadTimeline])
 
+  // Upscale progress
+  useEffect(() => {
+    const unsubscribe = window.api.on('upscale:progress', (payload: unknown) => {
+      const evt = payload as UpscaleProgressEvent
+      if (evt) useUpscaleStore.getState().handleProgress(evt)
+    })
+    return unsubscribe
+  }, [])
+
+  // Upscale result -> refresh library to pick up working_file_path
+  useEffect(() => {
+    const unsubscribe = window.api.on('upscale:result', (payload: unknown) => {
+      const evt = payload as UpscaleResultEvent
+      if (evt) {
+        useUpscaleStore.getState().handleResult(evt)
+        void loadMedia()
+      }
+    })
+    return unsubscribe
+  }, [loadMedia])
+
   // Keep elapsed time ticking while active
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -205,7 +280,9 @@ function App(): React.JSX.Element {
       <AppLayout />
       <GenerationDetailModal />
       <SettingsModal />
-      <ModelManagerModal />
+      <ProviderManagerModal />
+      <CollectionModal />
+      <ImportFolderDialog />
     </TooltipProvider>
   )
 }

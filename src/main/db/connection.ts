@@ -70,12 +70,18 @@ function runMigrations(database: Database.Database): void {
 
     console.log(`[DB] Applying migration: ${migration.name}`)
 
+    // Temporarily disable FK checks so migrations can restructure tables
+    // (PRAGMA foreign_keys cannot be changed inside a transaction).
+    database.pragma('foreign_keys = OFF')
+
     database.transaction(() => {
       database.exec(migration.sql)
       database
         .prepare('INSERT INTO _migrations (name) VALUES (?)')
         .run(migration.name)
     })()
+
+    database.pragma('foreign_keys = ON')
 
     console.log(`[DB] Migration applied: ${migration.name}`)
   }

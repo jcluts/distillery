@@ -1,45 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-
-// ---------------------------------------------------------------------------
-// Aspect ratio icon — compact visual indicator
-// ---------------------------------------------------------------------------
-
-function AspectIcon({ ratio }: { ratio: string }) {
-  const getDimensions = () => {
-    switch (ratio) {
-      case '1:1':
-        return { w: 10, h: 10 }
-      case '16:9':
-        return { w: 12, h: 7 }
-      case '9:16':
-        return { w: 7, h: 12 }
-      case '4:3':
-        return { w: 12, h: 9 }
-      case '3:4':
-        return { w: 9, h: 12 }
-      case '3:2':
-        return { w: 12, h: 8 }
-      case '2:3':
-        return { w: 8, h: 12 }
-      case '4:5':
-        return { w: 10, h: 12 }
-      case '5:4':
-        return { w: 12, h: 10 }
-      default:
-        return { w: 10, h: 10 }
-    }
-  }
-  const { w, h } = getDimensions()
-  return (
-    <div
-      className="border border-current rounded-[1px]"
-      style={{ width: w, height: h }}
-    />
-  )
-}
+import { AspectIcon } from './AspectIcon'
 
 // ---------------------------------------------------------------------------
 // Preset definitions
@@ -128,15 +91,17 @@ export function SizeSelector({
   const [widthInput, setWidthInput] = useState(String(parsed.w))
   const [heightInput, setHeightInput] = useState(String(parsed.h))
 
-  // Sync local state when value changes externally
-  const lastValue = useMemo(() => value, [value])
-  useMemo(() => {
-    const p = parseSize(lastValue || '1024*1024')
+  // Sync local state when the value prop changes externally
+  const prevValueRef = useRef(value)
+  if (value !== prevValueRef.current) {
+    prevValueRef.current = value
+    const p = parseSize(value || '1024*1024')
     setWidthInput(String(p.w))
     setHeightInput(String(p.h))
-  }, [lastValue])
+  }
 
   const clamp = (n: number) => Math.min(max, Math.max(min, n))
+  const current = parseSize(value || '1024*1024')
 
   const handlePreset = (w: number, h: number) => {
     setWidthInput(String(w))
@@ -145,32 +110,27 @@ export function SizeSelector({
   }
 
   const handleSwap = () => {
-    const p = parseSize(value || '1024*1024')
-    setWidthInput(String(p.h))
-    setHeightInput(String(p.w))
-    onChange(`${p.h}*${p.w}`)
+    setWidthInput(String(current.h))
+    setHeightInput(String(current.w))
+    onChange(`${current.h}*${current.w}`)
   }
 
   const commitWidth = (raw: string) => {
-    const parsed = parseInt(raw, 10)
-    const w = isNaN(parsed) ? min : clamp(parsed)
-    const h = parseSize(value || '1024*1024').h
+    const n = parseInt(raw, 10)
+    const w = isNaN(n) ? min : clamp(n)
     setWidthInput(String(w))
-    onChange(`${w}*${h}`)
+    onChange(`${w}*${current.h}`)
   }
 
   const commitHeight = (raw: string) => {
-    const parsed = parseInt(raw, 10)
-    const h = isNaN(parsed) ? min : clamp(parsed)
-    const w = parseSize(value || '1024*1024').w
+    const n = parseInt(raw, 10)
+    const h = isNaN(n) ? min : clamp(n)
     setHeightInput(String(h))
-    onChange(`${w}*${h}`)
+    onChange(`${current.w}*${h}`)
   }
 
   const availablePresets = useMemo(() => generatePresets(min, max), [min, max])
-  const currentW = parseSize(value || '1024*1024').w
-  const currentH = parseSize(value || '1024*1024').h
-  const isCurrentPreset = (w: number, h: number) => currentW === w && currentH === h
+  const isCurrentPreset = (w: number, h: number) => current.w === w && current.h === h
 
   return (
     <div className="space-y-3">
@@ -203,10 +163,7 @@ export function SizeSelector({
             onChange={(e) => {
               setWidthInput(e.target.value)
               const n = parseInt(e.target.value, 10)
-              if (!isNaN(n)) {
-                const h = parseSize(value || '1024*1024').h
-                onChange(`${n}*${h}`)
-              }
+              if (!isNaN(n)) onChange(`${n}*${current.h}`)
             }}
             onBlur={() => commitWidth(widthInput)}
             min={min}
@@ -252,10 +209,7 @@ export function SizeSelector({
             onChange={(e) => {
               setHeightInput(e.target.value)
               const n = parseInt(e.target.value, 10)
-              if (!isNaN(n)) {
-                const w = parseSize(value || '1024*1024').w
-                onChange(`${w}*${n}`)
-              }
+              if (!isNaN(n)) onChange(`${current.w}*${n}`)
             }}
             onBlur={() => commitHeight(heightInput)}
             min={min}
@@ -270,7 +224,7 @@ export function SizeSelector({
       {/* Current size and range */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          {currentW} × {currentH} px
+          {current.w} × {current.h} px
         </span>
         <span>
           Range: {min}–{max}

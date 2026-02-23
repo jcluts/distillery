@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GenerationRecord, GenerationSubmitInput } from '../types'
+import type { GenerationMode, GenerationRecord, GenerationSubmitInput } from '../types'
 
 // Populated lazily by App.tsx after the window.api bridge is available.
 // The store must not import from the renderer module graph to stay side-effect
@@ -15,6 +15,9 @@ declare const window: Window & { api: import('../types').DistilleryAPI }
 export type RefImage = { kind: 'id'; id: string } | { kind: 'path'; path: string }
 
 interface GenerationState {
+  // Active generation mode — controls which endpoints/models are shown
+  generationMode: GenerationMode
+
   // Dynamic form values keyed by schema property name
   formValues: Record<string, unknown>
 
@@ -40,6 +43,7 @@ interface GenerationState {
   reorderRefImages: (from: number, to: number) => void
   clearRefImages: () => void
   setEndpointKey: (key: string) => void
+  setGenerationMode: (mode: GenerationMode) => void
   /**
    * Fetch generation record + inputs for `id`, then atomically replace
    * formValues and refImages with the original settings.
@@ -65,9 +69,10 @@ interface GenerationState {
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   // Form defaults — populated by DynamicForm's onSetDefaults
+  generationMode: 'text-to-image',
   formValues: {},
   refImages: [],
-  endpointKey: 'local.flux2-klein.image',
+  endpointKey: 'local.flux2-klein-4b.image',
 
   // Timeline
   generations: [],
@@ -114,6 +119,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   clearRefImages: () => set({ refImages: [] }),
 
   setEndpointKey: (key) => set({ endpointKey: key }),
+
+  setGenerationMode: (mode) => set({ generationMode: mode }),
 
   reloadFromGeneration: async (id) => {
     const [gen, inputs] = await Promise.all([
@@ -179,22 +186,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   setDetailGenerationId: (id) => set({ detailGenerationId: id }),
 
-  // Build generation params — decompose size field into width/height
+  // Build generation params
   buildParams: (): GenerationSubmitInput => {
     const state = get()
     const values = { ...state.formValues }
-
-    // Decompose size → width + height
-    if (typeof values.size === 'string' && values.size.includes('*')) {
-      const [w, h] = values.size.split('*').map(Number)
-      values.width = Number.isFinite(w) ? w : 1024
-      values.height = Number.isFinite(h) ? h : 1024
-      delete values.size
-    }
-
-    // Default width/height if somehow missing
-    if (!values.width) values.width = 1024
-    if (!values.height) values.height = 1024
 
     // Attach reference images — split unified list back into ids/paths
     const refImageIds = state.refImages.filter((r) => r.kind === 'id').map((r) => r.id)

@@ -42,7 +42,10 @@ function getDefaults(): AppSettings {
     right_panel_tab: 'info',
     right_panel_width: 280,
     thumbnail_size: 200,
-    view_mode: 'grid'
+    view_mode: 'grid',
+    fal_api_key: '',
+    replicate_api_key: '',
+    wavespeed_api_key: ''
   }
 }
 

@@ -2,12 +2,17 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC_CHANNELS } from '../main/ipc/channels'
 import type {
+  CollectionCreate,
+  CollectionUpdate,
   DistilleryAPI,
   GenerationSubmitInput,
+  ImportFolderCreate,
+  ImportFolderUpdate,
   MediaQuery,
   MediaUpdate,
   ModelLoadParams,
-  SettingsUpdate
+  SettingsUpdate,
+  UpscaleRequest
 } from '../renderer/types'
 
 const CH = IPC_CHANNELS
@@ -39,6 +44,31 @@ const api: DistilleryAPI = {
     search: (prefix: string, limit?: number) =>
       ipcRenderer.invoke(CH.KEYWORDS_SEARCH, prefix, limit),
     getAll: () => ipcRenderer.invoke(CH.KEYWORDS_GET_ALL)
+  },
+
+  // Collections
+  collections: {
+    getAll: () => ipcRenderer.invoke(CH.COLLECTIONS_GET_ALL),
+    get: (id: string) => ipcRenderer.invoke(CH.COLLECTIONS_GET, id),
+    create: (data: CollectionCreate) => ipcRenderer.invoke(CH.COLLECTIONS_CREATE, data),
+    update: (id: string, data: CollectionUpdate) =>
+      ipcRenderer.invoke(CH.COLLECTIONS_UPDATE, id, data),
+    delete: (id: string) => ipcRenderer.invoke(CH.COLLECTIONS_DELETE, id),
+    reorder: (orderedIds: string[]) => ipcRenderer.invoke(CH.COLLECTIONS_REORDER, orderedIds),
+    addMedia: (collectionId: string, mediaIds: string[]) =>
+      ipcRenderer.invoke(CH.COLLECTIONS_ADD_MEDIA, collectionId, mediaIds),
+    removeMedia: (collectionId: string, mediaIds: string[]) =>
+      ipcRenderer.invoke(CH.COLLECTIONS_REMOVE_MEDIA, collectionId, mediaIds)
+  },
+
+  // Import folders
+  importFolders: {
+    getAll: () => ipcRenderer.invoke(CH.IMPORT_FOLDERS_GET_ALL),
+    create: (data: ImportFolderCreate) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_CREATE, data),
+    update: (data: ImportFolderUpdate) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_UPDATE, data),
+    delete: (id: string) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_DELETE, id),
+    scan: (id: string) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_SCAN, id),
+    start: (data: ImportFolderCreate) => ipcRenderer.invoke(CH.IMPORT_FOLDERS_START, data)
   },
 
   // Generation
@@ -86,6 +116,50 @@ const api: DistilleryAPI = {
   removeModelFile: (payload) => ipcRenderer.invoke(CH.MODEL_REMOVE_FILE, payload),
   checkModelFiles: (payload) => ipcRenderer.invoke(CH.MODEL_CHECK_FILES, payload),
 
+  // Providers
+  providers: {
+    getAll: () => ipcRenderer.invoke(CH.PROVIDERS_GET_ALL),
+    getConfig: (providerId: string) => ipcRenderer.invoke(CH.PROVIDERS_GET_CONFIG, providerId),
+    searchModels: (providerId: string, query: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_SEARCH_MODELS, providerId, query),
+    listModels: (providerId: string) => ipcRenderer.invoke(CH.PROVIDERS_LIST_MODELS, providerId),
+    fetchModelDetail: (providerId: string, modelId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_FETCH_MODEL_DETAIL, providerId, modelId),
+    getUserModels: (providerId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_GET_USER_MODELS, providerId),
+    addUserModel: (providerId: string, model) =>
+      ipcRenderer.invoke(CH.PROVIDERS_ADD_USER_MODEL, providerId, model),
+    removeUserModel: (providerId: string, modelId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_REMOVE_USER_MODEL, providerId, modelId),
+    testConnection: (providerId: string) =>
+      ipcRenderer.invoke(CH.PROVIDERS_TEST_CONNECTION, providerId)
+  },
+
+  // Upscale
+  upscale: {
+    getModels: () => ipcRenderer.invoke(CH.UPSCALE_GET_MODELS),
+    submit: (request: UpscaleRequest) => ipcRenderer.invoke(CH.UPSCALE_SUBMIT, request),
+    cancel: (mediaId: string) => ipcRenderer.invoke(CH.UPSCALE_CANCEL, mediaId),
+    getData: (mediaId: string) => ipcRenderer.invoke(CH.UPSCALE_GET_DATA, mediaId),
+    setActive: (mediaId: string, variantId: string | null) =>
+      ipcRenderer.invoke(CH.UPSCALE_SET_ACTIVE, mediaId, variantId),
+    deleteVariant: (variantId: string) => ipcRenderer.invoke(CH.UPSCALE_DELETE_VARIANT, variantId),
+    deleteAll: (mediaId: string) => ipcRenderer.invoke(CH.UPSCALE_DELETE_ALL, mediaId)
+  },
+
+  // Model Identities
+  identities: {
+    getAll: () => ipcRenderer.invoke(CH.IDENTITIES_GET_ALL),
+    create: (
+      id: string,
+      name: string,
+      description: string,
+      initialMapping?: { providerId: string; modelIds: string[] }
+    ) => ipcRenderer.invoke(CH.IDENTITIES_CREATE, id, name, description, initialMapping),
+    addMapping: (identityId: string, providerId: string, modelIds: string[]) =>
+      ipcRenderer.invoke(CH.IDENTITIES_ADD_MAPPING, identityId, providerId, modelIds)
+  },
+
   // App
   showOpenDialog: (options: Electron.OpenDialogOptions) =>
     ipcRenderer.invoke(CH.APP_SHOW_OPEN_DIALOG, options),
@@ -108,8 +182,13 @@ const api: DistilleryAPI = {
       | typeof CH.GENERATION_RESULT
       | typeof CH.QUEUE_UPDATED
       | typeof CH.LIBRARY_UPDATED
+      | typeof CH.COLLECTIONS_UPDATED
+      | typeof CH.IMPORT_FOLDERS_UPDATED
+      | typeof CH.IMPORT_SCAN_PROGRESS
       | typeof CH.WINDOW_MAXIMIZED_CHANGED
       | typeof CH.MODEL_DOWNLOAD_PROGRESS
+      | typeof CH.UPSCALE_PROGRESS
+      | typeof CH.UPSCALE_RESULT
 
     const validChannels = new Set<EventChannel>([
       CH.ENGINE_STATUS_CHANGED,
@@ -117,8 +196,13 @@ const api: DistilleryAPI = {
       CH.GENERATION_RESULT,
       CH.QUEUE_UPDATED,
       CH.LIBRARY_UPDATED,
+      CH.COLLECTIONS_UPDATED,
+      CH.IMPORT_FOLDERS_UPDATED,
+      CH.IMPORT_SCAN_PROGRESS,
       CH.WINDOW_MAXIMIZED_CHANGED,
-      CH.MODEL_DOWNLOAD_PROGRESS
+      CH.MODEL_DOWNLOAD_PROGRESS,
+      CH.UPSCALE_PROGRESS,
+      CH.UPSCALE_RESULT
     ])
 
     if (!validChannels.has(channel as EventChannel)) {

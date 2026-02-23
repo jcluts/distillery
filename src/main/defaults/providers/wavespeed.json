@@ -2,6 +2,37 @@
   "providerId": "wavespeed",
   "displayName": "Wavespeed",
   "enabled": true,
-  "mode": "remote-async",
-  "adapter": "wavespeed"
+  "executionMode": "remote-async",
+  "adapter": "wavespeed",
+  "baseUrl": "https://api.wavespeed.ai",
+  "auth": {
+    "type": "bearer",
+    "settingsKey": "wavespeed_api_key"
+  },
+  "browse": { "mode": "list" },
+  "search": {
+    "endpoint": "/api/v3/models",
+    "method": "GET",
+    "searchOnly": false
+  },
+  "upload": {
+    "endpoint": "/api/v3/media/upload/binary",
+    "method": "multipart",
+    "fileField": "file",
+    "responseField": "data.download_url"
+  },
+  "async": {
+    "enabled": true,
+    "requestIdPath": "data.id",
+    "pollEndpoint": "/api/v3/predictions/{requestId}/result",
+    "pollInterval": 1000,
+    "statusPath": "data.status",
+    "completedValue": "completed",
+    "failedValue": "failed",
+    "errorPath": "data.error",
+    "outputsPath": "data.outputs"
+  },
+  "request": {
+    "endpointTemplate": "/api/v3/{model_id}"
+  }
 }

@@ -1,9 +1,7 @@
-import { randomInt } from 'crypto'
 import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import Database from 'better-sqlite3'
 import * as generationRepo from '../db/repositories/generations'
-import * as settingsRepo from '../db/repositories/settings'
 import type {
   CanonicalGenerationParams,
   CanonicalEndpointDef,
@@ -13,130 +11,80 @@ import type {
 } from '../types'
 import { WorkQueueManager } from '../queue/work-queue-manager'
 import { WORK_TASK_TYPES } from '../queue/work-task-types'
-import { GenerationIOService } from './generation-io-service'
-import { ProviderCatalogService } from './catalog/provider-catalog-service'
+import { MediaIngestionService } from './media-ingestion-service'
+import { EndpointCatalog } from './catalog/endpoint-catalog'
+import {
+  asString,
+  asOptionalNumber,
+  extractDimensions,
+  withResolvedSeed
+} from './param-utils'
 
 interface GenerationServiceDeps {
   db: Database.Database
   workQueueManager: WorkQueueManager
-  generationIOService: GenerationIOService
-  providerCatalogService: ProviderCatalogService
-}
-
-interface QueuedLocalTaskPayload {
-  generationId: string
-  endpointKey: string
-  params: CanonicalGenerationParams
+  mediaIngestionService: MediaIngestionService
+  endpointCatalog: EndpointCatalog
 }
 
 export class GenerationService extends EventEmitter {
   private db: Database.Database
   private workQueueManager: WorkQueueManager
-  private generationIOService: GenerationIOService
-  private providerCatalogService: ProviderCatalogService
+  private mediaIngestionService: MediaIngestionService
+  private endpointCatalog: EndpointCatalog
 
   constructor(deps: GenerationServiceDeps) {
     super()
     this.db = deps.db
     this.workQueueManager = deps.workQueueManager
-    this.generationIOService = deps.generationIOService
-    this.providerCatalogService = deps.providerCatalogService
-  }
-
-  async initialize(): Promise<void> {
-    await this.providerCatalogService.refresh()
+    this.mediaIngestionService = deps.mediaIngestionService
+    this.endpointCatalog = deps.endpointCatalog
   }
 
   async submit(input: GenerationSubmitInput): Promise<string> {
-    const endpoint = await this.providerCatalogService.getEndpoint(input.endpointKey)
+    const endpoint = await this.endpointCatalog.getEndpoint(input.endpointKey)
     if (!endpoint) {
       throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
 
-    if (endpoint.executionMode !== 'queued-local') {
-      throw new Error(
-        `Execution mode "${endpoint.executionMode}" is not yet supported (endpoint: ${endpoint.endpointKey})`
-      )
-    }
-
-    const params = this.withResolvedSeed(input.params)
-    this.validateParams(params)
+    const params = withResolvedSeed(input.params)
+    this.validateParams(endpoint, params)
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
-    const allSettings = settingsRepo.getAllSettings(this.db)
 
-    const activeModelId =
-      endpoint.providerId === 'local'
-        ? allSettings.active_model_id
-        : (endpoint.canonicalModelId ?? null)
-
-    const activeSelections = activeModelId
-      ? allSettings.model_quant_selections?.[activeModelId]
-      : undefined
-
-    const paramsWithModel = {
-      ...params,
-      model: {
-        id: activeModelId,
-        diffusionQuant: activeSelections?.diffusionQuant ?? null,
-        textEncoderQuant: activeSelections?.textEncoderQuant ?? null
-      }
-    }
-
-    // ref_image_ids / ref_image_paths are not stored in params_json —
-    // the generation_inputs table is the authoritative source for inputs.
-    // Storing them here would cause double-processing on reload.
-    const paramsForStorage = { ...paramsWithModel }
-    delete paramsForStorage.ref_image_ids
-    delete paramsForStorage.ref_image_paths
-
-    const { inputRecords } = await this.generationIOService.prepareInputs(
+    const paramsForStorage = this.buildStorageParams(endpoint, params)
+    const { inputRecords } = await this.mediaIngestionService.prepareInputs(
       generationId,
       params,
       now
     )
 
-    const generationRecord: GenerationRecord = {
-      id: generationId,
-      number: generationRepo.getNextGenerationNumber(this.db),
-      base_model_id: activeModelId,
-      provider: endpoint.providerId,
-      model_file: activeModelId,
-      prompt: this.asString(params.prompt),
-      width: this.asNumber(params.width),
-      height: this.asNumber(params.height),
-      seed: this.asOptionalNumber(params.seed),
-      steps: this.asOptionalNumber(params.steps) ?? 4,
-      guidance: this.asOptionalNumber(params.guidance) ?? 3.5,
-      sampling_method:
-        typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
-      params_json: JSON.stringify(paramsForStorage),
-      status: 'pending',
-      error: null,
-      total_time_ms: null,
-      prompt_cache_hit: false,
-      ref_latent_cache_hit: false,
-      output_paths: null,
-      created_at: now,
-      started_at: null,
-      completed_at: null
-    }
+    const generationRecord = this.buildGenerationRecord(
+      generationId,
+      endpoint,
+      params,
+      paramsForStorage,
+      now
+    )
 
     this.db.transaction(() => {
       generationRepo.insertGeneration(this.db, generationRecord)
-      this.generationIOService.insertInputRecords(inputRecords)
+      this.mediaIngestionService.insertInputRecords(inputRecords)
     })()
 
-    const payload: QueuedLocalTaskPayload = {
+    const payload = { generationId, endpointKey: endpoint.endpointKey, params }
+
+    console.log('[GenerationService] submit', {
       generationId,
       endpointKey: endpoint.endpointKey,
-      params
-    }
+      providerId: endpoint.providerId,
+      taskType: WORK_TASK_TYPES.GENERATION
+    })
 
     try {
       await this.workQueueManager.enqueue({
-        task_type: WORK_TASK_TYPES.GENERATION_LOCAL_IMAGE,
+        task_type: WORK_TASK_TYPES.GENERATION,
         priority: 0,
         payload_json: JSON.stringify(payload),
         correlation_id: generationId,
@@ -145,6 +93,7 @@ export class GenerationService extends EventEmitter {
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      console.error('[GenerationService] enqueue failed', { generationId, error: message })
       generationRepo.updateGenerationComplete(this.db, generationId, {
         status: 'failed',
         error: `Failed to enqueue generation task: ${message}`
@@ -165,11 +114,11 @@ export class GenerationService extends EventEmitter {
     providerId?: string
     outputType?: 'image' | 'video'
   }): Promise<CanonicalEndpointDef[]> {
-    return this.providerCatalogService.listEndpoints(filter)
+    return this.endpointCatalog.listEndpoints(filter)
   }
 
   async getEndpointSchema(endpointKey: string): Promise<CanonicalEndpointDef | null> {
-    return this.providerCatalogService.getEndpoint(endpointKey)
+    return this.endpointCatalog.getEndpoint(endpointKey)
   }
 
   emitProgress(event: GenerationProgressEvent): void {
@@ -195,51 +144,77 @@ export class GenerationService extends EventEmitter {
     this.emit('libraryUpdated')
   }
 
-  private validateParams(params: CanonicalGenerationParams): void {
-    const prompt = this.asString(params.prompt).trim()
-    const width = this.asNumber(params.width)
-    const height = this.asNumber(params.height)
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
-    if (!prompt) throw new Error('Prompt is required')
-    if (!Number.isFinite(width) || width <= 0) throw new Error('Width must be a positive number')
-    if (!Number.isFinite(height) || height <= 0) throw new Error('Height must be a positive number')
-  }
-
-  private asString(value: unknown): string {
-    return typeof value === 'string' ? value : String(value ?? '')
-  }
-
-  private asNumber(value: unknown): number {
-    if (typeof value === 'number') return value
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
-  }
-
-  private asOptionalNumber(value: unknown): number | null {
-    if (value === null || value === undefined) return null
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
+  private validateParams(_endpoint: CanonicalEndpointDef, params: CanonicalGenerationParams): void {
+    if (!asString(params.prompt).trim()) {
+      throw new Error('Prompt is required')
+    }
   }
 
   /**
-   * If seed is null/undefined/empty, generate a random seed.
-   * Uses the range 0–2^31-1 for broad engine compatibility.
+   * Build the params object stored in params_json. Attaches model metadata
+   * and strips ref image fields (those live in the generation_inputs table).
    */
-  private resolveOrGenerateSeed(value: unknown): number {
-    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
-      return value
+  private buildStorageParams(
+    endpoint: CanonicalEndpointDef,
+    params: CanonicalGenerationParams
+  ): Record<string, unknown> {
+    const modelIdentityId = endpoint.modelIdentityId ?? endpoint.providerModelId
+
+    const storage: Record<string, unknown> = {
+      ...params,
+      model: {
+        id: modelIdentityId,
+        providerModelId: endpoint.providerModelId,
+        providerId: endpoint.providerId
+      }
     }
-    if (typeof value === 'string' && value.trim() !== '') {
-      const parsed = Number(value)
-      if (Number.isFinite(parsed) && parsed >= 0) return parsed
-    }
-    return randomInt(0, 2_147_483_647)
+
+    // Ref image fields live in generation_inputs — don't duplicate them here.
+    delete storage.ref_image_ids
+    delete storage.ref_image_paths
+
+    return storage
   }
 
-  private withResolvedSeed(params: CanonicalGenerationParams): CanonicalGenerationParams {
+  private buildGenerationRecord(
+    generationId: string,
+    endpoint: CanonicalEndpointDef,
+    params: CanonicalGenerationParams,
+    paramsForStorage: Record<string, unknown>,
+    now: string
+  ): GenerationRecord {
+    const { width, height } = extractDimensions(params)
+
+    const modelIdentityId = endpoint.modelIdentityId ?? null
+
     return {
-      ...params,
-      seed: this.resolveOrGenerateSeed(params.seed)
+      id: generationId,
+      number: generationRepo.getNextGenerationNumber(this.db),
+      model_identity_id: modelIdentityId,
+      provider: endpoint.providerId,
+      model_file: endpoint.providerModelId,
+      prompt: asString(params.prompt),
+      width,
+      height,
+      seed: asOptionalNumber(params.seed),
+      steps: asOptionalNumber(params.steps) ?? 4,
+      guidance: asOptionalNumber(params.guidance) ?? 3.5,
+      sampling_method:
+        typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
+      params_json: JSON.stringify(paramsForStorage),
+      status: 'pending',
+      error: null,
+      total_time_ms: null,
+      prompt_cache_hit: false,
+      ref_latent_cache_hit: false,
+      output_paths: null,
+      created_at: now,
+      started_at: null,
+      completed_at: null
     }
   }
 }
