@@ -12,6 +12,7 @@ import { useEngineStore } from '@/stores/engine-store'
 import { useQueueStore } from '@/stores/queue-store'
 import { useModelStore } from '@/stores/model-store'
 import { useProviderStore } from '@/stores/provider-store'
+import { useModelBrowsingStore } from '@/stores/model-browsing-store'
 import { ModelSelector } from '@/components/generation/ModelSelector'
 import { ModeToggle } from '@/components/generation/ModeToggle'
 import { RefImageDropzone } from '@/components/generation/RefImageDropzone'
@@ -27,6 +28,12 @@ export function GenerationPane(): React.JSX.Element {
   const fieldsRef = React.useRef<FormFieldConfig[]>([])
 
   const filesByModelId = useModelStore((s) => s.filesByModelId)
+  const userModelsByProvider = useModelBrowsingStore((s) => s.userModelsByProvider)
+
+  // Show setup wizard when no models are available anywhere
+  const hasLocalModels = Object.values(filesByModelId).some((f) => f.isReady)
+  const hasRemoteModels = Object.values(userModelsByProvider).some((models) => models.length > 0)
+  const hasAnyModels = hasLocalModels || hasRemoteModels
 
   const generationMode = useGenerationStore((s) => s.generationMode)
   const formValues = useGenerationStore((s) => s.formValues)
@@ -54,11 +61,6 @@ export function GenerationPane(): React.JSX.Element {
   }, [endpointKey])
 
   const isRemoteEndpoint = endpoint?.executionMode === 'remote-async'
-  const isLocalEndpoint = endpoint?.providerId === 'local'
-  const selectedLocalModelId = isLocalEndpoint ? endpoint?.providerModelId : null
-  const selectedLocalModelReady = selectedLocalModelId
-    ? (filesByModelId[selectedLocalModelId]?.isReady ?? false)
-    : true
 
   const prompt = typeof formValues.prompt === 'string' ? formValues.prompt : ''
   const requiresLocalEngine = endpoint?.providerId === 'local'
@@ -109,15 +111,8 @@ export function GenerationPane(): React.JSX.Element {
     }
   }, [formValues, buildParams, addGeneration])
 
-  // Show setup wizard when the selected local model needs to be downloaded
-  if (isLocalEndpoint && !selectedLocalModelReady && selectedLocalModelId) {
-    return (
-      <div className="space-y-4">
-        <ModeToggle />
-        <ModelSelector />
-        <ModelSetupWizard targetModelId={selectedLocalModelId} />
-      </div>
-    )
+  if (!hasAnyModels) {
+    return <ModelSetupWizard />
   }
 
   return (

@@ -217,7 +217,6 @@ export function ModelSelector(): React.JSX.Element {
             )
           })}
           <SelectSeparator />
-          <SelectItem value={MANAGE_MODELS_VALUE}>Manage local models...</SelectItem>
         </SelectContent>
       </Select>
 
