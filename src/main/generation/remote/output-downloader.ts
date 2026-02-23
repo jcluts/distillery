@@ -24,8 +24,12 @@ export async function downloadRemoteOutput(url: string, outputDir: string): Prom
 
   await fs.promises.mkdir(outputDir, { recursive: true })
 
-  const fileNamePart = path.basename(new URL(url).pathname) || `${randomUUID()}.png`
-  const outputPath = path.join(outputDir, `${randomUUID()}-${fileNamePart}`)
+  const parsedUrl = new URL(url)
+  const baseName = path.basename(parsedUrl.pathname)
+  const extension = path.extname(baseName).toLowerCase()
+  const stem = baseName ? path.basename(baseName, extension) : randomUUID()
+  const safeExtension = extension || '.bin'
+  const outputPath = path.join(outputDir, `${randomUUID()}-${stem}${safeExtension}`)
   const arrayBuffer = await response.arrayBuffer()
   const content = Buffer.from(arrayBuffer)
   await fs.promises.writeFile(outputPath, content)

@@ -130,11 +130,11 @@ export function insertMedia(db: Database.Database, media: MediaRecord): void {
   db.prepare(
     `INSERT INTO media (
       id, file_path, thumb_path, file_name, media_type, origin,
-      width, height, file_size, rating, status,
+      width, height, duration, file_size, rating, status,
       generation_id, origin_id, created_at, updated_at
     ) VALUES (
       @id, @file_path, @thumb_path, @file_name, @media_type, @origin,
-      @width, @height, @file_size, @rating, @status,
+      @width, @height, @duration, @file_size, @rating, @status,
       @generation_id, @origin_id, @created_at, @updated_at
     )`
   ).run(media)

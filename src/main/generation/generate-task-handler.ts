@@ -93,7 +93,11 @@ export class GenerateTaskHandler implements WorkTaskHandler {
         outputDir
       })
 
-      const mediaRecords = await this.mediaIngestionService.finalize(generationId, result)
+      const mediaRecords = await this.mediaIngestionService.finalize(
+        generationId,
+        result,
+        endpoint.outputType
+      )
 
       this.generationService.emitResult({
         generationId,

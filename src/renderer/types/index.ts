@@ -6,7 +6,7 @@
 // Media
 // -----------------------------------------------------------------------------
 
-export type MediaType = 'image' // future: | 'video'
+export type MediaType = 'image' | 'video'
 
 export type MediaOriginKind = 'generation' | 'import' // future: | 'duplicate' | 'sketch'
 
@@ -21,6 +21,7 @@ export interface MediaRecord {
   origin: MediaOriginKind
   width: number | null
   height: number | null
+  duration: number | null
   file_size: number | null
   rating: number // 0-5
   status: MediaStatus
@@ -111,8 +112,9 @@ export interface ImportFolderRecord {
 
 export type ImportFolderCreate = Omit<ImportFolderRecord, 'id' | 'last_scanned' | 'created_at'>
 
-export type ImportFolderUpdate =
-  Partial<Omit<ImportFolderRecord, 'id' | 'path' | 'created_at'>> & { id: string }
+export type ImportFolderUpdate = Partial<Omit<ImportFolderRecord, 'id' | 'path' | 'created_at'>> & {
+  id: string
+}
 
 export interface ImportScanProgress {
   folder_id: string
@@ -692,7 +694,9 @@ export interface DistilleryAPI {
     getModels(): Promise<UpscaleModelInfo[]>
     submit(request: UpscaleRequest): Promise<string>
     cancel(mediaId: string): Promise<void>
-    getData(mediaId: string): Promise<{ variants: UpscaleVariant[]; activeVariantId: string | null }>
+    getData(
+      mediaId: string
+    ): Promise<{ variants: UpscaleVariant[]; activeVariantId: string | null }>
     setActive(mediaId: string, variantId: string | null): Promise<void>
     deleteVariant(variantId: string): Promise<void>
     deleteAll(mediaId: string): Promise<void>
