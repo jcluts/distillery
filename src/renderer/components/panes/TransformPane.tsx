@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { SectionLabel } from '@/components/ui/section-label'
 import { AspectIcon } from '@/components/generation/AspectIcon'
 import { useLibraryStore } from '@/stores/library-store'
+import { useUIStore } from '@/stores/ui-store'
 import { useTransformStore } from '@/stores/transform-store'
 import { isDefaultTransforms } from '@/lib/transform-math'
 
@@ -44,6 +45,7 @@ export function TransformPane(): React.JSX.Element {
     if (!s.focusedId) return null
     return s.items.find((item) => item.id === s.focusedId) ?? null
   })
+  const viewMode = useUIStore((s) => s.viewMode)
 
   const transforms = useTransformStore((s) => (focusedId ? s.transforms[focusedId] ?? null : null))
   const cropMode = useTransformStore((s) => s.cropMode)
@@ -80,6 +82,14 @@ export function TransformPane(): React.JSX.Element {
     return (
       <div className="flex items-center justify-center px-4 py-8 text-sm text-muted-foreground">
         Transforms are available for images only
+      </div>
+    )
+  }
+
+  if (viewMode !== 'loupe') {
+    return (
+      <div className="flex items-center justify-center px-4 py-8 text-sm text-muted-foreground">
+        Open an image in the loupe view to access transforms
       </div>
     )
   }
