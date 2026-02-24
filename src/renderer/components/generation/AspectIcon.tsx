@@ -12,7 +12,9 @@ export function AspectIcon({ ratio }: { ratio: string }): React.JSX.Element {
     '3:2': { w: 12, h: 8 },
     '2:3': { w: 8, h: 12 },
     '4:5': { w: 10, h: 12 },
-    '5:4': { w: 12, h: 10 }
+    '5:4': { w: 12, h: 10 },
+    '21:9': { w: 14, h: 6 },
+    '9:21': { w: 6, h: 14 }
   }
   const { w, h } = dimensions[ratio] ?? { w: 10, h: 10 }
   return <div className="border border-current rounded-[1px]" style={{ width: w, height: h }} />

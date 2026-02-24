@@ -12,30 +12,30 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { SectionLabel } from '@/components/ui/section-label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
+import { AspectIcon } from '@/components/generation/AspectIcon'
 import { useLibraryStore } from '@/stores/library-store'
 import { useTransformStore } from '@/stores/transform-store'
 import { isDefaultTransforms } from '@/lib/transform-math'
 
 const ASPECT_RATIO_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'free', label: 'Free' },
-  { value: '1:1', label: '1:1 Square' },
+  { value: '1:1', label: '1:1' },
+  { value: '5:4', label: '5:4' },
+  { value: '4:5', label: '4:5' },
   { value: '4:3', label: '4:3' },
+  { value: '3:4', label: '3:4' },
   { value: '3:2', label: '3:2' },
+  { value: '2:3', label: '2:3' },
   { value: '16:9', label: '16:9' },
-  { value: '21:9', label: '21:9' }
+  { value: '9:16', label: '9:16' },
+  { value: '21:9', label: '21:9' },
+  { value: '9:21', label: '9:21' }
 ]
 
 const GUIDE_OPTIONS: Array<{ value: 'thirds' | 'grid' | 'golden'; label: string }> = [
-  { value: 'thirds', label: 'Rule of Thirds' },
-  { value: 'grid', label: 'Grid (4x4)' },
-  { value: 'golden', label: 'Golden Ratio' }
+  { value: 'thirds', label: 'Thirds' },
+  { value: 'grid', label: 'Grid' },
+  { value: 'golden', label: 'Golden' }
 ]
 
 export function TransformPane(): React.JSX.Element {
@@ -135,41 +135,60 @@ export function TransformPane(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <SectionLabel>Crop</SectionLabel>
-        <div className="grid grid-cols-1 gap-2">
-          <Select
-            value={cropAspectRatio ?? 'free'}
-            onValueChange={setCropAspectRatio}
-            disabled={!isCropTarget}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Aspect ratio" />
-            </SelectTrigger>
-            <SelectContent>
-              {ASPECT_RATIO_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+      <div className="space-y-3">
+        <div>
+          <SectionLabel className="mb-1.5">Aspect Ratio</SectionLabel>
+          <div className="grid grid-cols-4 gap-1">
+            {ASPECT_RATIO_OPTIONS.map((option) => {
+              const isActive = (cropAspectRatio ?? 'free') === option.value
+              return (
+                <Button
+                  key={option.value}
+                  variant={isActive ? 'secondary' : 'outline'}
+                  size="xs"
+                  onClick={() => setCropAspectRatio(option.value)}
+                  disabled={!isCropTarget}
+                  className={
+                    isActive
+                      ? 'h-8 w-full border-primary/50 bg-primary/10'
+                      : 'h-8 w-full'
+                  }
+                >
+                  {option.value !== 'free' && <AspectIcon ratio={option.value} />}
                   {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </Button>
+              )
+            })}
+          </div>
+        </div>
 
-          <Select value={cropGuide} onValueChange={(value) => setCropGuide(value as 'thirds' | 'grid' | 'golden')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Guides" />
-            </SelectTrigger>
-            <SelectContent>
-              {GUIDE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+        <div>
+          <SectionLabel className="mb-1.5">Guides</SectionLabel>
+          <div className="grid grid-cols-3 gap-1">
+            {GUIDE_OPTIONS.map((option) => {
+              const isActive = cropGuide === option.value
+              return (
+                <Button
+                  key={option.value}
+                  variant={isActive ? 'secondary' : 'outline'}
+                  size="xs"
+                  onClick={() => setCropGuide(option.value)}
+                  className={
+                    isActive
+                      ? 'h-8 w-full border-primary/50 bg-primary/10'
+                      : 'h-8 w-full'
+                  }
+                >
                   {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </Button>
+              )
+            })}
+          </div>
+        </div>
 
+        <div>
           {!isCropTarget ? (
-            <Button type="button" variant="outline" onClick={() => void enterCropMode()}>
+            <Button type="button" variant="outline" className="w-full" onClick={() => void enterCropMode()}>
               <CropIcon className="mr-2 size-4" />
               Crop
             </Button>
