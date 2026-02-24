@@ -38,6 +38,7 @@ import { registerImportFolderHandlers } from './ipc/handlers/import-folders'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { registerProviderHandlers } from './ipc/handlers/providers'
 import { registerUpscaleHandlers } from './ipc/handlers/upscale'
+import { registerTransformsHandlers } from './ipc/handlers/transforms'
 import { UpscaleModelService } from './upscale/upscale-model-service'
 import { UpscaleService } from './upscale/upscale-service'
 import { UpscaleTaskHandler } from './upscale/upscale-task-handler'
@@ -506,6 +507,11 @@ app.whenReady().then(async () => {
     modelIdentityService
   })
   registerUpscaleHandlers(upscaleService)
+  registerTransformsHandlers(fileManager, {
+    onLibraryUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
+  })
   console.log('[Main] IPC handlers registered')
 
   // Create window

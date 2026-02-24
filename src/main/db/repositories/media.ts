@@ -1,5 +1,9 @@
 import Database from 'better-sqlite3'
-import type { MediaRecord, MediaUpdate, MediaQuery, MediaPage } from '../../types'
+import type { ImageTransforms, MediaRecord, MediaUpdate, MediaQuery, MediaPage } from '../../types'
+
+interface TransformsRow {
+  transforms_json: string | null
+}
 
 /**
  * Query media with filtering, sorting, and pagination.
@@ -178,4 +182,39 @@ export function updateMedia(
 export function deleteMedia(db: Database.Database, ids: string[]): void {
   const placeholders = ids.map(() => '?').join(', ')
   db.prepare(`DELETE FROM media WHERE id IN (${placeholders})`).run(...ids)
+}
+
+/**
+ * Fetch persisted transforms for a media item.
+ */
+export function getTransforms(
+  db: Database.Database,
+  mediaId: string
+): ImageTransforms | null {
+  const row = db
+    .prepare('SELECT transforms_json FROM media WHERE id = ?')
+    .get(mediaId) as TransformsRow | undefined
+
+  if (!row?.transforms_json) {
+    return null
+  }
+
+  try {
+    return JSON.parse(row.transforms_json) as ImageTransforms
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Persist transforms for a media item.
+ */
+export function saveTransforms(
+  db: Database.Database,
+  mediaId: string,
+  transforms: ImageTransforms | null
+): void {
+  db.prepare(
+    "UPDATE media SET transforms_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+  ).run(transforms ? JSON.stringify(transforms) : null, mediaId)
 }

@@ -14,8 +14,10 @@ import { useEngineStore } from './stores/engine-store'
 import { useGenerationStore } from './stores/generation-store'
 import { useLibraryStore } from './stores/library-store'
 import { useQueueStore } from './stores/queue-store'
+import { useUIStore } from './stores/ui-store'
 import { useUpscaleStore } from './stores/upscale-store'
 import { useImportFolderStore } from './stores/import-folder-store'
+import { useTransformStore } from './stores/transform-store'
 import type {
   GenerationProgressEvent,
   GenerationResultEvent,
@@ -45,6 +47,10 @@ function App(): React.JSX.Element {
   const searchQuery = useLibraryStore((s) => s.searchQuery)
   const sortField = useLibraryStore((s) => s.sortField)
   const sortDirection = useLibraryStore((s) => s.sortDirection)
+  const viewMode = useUIStore((s) => s.viewMode)
+
+  const cropMode = useTransformStore((s) => s.cropMode)
+  const cancelCrop = useTransformStore((s) => s.cancelCrop)
 
   const setGenerations = useGenerationStore((s) => s.setGenerations)
 
@@ -192,6 +198,12 @@ function App(): React.JSX.Element {
     })
     return unsubscribe
   }, [loadMedia])
+
+  useEffect(() => {
+    if (cropMode && (viewMode !== 'loupe' || !focusedId)) {
+      cancelCrop()
+    }
+  }, [cancelCrop, cropMode, focusedId, viewMode])
 
   useEffect(() => {
     const unsubscribe = window.api.on('collections:updated', () => {

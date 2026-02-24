@@ -16,6 +16,10 @@ export const IPC_CHANNELS = {
   LIBRARY_GET_THUMBNAIL: 'library:getThumbnail',
   LIBRARY_GET_THUMBNAILS_BATCH: 'library:getThumbnailsBatch',
 
+  // Transforms
+  TRANSFORMS_GET: 'transforms:get',
+  TRANSFORMS_SAVE: 'transforms:save',
+
   // Keywords
   KEYWORDS_GET_FOR_MEDIA: 'keywords:getForMedia',
   KEYWORDS_SET_FOR_MEDIA: 'keywords:setForMedia',

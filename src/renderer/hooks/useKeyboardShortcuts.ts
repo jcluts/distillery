@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import { useGenerationStore } from '@/stores/generation-store'
 import { useLibraryStore } from '@/stores/library-store'
+import { useTransformStore } from '@/stores/transform-store'
 import { useUIStore } from '@/stores/ui-store'
 
 function isTextInputFocused(): boolean {
@@ -22,6 +23,8 @@ export function useKeyboardShortcuts(): void {
   const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
   const viewMode = useUIStore((s) => s.viewMode)
   const cycleZoom = useUIStore((s) => s.cycleZoom)
+  const cropMode = useTransformStore((s) => s.cropMode)
+  const cancelCrop = useTransformStore((s) => s.cancelCrop)
 
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
@@ -99,6 +102,11 @@ export function useKeyboardShortcuts(): void {
       }
 
       if (e.key === 'Escape') {
+        if (cropMode) {
+          cancelCrop()
+          return
+        }
+
         if (viewMode === 'loupe') {
           setViewMode('grid')
           return
@@ -107,6 +115,9 @@ export function useKeyboardShortcuts(): void {
 
       if (viewMode === 'loupe') {
         if (e.key.toLowerCase() === 'z') {
+          if (cropMode) {
+            return
+          }
           cycleZoom()
           return
         }
@@ -180,6 +191,8 @@ export function useKeyboardShortcuts(): void {
   }, [
     buildParams,
     cycleZoom,
+    cancelCrop,
+    cropMode,
     focusedId,
     items,
     selectAll,

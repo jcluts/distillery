@@ -23,6 +23,12 @@ function toExternalUrl(absolutePath: string): string {
   return `distillery://external/${encodeURIComponent(absolutePath)}`
 }
 
+function withVersion(url: string, version: string | null | undefined): string {
+  if (!version) return url
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}v=${encodeURIComponent(version)}`
+}
+
 function mapMediaPaths(record: MediaRecord, db: import('better-sqlite3').Database): MediaRecord {
   let workingFilePath: string | null = null
   if (record.active_upscale_id) {
@@ -41,8 +47,8 @@ function mapMediaPaths(record: MediaRecord, db: import('better-sqlite3').Databas
       : toLibraryUrl(record.file_path),
     thumb_path: record.thumb_path
       ? path.isAbsolute(record.thumb_path)
-        ? toExternalUrl(record.thumb_path)
-        : toLibraryUrl(record.thumb_path)
+        ? withVersion(toExternalUrl(record.thumb_path), record.updated_at)
+        : withVersion(toLibraryUrl(record.thumb_path), record.updated_at)
       : null,
     working_file_path: workingFilePath
   }
@@ -164,8 +170,8 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
     const media = mediaRepo.getMediaById(db, id)
     if (!media?.thumb_path) return null
     return path.isAbsolute(media.thumb_path)
-      ? toExternalUrl(media.thumb_path)
-      : toLibraryUrl(media.thumb_path)
+      ? withVersion(toExternalUrl(media.thumb_path), media.updated_at)
+      : withVersion(toLibraryUrl(media.thumb_path), media.updated_at)
   })
 
   ipcMain.handle(
@@ -176,8 +182,8 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
         const media = mediaRepo.getMediaById(db, id)
         if (media?.thumb_path) {
           result[id] = path.isAbsolute(media.thumb_path)
-            ? toExternalUrl(media.thumb_path)
-            : toLibraryUrl(media.thumb_path)
+            ? withVersion(toExternalUrl(media.thumb_path), media.updated_at)
+            : withVersion(toLibraryUrl(media.thumb_path), media.updated_at)
         }
       }
       return result

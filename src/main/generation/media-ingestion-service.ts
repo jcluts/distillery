@@ -10,6 +10,7 @@ import { FileManager } from '../files/file-manager'
 import * as generationInputRepo from '../db/repositories/generation-inputs'
 import * as generationRepo from '../db/repositories/generations'
 import * as mediaRepo from '../db/repositories/media'
+import * as variantRepo from '../db/repositories/upscale-variants'
 import {
   createReferenceImageDerivative,
   createThumbnail,
@@ -20,11 +21,16 @@ import {
   getVideoMetadata,
   isVideoExtension
 } from '../files/video-derivatives'
-import type { CanonicalGenerationParams, GenerationInput, MediaRecord } from '../types'
+import type {
+  CanonicalGenerationParams,
+  GenerationInput,
+  ImageTransforms,
+  MediaRecord
+} from '../types'
 import type { GenerationResult } from './providers/types'
 
 export class MediaIngestionService {
-  private static readonly REF_CACHE_KEY_VERSION = 'v1'
+  private static readonly REF_CACHE_KEY_VERSION = 'v2'
 
   private db: Database.Database
   private fileManager: FileManager
@@ -52,14 +58,18 @@ export class MediaIngestionService {
       const media = mediaRepo.getMediaById(this.db, mediaId)
       if (!media) continue
 
+      const transforms = mediaRepo.getTransforms(this.db, media.id)
+      const sourcePath = this.resolveLibrarySourcePath(media)
+
       const { input, refImageAbs } = await this.prepareInputRecord({
         generationId,
         createdAtIso,
         position,
         sourceType: 'library',
         mediaId: media.id,
-        originalPath: media.file_path,
+        originalPath: sourcePath,
         originalFilename: media.file_name,
+        transforms,
         persistThumb: async (outputAbsPath) => this.persistInputThumbnail(media, outputAbsPath)
       })
 
@@ -79,6 +89,7 @@ export class MediaIngestionService {
         mediaId: null,
         originalPath: originalAbs,
         originalFilename: path.basename(originalAbs),
+        transforms: null,
         persistThumb: async (outputAbsPath) =>
           this.persistExternalThumbnail(originalAbs, outputAbsPath)
       })
@@ -99,6 +110,7 @@ export class MediaIngestionService {
     mediaId: string | null
     originalPath: string
     originalFilename: string
+    transforms: ImageTransforms | null
     persistThumb: (outputAbsPath: string) => Promise<void>
   }): Promise<{ input: GenerationInput; refImageAbs: string }> {
     const thumbRelPath = path.join('ref_thumbs', args.generationId, `${args.position}.jpg`)
@@ -112,7 +124,7 @@ export class MediaIngestionService {
           : this.fileManager.resolve(args.originalPath)
         : args.originalPath
 
-    const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath)
+    const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath, args.transforms)
     const refImageAbs = this.fileManager.resolve(refCacheRelPath)
 
     const input: GenerationInput = {
@@ -158,7 +170,8 @@ export class MediaIngestionService {
               : this.fileManager.resolve(input.original_path)
             : input.original_path
 
-        const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath)
+        const transforms = input.media_id ? mediaRepo.getTransforms(this.db, input.media_id) : null
+        const refCacheRelPath = await this.getOrCreateRefCacheFile(sourceAbsPath, transforms)
         generationInputRepo.updateGenerationInputRefCachePath(this.db, input.id, refCacheRelPath)
         refImages.push(this.fileManager.resolve(refCacheRelPath))
       } catch (error) {
@@ -394,11 +407,14 @@ export class MediaIngestionService {
     }
   }
 
-  private async getOrCreateRefCacheFile(sourceAbsPath: string): Promise<string> {
+  private async getOrCreateRefCacheFile(
+    sourceAbsPath: string,
+    transforms: ImageTransforms | null
+  ): Promise<string> {
     const normalizedSourcePath = path.isAbsolute(sourceAbsPath)
       ? sourceAbsPath
       : path.resolve(sourceAbsPath)
-    const refCacheRelPath = await this.buildRefCacheRelativePath(normalizedSourcePath)
+    const refCacheRelPath = await this.buildRefCacheRelativePath(normalizedSourcePath, transforms)
     const outputAbs = this.fileManager.resolve(refCacheRelPath)
 
     try {
@@ -409,13 +425,17 @@ export class MediaIngestionService {
       await createReferenceImageDerivative(
         normalizedSourcePath,
         outputAbs,
-        REFERENCE_IMAGE_MAX_PIXELS
+        REFERENCE_IMAGE_MAX_PIXELS,
+        transforms
       )
       return refCacheRelPath
     }
   }
 
-  private async buildRefCacheRelativePath(sourceAbsPath: string): Promise<string> {
+  private async buildRefCacheRelativePath(
+    sourceAbsPath: string,
+    transforms: ImageTransforms | null
+  ): Promise<string> {
     const stat = await fs.promises.stat(sourceAbsPath)
 
     if (!stat.isFile()) {
@@ -423,12 +443,16 @@ export class MediaIngestionService {
     }
 
     const sourceDigest = await this.hashFileContents(sourceAbsPath)
+    const transformsDigest = createHash('sha256')
+      .update(transforms ? JSON.stringify(transforms) : 'none')
+      .digest('hex')
 
     const cacheFingerprint = [
       MediaIngestionService.REF_CACHE_KEY_VERSION,
       String(REFERENCE_IMAGE_MAX_PIXELS),
       sourceDigest,
-      String(stat.size)
+      String(stat.size),
+      transformsDigest
     ].join('|')
 
     const key = createHash('sha256').update(cacheFingerprint).digest('hex')
@@ -461,5 +485,16 @@ export class MediaIngestionService {
       await fs.promises.copyFile(from, to)
       await fs.promises.unlink(from)
     }
+  }
+
+  private resolveLibrarySourcePath(media: MediaRecord): string {
+    if (media.active_upscale_id) {
+      const activeVariant = variantRepo.getVariant(this.db, media.active_upscale_id)
+      if (activeVariant) {
+        return activeVariant.file_path
+      }
+    }
+
+    return media.file_path
   }
 }

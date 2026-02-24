@@ -9,6 +9,21 @@ export type MediaOriginKind = 'generation' | 'import'
 export type MediaStatus = 'selected' | 'rejected' | null
 export type MediaSortField = 'created_at' | 'rating' | 'file_name'
 
+export interface NormalizedCropRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface ImageTransforms {
+  rotation: 0 | 90 | 180 | 270
+  flip_h: boolean
+  flip_v: boolean
+  crop: NormalizedCropRect | null
+  aspect_ratio: string | null
+}
+
 export interface MediaRecord {
   id: string
   file_path: string

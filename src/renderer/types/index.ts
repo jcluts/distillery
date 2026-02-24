@@ -12,6 +12,21 @@ export type MediaOriginKind = 'generation' | 'import' // future: | 'duplicate' |
 
 export type MediaStatus = 'selected' | 'rejected' | null
 
+export interface NormalizedCropRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface ImageTransforms {
+  rotation: 0 | 90 | 180 | 270
+  flip_h: boolean
+  flip_v: boolean
+  crop: NormalizedCropRect | null
+  aspect_ratio: string | null
+}
+
 export interface MediaRecord {
   id: string
   file_path: string
@@ -588,6 +603,12 @@ export interface DistilleryAPI {
   showMediaInFolder(id: string): Promise<void>
   openMediaInApp(id: string): Promise<void>
   copyMediaToClipboard(id: string): Promise<void>
+
+  // Transforms
+  transforms: {
+    get(mediaId: string): Promise<ImageTransforms | null>
+    save(mediaId: string, transforms: ImageTransforms | null): Promise<void>
+  }
 
   // Keywords
   keywords: {

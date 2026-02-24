@@ -6,9 +6,11 @@
 import sharp from 'sharp'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import type { ImageTransforms } from '../types'
+import { applyTransforms, getTransformedDimensions } from './transform-pipeline'
 
-const THUMBNAIL_SIZE = 400
-const THUMBNAIL_QUALITY = 80
+export const THUMBNAIL_SIZE = 400
+export const THUMBNAIL_QUALITY = 80
 export const REFERENCE_IMAGE_MAX_PIXELS = 1024 * 1024
 
 /**
@@ -47,16 +49,12 @@ export async function createThumbnail(
 }
 
 /**
- * Downscale an image to fit within a max pixel count (e.g., 1MP for reference images).
- *
- * @param sourcePath - Path to the source image
- * @param outputPath - Path to write the downscaled image
- * @param maxPixels - Maximum total pixels (default 1024*1024)
+ * Regenerate and overwrite a media thumbnail with optional transforms applied.
  */
-export async function createReferenceImageDerivative(
+export async function regenerateThumbnail(
   sourcePath: string,
   outputPath: string,
-  maxPixels = REFERENCE_IMAGE_MAX_PIXELS
+  transforms: ImageTransforms | null
 ): Promise<void> {
   const metadata = await sharp(sourcePath).metadata()
   const width = metadata.width ?? 0
@@ -66,7 +64,41 @@ export async function createReferenceImageDerivative(
     throw new Error(`Invalid image dimensions for ${sourcePath}`)
   }
 
-  const pixels = width * height
+  let pipeline = sharp(sourcePath)
+  pipeline = applyTransforms(pipeline, transforms, width, height)
+
+  await pipeline
+    .resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, {
+      fit: 'cover',
+      position: 'centre'
+    })
+    .jpeg({ quality: THUMBNAIL_QUALITY })
+    .toFile(outputPath)
+}
+
+/**
+ * Downscale an image to fit within a max pixel count (e.g., 1MP for reference images).
+ *
+ * @param sourcePath - Path to the source image
+ * @param outputPath - Path to write the downscaled image
+ * @param maxPixels - Maximum total pixels (default 1024*1024)
+ */
+export async function createReferenceImageDerivative(
+  sourcePath: string,
+  outputPath: string,
+  maxPixels = REFERENCE_IMAGE_MAX_PIXELS,
+  transforms: ImageTransforms | null = null
+): Promise<void> {
+  const metadata = await sharp(sourcePath).metadata()
+  const width = metadata.width ?? 0
+  const height = metadata.height ?? 0
+
+  if (width <= 0 || height <= 0) {
+    throw new Error(`Invalid image dimensions for ${sourcePath}`)
+  }
+
+  const transformed = getTransformedDimensions(width, height, transforms)
+  const pixels = transformed.width * transformed.height
 
   // Flux2 VAE ref-image encode path requires dimensions aligned to 16
   // (VAE scale factor 8 plus Flux2 pack factor 2).
@@ -77,13 +109,13 @@ export async function createReferenceImageDerivative(
   }
 
   const scale = pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1
-  const scaledWidth = Math.max(ALIGN, Math.round(width * scale))
-  const scaledHeight = Math.max(ALIGN, Math.round(height * scale))
+  const scaledWidth = Math.max(ALIGN, Math.round(transformed.width * scale))
+  const scaledHeight = Math.max(ALIGN, Math.round(transformed.height * scale))
 
   const targetWidth = alignDown(scaledWidth)
   const targetHeight = alignDown(scaledHeight)
 
-  if (targetWidth !== width || targetHeight !== height) {
+  if (targetWidth !== transformed.width || targetHeight !== transformed.height) {
     const reasons: string[] = []
     if (scale < 1) {
       reasons.push(`pixel budget ${maxPixels}`)
@@ -93,13 +125,14 @@ export async function createReferenceImageDerivative(
     }
 
     console.info(
-      `[ImageDerivatives] Resized reference image ${width}x${height} -> ${targetWidth}x${targetHeight} (${reasons.join(', ')}) source=${sourcePath}`
+      `[ImageDerivatives] Resized reference image ${transformed.width}x${transformed.height} -> ${targetWidth}x${targetHeight} (${reasons.join(', ')}) source=${sourcePath}`
     )
   }
 
-  await sharp(sourcePath)
-    .rotate()
-    .resize(targetWidth, targetHeight, {
+  let pipeline = sharp(sourcePath).rotate()
+  pipeline = applyTransforms(pipeline, transforms, width, height)
+
+  await pipeline.resize(targetWidth, targetHeight, {
       fit: 'cover',
       position: 'centre'
     })

@@ -6,6 +6,7 @@ import type {
   CollectionUpdate,
   DistilleryAPI,
   GenerationSubmitInput,
+  ImageTransforms,
   ImportFolderCreate,
   ImportFolderUpdate,
   MediaQuery,
@@ -31,6 +32,13 @@ const api: DistilleryAPI = {
   showMediaInFolder: (id: string) => ipcRenderer.invoke(CH.LIBRARY_SHOW_IN_FOLDER, id),
   openMediaInApp: (id: string) => ipcRenderer.invoke(CH.LIBRARY_OPEN_IN_APP, id),
   copyMediaToClipboard: (id: string) => ipcRenderer.invoke(CH.LIBRARY_COPY_TO_CLIPBOARD, id),
+
+  // Transforms
+  transforms: {
+    get: (mediaId: string) => ipcRenderer.invoke(CH.TRANSFORMS_GET, mediaId),
+    save: (mediaId: string, transforms: ImageTransforms | null) =>
+      ipcRenderer.invoke(CH.TRANSFORMS_SAVE, mediaId, transforms)
+  },
 
   // Keywords
   keywords: {
