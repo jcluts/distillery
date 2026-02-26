@@ -33,6 +33,7 @@
     "ffmpeg-static": "^5.3.0",
     "ffprobe-static": "^3.1.0",
     "lucide-react": "^0.563.0",
+    "onnxruntime-node": "^1.24.2",
     "radix-ui": "^1.4.3",
     "react-resizable-panels": "^4.6.2",
     "sharp": "^0.34.5",

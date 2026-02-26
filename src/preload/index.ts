@@ -7,6 +7,7 @@ import type {
   DistilleryAPI,
   GenerationSubmitInput,
   ImageTransforms,
+  RemovalData,
   ImportFolderCreate,
   ImportFolderUpdate,
   MediaQuery,
@@ -155,6 +156,18 @@ const api: DistilleryAPI = {
     deleteAll: (mediaId: string) => ipcRenderer.invoke(CH.UPSCALE_DELETE_ALL, mediaId)
   },
 
+  // Removal
+  removal: {
+    getData: (mediaId: string) => ipcRenderer.invoke(CH.REMOVAL_GET_DATA, mediaId),
+    saveData: (mediaId: string, data: RemovalData | null) =>
+      ipcRenderer.invoke(CH.REMOVAL_SAVE_DATA, mediaId, data),
+    process: (mediaId: string, operationId: string) =>
+      ipcRenderer.invoke(CH.REMOVAL_PROCESS, mediaId, operationId),
+    processAllStale: (mediaId: string) => ipcRenderer.invoke(CH.REMOVAL_PROCESS_ALL_STALE, mediaId),
+    deleteCaches: (mediaId: string, operationIds?: string[]) =>
+      ipcRenderer.invoke(CH.REMOVAL_DELETE_CACHES, mediaId, operationIds)
+  },
+
   // Model Identities
   identities: {
     getAll: () => ipcRenderer.invoke(CH.IDENTITIES_GET_ALL),
@@ -197,6 +210,8 @@ const api: DistilleryAPI = {
       | typeof CH.MODEL_DOWNLOAD_PROGRESS
       | typeof CH.UPSCALE_PROGRESS
       | typeof CH.UPSCALE_RESULT
+      | typeof CH.REMOVAL_PROGRESS
+      | typeof CH.REMOVAL_RESULT
 
     const validChannels = new Set<EventChannel>([
       CH.ENGINE_STATUS_CHANGED,
@@ -210,7 +225,9 @@ const api: DistilleryAPI = {
       CH.WINDOW_MAXIMIZED_CHANGED,
       CH.MODEL_DOWNLOAD_PROGRESS,
       CH.UPSCALE_PROGRESS,
-      CH.UPSCALE_RESULT
+      CH.UPSCALE_RESULT,
+      CH.REMOVAL_PROGRESS,
+      CH.REMOVAL_RESULT
     ])
 
     if (!validChannels.has(channel as EventChannel)) {

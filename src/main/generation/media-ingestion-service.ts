@@ -21,6 +21,7 @@ import {
   getVideoMetadata,
   isVideoExtension
 } from '../files/video-derivatives'
+import type { RemovalService } from '../removal/removal-service'
 import type {
   CanonicalGenerationParams,
   GenerationInput,
@@ -34,10 +35,12 @@ export class MediaIngestionService {
 
   private db: Database.Database
   private fileManager: FileManager
+  private removalService: RemovalService | null
 
-  constructor(db: Database.Database, fileManager: FileManager) {
+  constructor(db: Database.Database, fileManager: FileManager, removalService?: RemovalService | null) {
     this.db = db
     this.fileManager = fileManager
+    this.removalService = removalService ?? null
   }
 
   async prepareInputs(
@@ -488,6 +491,10 @@ export class MediaIngestionService {
   }
 
   private resolveLibrarySourcePath(media: MediaRecord): string {
+    if (this.removalService && media.media_type === 'image') {
+      return this.removalService.resolveEffectivePath(media)
+    }
+
     if (media.active_upscale_id) {
       const activeVariant = variantRepo.getVariant(this.db, media.active_upscale_id)
       if (activeVariant) {

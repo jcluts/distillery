@@ -1,8 +1,19 @@
 import Database from 'better-sqlite3'
-import type { ImageTransforms, MediaRecord, MediaUpdate, MediaQuery, MediaPage } from '../../types'
+import type {
+  ImageTransforms,
+  MediaRecord,
+  MediaUpdate,
+  MediaQuery,
+  MediaPage,
+  RemovalData
+} from '../../types'
 
 interface TransformsRow {
   transforms_json: string | null
+}
+
+interface RemovalsRow {
+  removals_json: string | null
 }
 
 /**
@@ -217,4 +228,39 @@ export function saveTransforms(
   db.prepare(
     "UPDATE media SET transforms_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
   ).run(transforms ? JSON.stringify(transforms) : null, mediaId)
+}
+
+/**
+ * Fetch persisted removals data for a media item.
+ */
+export function getRemovals(
+  db: Database.Database,
+  mediaId: string
+): RemovalData | null {
+  const row = db
+    .prepare('SELECT removals_json FROM media WHERE id = ?')
+    .get(mediaId) as RemovalsRow | undefined
+
+  if (!row?.removals_json) {
+    return null
+  }
+
+  try {
+    return JSON.parse(row.removals_json) as RemovalData
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Persist removals data for a media item.
+ */
+export function saveRemovals(
+  db: Database.Database,
+  mediaId: string,
+  data: RemovalData | null
+): void {
+  db.prepare(
+    "UPDATE media SET removals_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+  ).run(data ? JSON.stringify(data) : null, mediaId)
 }

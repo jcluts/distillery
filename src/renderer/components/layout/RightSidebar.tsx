@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Crop, Layers3, Info, Maximize2, Plus, SlidersHorizontal } from 'lucide-react'
+import { Crop, Eraser, Layers3, Info, Maximize2, Plus, SlidersHorizontal } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useUIStore, type RightPanelTab } from '@/stores/ui-store'
@@ -10,6 +10,7 @@ import { GenerationInfoPane } from '@/components/panes/GenerationInfoPane'
 import { CollectionsPane } from '@/components/panes/CollectionsPane'
 import { UpscalePane } from '@/components/panes/UpscalePane'
 import { TransformPane } from '@/components/panes/TransformPane'
+import { RemovalPane } from '@/components/panes/RemovalPane'
 
 function CollectionsHeaderActions(): React.JSX.Element {
   const openModal = useUIStore((s) => s.openModal)
@@ -67,6 +68,13 @@ const RIGHT_TABS: SidebarTabConfig<RightPanelTab>[] = [
     title: 'Transform',
     icon: Crop,
     content: <TransformPane />
+  },
+  {
+    tab: 'removal',
+    label: 'Removals',
+    title: 'Removals',
+    icon: Eraser,
+    content: <RemovalPane />
   }
 ]
 

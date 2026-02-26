@@ -108,6 +108,13 @@ export const IPC_CHANNELS = {
   UPSCALE_DELETE_VARIANT: 'upscale:deleteVariant',
   UPSCALE_DELETE_ALL: 'upscale:deleteAll',
 
+  // Removal
+  REMOVAL_GET_DATA: 'removal:getData',
+  REMOVAL_SAVE_DATA: 'removal:saveData',
+  REMOVAL_PROCESS: 'removal:process',
+  REMOVAL_PROCESS_ALL_STALE: 'removal:processAllStale',
+  REMOVAL_DELETE_CACHES: 'removal:deleteCaches',
+
   // App
   APP_SHOW_OPEN_DIALOG: 'app:showOpenDialog',
   APP_SHOW_SAVE_DIALOG: 'app:showSaveDialog',
@@ -132,7 +139,9 @@ export const IPC_CHANNELS = {
   WINDOW_MAXIMIZED_CHANGED: 'app:windowMaximizedChanged',
   MODEL_DOWNLOAD_PROGRESS: 'model:download-progress',
   UPSCALE_PROGRESS: 'upscale:progress',
-  UPSCALE_RESULT: 'upscale:result'
+  UPSCALE_RESULT: 'upscale:result',
+  REMOVAL_PROGRESS: 'removal:progress',
+  REMOVAL_RESULT: 'removal:result'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

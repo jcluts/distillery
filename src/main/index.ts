@@ -39,9 +39,12 @@ import { registerWindowHandlers } from './ipc/handlers/window'
 import { registerProviderHandlers } from './ipc/handlers/providers'
 import { registerUpscaleHandlers } from './ipc/handlers/upscale'
 import { registerTransformsHandlers } from './ipc/handlers/transforms'
+import { registerRemovalHandlers } from './ipc/handlers/removal'
 import { UpscaleModelService } from './upscale/upscale-model-service'
 import { UpscaleService } from './upscale/upscale-service'
 import { UpscaleTaskHandler } from './upscale/upscale-task-handler'
+import { RemovalService } from './removal/removal-service'
+import { RemovalTaskHandler } from './removal/removal-task-handler'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
 import * as identityRepo from './db/repositories/model-identities'
 import { ModelCatalogService } from './models/model-catalog-service'
@@ -366,7 +369,14 @@ app.whenReady().then(async () => {
 
   // Initialize work queue + generation services
   workQueueManager = new WorkQueueManager(db)
-  const mediaIngestionService = new MediaIngestionService(db, fileManager)
+
+  const removalService = new RemovalService({
+    db,
+    fileManager,
+    workQueueManager
+  })
+
+  const mediaIngestionService = new MediaIngestionService(db, fileManager, removalService)
   const providerConfigService = new ProviderConfigService()
   const modelIdentityService = new ModelIdentityService(db)
 
@@ -456,12 +466,25 @@ app.whenReady().then(async () => {
   )
   workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.UPSCALE, 1)
 
+  workQueueManager.registerHandler(
+    WORK_TASK_TYPES.REMOVAL,
+    new RemovalTaskHandler({
+      fileManager,
+      removalService
+    })
+  )
+  workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.REMOVAL, 1)
+
   console.log('[Main] Upscale services initialized')
 
   // Register all IPC handlers
-  registerLibraryHandlers(fileManager, () => {
-    mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
-  })
+  registerLibraryHandlers(
+    fileManager,
+    () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    },
+    { removalService }
+  )
   registerGenerationHandlers(generationService)
   registerEngineHandlers(engineManager)
   registerQueueHandlers(workQueueManager)
@@ -512,6 +535,11 @@ app.whenReady().then(async () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
     }
   })
+  registerRemovalHandlers(removalService, {
+    onLibraryUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
+  })
   console.log('[Main] IPC handlers registered')
 
   // Create window
@@ -549,6 +577,16 @@ app.whenReady().then(async () => {
   upscaleService.on('result', (event) => {
     mainWindow?.webContents.send(IPC_CHANNELS.UPSCALE_RESULT, event)
     mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+  })
+
+  removalService.on('progress', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.REMOVAL_PROGRESS, event)
+  })
+  removalService.on('result', (event) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.REMOVAL_RESULT, event)
+    if (event.success) {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
   })
 
   // Start engine process if path is configured (model will be lazy-loaded on first generation)

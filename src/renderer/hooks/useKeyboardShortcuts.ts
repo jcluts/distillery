@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import { useGenerationStore } from '@/stores/generation-store'
 import { useLibraryStore } from '@/stores/library-store'
+import { useRemovalStore } from '@/stores/removal-store'
 import { useTransformStore } from '@/stores/transform-store'
 import { useUIStore } from '@/stores/ui-store'
 
@@ -25,6 +26,9 @@ export function useKeyboardShortcuts(): void {
   const cycleZoom = useUIStore((s) => s.cycleZoom)
   const cropMode = useTransformStore((s) => s.cropMode)
   const cancelCrop = useTransformStore((s) => s.cancelCrop)
+  const paintMode = useRemovalStore((s) => s.paintMode)
+  const cancelPaintMode = useRemovalStore((s) => s.cancelPaintMode)
+  const undoRemovalStroke = useRemovalStore((s) => s.undoStroke)
 
   const items = useLibraryStore((s) => s.items)
   const focusedId = useLibraryStore((s) => s.focusedId)
@@ -79,6 +83,12 @@ export function useKeyboardShortcuts(): void {
         return
       }
 
+      if (modKey && e.key.toLowerCase() === 'z' && paintMode) {
+        e.preventDefault()
+        undoRemovalStroke()
+        return
+      }
+
       // View navigation
       if (e.key.toLowerCase() === 'g') {
         setViewMode('grid')
@@ -102,6 +112,11 @@ export function useKeyboardShortcuts(): void {
       }
 
       if (e.key === 'Escape') {
+        if (paintMode) {
+          cancelPaintMode()
+          return
+        }
+
         if (cropMode) {
           cancelCrop()
           return
@@ -192,15 +207,18 @@ export function useKeyboardShortcuts(): void {
     buildParams,
     cycleZoom,
     cancelCrop,
+    cancelPaintMode,
     cropMode,
     focusedId,
     items,
     selectAll,
     selectSingle,
     selectedIds,
+    paintMode,
     setLeftPanelTab,
     setViewMode,
     toggleLeftPanel,
+    undoRemovalStroke,
     updateItem,
     viewMode
   ])

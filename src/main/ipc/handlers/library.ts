@@ -8,6 +8,7 @@ import { FileManager } from '../../files/file-manager'
 import * as path from 'path'
 import * as fs from 'fs'
 import { importSingleFile } from '../../import/import-file'
+import type { RemovalService } from '../../removal/removal-service'
 
 function toLibraryUrl(relativePath: string): string {
   const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '')
@@ -29,16 +30,35 @@ function withVersion(url: string, version: string | null | undefined): string {
   return `${url}${separator}v=${encodeURIComponent(version)}`
 }
 
-function mapMediaPaths(record: MediaRecord, db: import('better-sqlite3').Database): MediaRecord {
-  let workingFilePath: string | null = null
+function mapMediaPaths(
+  record: MediaRecord,
+  db: import('better-sqlite3').Database,
+  removalService?: RemovalService
+): MediaRecord {
+  let baseWorkingPath = record.file_path
+
   if (record.active_upscale_id) {
     const variant = variantRepo.getVariant(db, record.active_upscale_id)
     if (variant) {
-      workingFilePath = path.isAbsolute(variant.file_path)
-        ? toExternalUrl(variant.file_path)
-        : toLibraryUrl(variant.file_path)
+      baseWorkingPath = variant.file_path
     }
   }
+
+  const effectiveWorkingPath = removalService ? removalService.resolveEffectivePath(record) : baseWorkingPath
+
+  const normalizedOriginalPath = path.isAbsolute(record.file_path)
+    ? record.file_path
+    : path.normalize(record.file_path)
+  const normalizedWorkingPath = path.isAbsolute(effectiveWorkingPath)
+    ? effectiveWorkingPath
+    : path.normalize(effectiveWorkingPath)
+
+  const workingFilePath =
+    normalizedWorkingPath === normalizedOriginalPath
+      ? null
+      : path.isAbsolute(effectiveWorkingPath)
+        ? toExternalUrl(effectiveWorkingPath)
+        : toLibraryUrl(effectiveWorkingPath)
 
   return {
     ...record,
@@ -54,20 +74,25 @@ function mapMediaPaths(record: MediaRecord, db: import('better-sqlite3').Databas
   }
 }
 
-export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdated?: () => void): void {
+export function registerLibraryHandlers(
+  fileManager: FileManager,
+  onLibraryUpdated?: () => void,
+  options?: { removalService?: RemovalService }
+): void {
   const db = getDatabase()
+  const removalService = options?.removalService
 
   ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_MEDIA, (_event, params: MediaQuery) => {
     const page = mediaRepo.queryMedia(db, params)
     return {
       ...page,
-      items: page.items.map((m) => mapMediaPaths(m, db))
+      items: page.items.map((m) => mapMediaPaths(m, db, removalService))
     }
   })
 
   ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_MEDIA_BY_ID, (_event, id: string) => {
     const record = mediaRepo.getMediaById(db, id)
-    return record ? mapMediaPaths(record, db) : null
+    return record ? mapMediaPaths(record, db, removalService) : null
   })
 
   ipcMain.handle(
@@ -101,6 +126,10 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
         } catch (err: any) {
           if (err.code !== 'ENOENT') console.error('[Library] Failed to delete variant file:', v.file_path, err)
         }
+      }
+
+      if (removalService) {
+        await removalService.deleteCaches(id)
       }
 
       if (shouldDeleteOriginal) {
@@ -139,7 +168,7 @@ export function registerLibraryHandlers(fileManager: FileManager, onLibraryUpdat
 
     if (imported.length > 0) onLibraryUpdated?.()
 
-    return imported.map((m) => mapMediaPaths(m, db))
+    return imported.map((m) => mapMediaPaths(m, db, removalService))
   })
 
   // Resolve media ID → absolute file path (helper)

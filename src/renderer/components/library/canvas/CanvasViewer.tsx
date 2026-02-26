@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import { normalizeCrop } from '@/lib/transform-math'
 import { useTransformStore } from '@/stores/transform-store'
+import { useRemovalStore } from '@/stores/removal-store'
 import type { ZoomLevel } from '@/stores/ui-store'
 import type { ImageTransforms, MediaRecord } from '@/types'
 
@@ -149,6 +150,10 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
   const cropMediaId = useTransformStore((s) => s.cropMediaId)
   const setCropOverlay = useTransformStore((s) => s.setCropOverlay)
 
+  const paintMode = useRemovalStore((s) => s.paintMode)
+  const paintMediaId = useRemovalStore((s) => s.paintMediaId)
+  const setMaskOverlay = useRemovalStore((s) => s.setMaskOverlay)
+
   // Pan state (local refs, not in store)
   const panOffset = React.useRef({ x: 0, y: 0 })
   const isDragging = React.useRef(false)
@@ -160,6 +165,7 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
   const [dragging, setDragging] = React.useState(false)
 
   const isCropTarget = cropMode && cropMediaId === media?.id
+  const isPaintTarget = paintMode && paintMediaId === media?.id
 
   // Derive the image URL: working_file_path (active upscale variant) or original file_path
   const imageUrl = media?.working_file_path ?? media?.file_path ?? null
@@ -173,7 +179,7 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
   // Reset pan when zoom, transforms, crop mode, or image changes
   React.useEffect(() => {
     panOffset.current = { x: 0, y: 0 }
-  }, [zoom, imageUrl, transforms, isCropTarget])
+  }, [zoom, imageUrl, transforms, isCropTarget, isPaintTarget])
 
   // Helper to redraw
   const redraw = React.useCallback(() => {
@@ -211,7 +217,20 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
     } else {
       setCropOverlay(null)
     }
-  }, [isCropTarget, media, setCropOverlay, transforms, zoom])
+
+    if (isPaintTarget && result.imageRect) {
+      setMaskOverlay({
+        containerWidth: rect.width,
+        containerHeight: rect.height,
+        imageX: result.imageRect.x,
+        imageY: result.imageRect.y,
+        imageWidth: result.imageRect.w,
+        imageHeight: result.imageRect.h
+      })
+    } else {
+      setMaskOverlay(null)
+    }
+  }, [isCropTarget, isPaintTarget, media, setCropOverlay, setMaskOverlay, transforms, zoom])
 
   // ResizeObserver
   React.useEffect(() => {
@@ -278,18 +297,18 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
   // Pan mouse handlers
   const onMouseDown = React.useCallback(
     (e: React.MouseEvent) => {
-      if (!isPannable || isCropTarget) return
+      if (!isPannable || isCropTarget || isPaintTarget) return
       isDragging.current = true
       dragStart.current = { x: e.clientX, y: e.clientY }
       dragStartOffset.current = { ...panOffset.current }
       setDragging(true)
     },
-    [isCropTarget, isPannable]
+    [isCropTarget, isPaintTarget, isPannable]
   )
 
   const onMouseMove = React.useCallback(
     (e: React.MouseEvent) => {
-      if (!isDragging.current || isCropTarget) return
+      if (!isDragging.current || isCropTarget || isPaintTarget) return
       const dx = e.clientX - dragStart.current.x
       const dy = e.clientY - dragStart.current.y
       panOffset.current = {
@@ -298,7 +317,7 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
       }
       redraw()
     },
-    [isCropTarget, redraw]
+    [isCropTarget, isPaintTarget, redraw]
   )
 
   const onMouseUp = React.useCallback(() => {
@@ -309,10 +328,11 @@ export function CanvasViewer({ media, zoom = 'fit' }: CanvasViewerProps): React.
   React.useEffect(() => {
     return () => {
       setCropOverlay(null)
+      setMaskOverlay(null)
     }
-  }, [setCropOverlay])
+  }, [setCropOverlay, setMaskOverlay])
 
-  const cursor = isCropTarget ? 'crosshair' : isPannable ? (dragging ? 'grabbing' : 'grab') : 'default'
+  const cursor = isCropTarget ? 'crosshair' : isPannable && !isPaintTarget ? (dragging ? 'grabbing' : 'grab') : 'default'
 
   return (
     <div

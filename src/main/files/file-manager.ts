@@ -72,6 +72,13 @@ export class FileManager {
   }
 
   /**
+   * Get the removals cache directory path.
+   */
+  getRemovalsDir(): string {
+    return join(this.libraryRoot, 'removals')
+  }
+
+  /**
    * Get the date-based subdirectory for originals (YYYY/MM/).
    */
   getDateSubdir(): string {
@@ -93,7 +100,8 @@ export class FileManager {
       this.getThumbnailsDir(),
       this.getRefCacheDir(),
       this.getRefThumbsDir(),
-      this.getUpscaledDir()
+      this.getUpscaledDir(),
+      this.getRemovalsDir()
     ]
 
     for (const dir of dirs) {

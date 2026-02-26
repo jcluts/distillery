@@ -18,6 +18,7 @@ import { useUIStore } from './stores/ui-store'
 import { useUpscaleStore } from './stores/upscale-store'
 import { useImportFolderStore } from './stores/import-folder-store'
 import { useTransformStore } from './stores/transform-store'
+import { useRemovalStore } from './stores/removal-store'
 import type {
   GenerationProgressEvent,
   GenerationResultEvent,
@@ -25,6 +26,8 @@ import type {
   WorkQueueItem,
   UpscaleProgressEvent,
   UpscaleResultEvent,
+  RemovalProgressEvent,
+  RemovalResultEvent,
   ImportScanProgress
 } from './types'
 
@@ -51,6 +54,8 @@ function App(): React.JSX.Element {
 
   const cropMode = useTransformStore((s) => s.cropMode)
   const cancelCrop = useTransformStore((s) => s.cancelCrop)
+  const paintMode = useRemovalStore((s) => s.paintMode)
+  const cancelPaintMode = useRemovalStore((s) => s.cancelPaintMode)
 
   const setGenerations = useGenerationStore((s) => s.setGenerations)
 
@@ -206,6 +211,12 @@ function App(): React.JSX.Element {
   }, [cancelCrop, cropMode, focusedId, viewMode])
 
   useEffect(() => {
+    if (paintMode && (viewMode !== 'loupe' || !focusedId)) {
+      cancelPaintMode()
+    }
+  }, [cancelPaintMode, focusedId, paintMode, viewMode])
+
+  useEffect(() => {
     const unsubscribe = window.api.on('collections:updated', () => {
       void loadCollections()
     })
@@ -266,6 +277,28 @@ function App(): React.JSX.Element {
       const evt = payload as UpscaleResultEvent
       if (evt) {
         useUpscaleStore.getState().handleResult(evt)
+        void loadMedia()
+      }
+    })
+    return unsubscribe
+  }, [loadMedia])
+
+  // Removal progress and completion
+  useEffect(() => {
+    const unsubscribe = window.api.on('removal:progress', (payload: unknown) => {
+      const evt = payload as RemovalProgressEvent
+      if (evt) {
+        useRemovalStore.getState().handleProgress(evt)
+      }
+    })
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.api.on('removal:result', (payload: unknown) => {
+      const evt = payload as RemovalResultEvent
+      if (evt) {
+        void useRemovalStore.getState().handleResult(evt)
         void loadMedia()
       }
     })

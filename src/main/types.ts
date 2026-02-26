@@ -421,3 +421,51 @@ export interface UpscaleResultEvent {
   totalTimeMs?: number
   error?: string
 }
+
+// Removal types
+export interface RemovalStroke {
+  points: Array<{ x: number; y: number }>
+  brushSizeNormalized: number
+  erasing: boolean
+}
+
+export interface RemovalCache {
+  sourceHash: string
+  resultPath: string
+  width: number
+  height: number
+  timestamp: string
+}
+
+export interface RemovalOperation {
+  id: string
+  strokes: RemovalStroke[]
+  featherRadiusNormalized: number
+  enabled: boolean
+  timestamp: string
+  cache: RemovalCache | null
+}
+
+export interface RemovalData {
+  version: 1
+  operations: RemovalOperation[]
+}
+
+export interface RemovalStateSnapshot {
+  data: RemovalData | null
+  staleOperationIds: string[]
+}
+
+export interface RemovalProgressEvent {
+  mediaId: string
+  operationId: string
+  phase: 'preparing' | 'rasterizing' | 'inferring' | 'blending' | 'complete' | 'error'
+  message?: string
+}
+
+export interface RemovalResultEvent {
+  mediaId: string
+  operationId: string
+  success: boolean
+  error?: string
+}
