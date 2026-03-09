@@ -84,9 +84,10 @@ export function registerLibraryHandlers(
 
   ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_MEDIA, (_event, params: MediaQuery) => {
     const page = mediaRepo.queryMedia(db, params)
+    const mapped = page.items.map((m) => mapMediaPaths(m, db, removalService))
     return {
       ...page,
-      items: page.items.map((m) => mapMediaPaths(m, db, removalService))
+      items: mapped
     }
   })
 

@@ -9,6 +9,7 @@ import type {
   RemovalStateSnapshot,
   RemovalStroke
 } from '@/types'
+import { useLibraryStore } from './library-store'
 
 function normalizeRemovalData(data: RemovalData | null): RemovalData {
   if (!data || data.version !== 1 || !Array.isArray(data.operations)) {
@@ -151,6 +152,14 @@ export const useRemovalStore = create<RemovalState>((set, get) => ({
     try {
       await window.api.removal.saveData(mediaId, normalized)
       await get().loadData(mediaId)
+
+      // Re-fetch media record so working_file_path updates in the library store
+      const updated = await window.api.getMediaById(mediaId)
+      if (updated) {
+        useLibraryStore.getState().updateItem(mediaId, {
+          working_file_path: updated.working_file_path ?? null
+        })
+      }
     } catch {
       // Keep optimistic local state; next refresh will reconcile.
     }
@@ -431,5 +440,19 @@ export const useRemovalStore = create<RemovalState>((set, get) => ({
     })
 
     await get().loadData(event.mediaId)
+
+    // Re-fetch media record so working_file_path updates in the library store
+    if (event.success) {
+      try {
+        const updated = await window.api.getMediaById(event.mediaId)
+        if (updated) {
+          useLibraryStore.getState().updateItem(event.mediaId, {
+            working_file_path: updated.working_file_path ?? null
+          })
+        }
+      } catch {
+        // loadMedia will catch up
+      }
+    }
   }
 }))

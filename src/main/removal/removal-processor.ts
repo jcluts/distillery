@@ -162,6 +162,7 @@ async function featherMask(mask: Buffer, width: number, height: number, featherR
   const blurRadius = Math.max(0.3, featherRadiusPx / 2)
   return await sharp(mask, { raw: { width, height, channels: 1 } })
     .blur(blurRadius)
+    .greyscale()
     .raw()
     .toBuffer()
 }
@@ -210,6 +211,7 @@ export async function processRemoval(args: ProcessRemovalArgs): Promise<ProcessR
   const modelInputMask = await sharp(maskCrop, { raw: { width: crop.w, height: crop.h, channels: 1 } })
     .resize(MODEL_SIZE, MODEL_SIZE, { fit: 'fill', kernel: sharp.kernel.nearest })
     .threshold(1)
+    .greyscale()
     .raw()
     .toBuffer()
 
