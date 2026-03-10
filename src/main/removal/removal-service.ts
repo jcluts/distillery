@@ -108,7 +108,9 @@ export class RemovalService extends EventEmitter {
     const evaluations = this.evaluateOperations(media, data)
     return {
       data,
-      staleOperationIds: evaluations.filter((entry) => entry.stale).map((entry) => entry.operationId)
+      staleOperationIds: evaluations
+        .filter((entry) => entry.stale)
+        .map((entry) => entry.operationId)
     }
   }
 
@@ -305,14 +307,13 @@ export class RemovalService extends EventEmitter {
     const base = this.getBaseSource(media)
     let chainSourcePath = base.sourcePath
     let chainSourceHash = base.sourceHash
-    let chainBroken = false
 
     for (const operation of data.operations) {
       const expectedSourceHash = chainSourceHash
       const cachePath = operation.cache?.resultPath
       const cacheExists = cachePath ? fs.existsSync(this.resolvePath(cachePath)) : false
       const stale =
-        chainBroken || !operation.cache || !cacheExists || operation.cache.sourceHash !== expectedSourceHash
+        !operation.cache || !cacheExists || operation.cache.sourceHash !== expectedSourceHash
 
       evaluations.push({
         operationId: operation.id,
@@ -326,12 +327,14 @@ export class RemovalService extends EventEmitter {
       }
 
       if (stale || !operation.cache) {
-        chainBroken = true
         continue
       }
 
       chainSourcePath = operation.cache.resultPath
-      chainSourceHash = buildOperationSourceHash(operation.cache.resultPath, operation.cache.sourceHash)
+      chainSourceHash = buildOperationSourceHash(
+        operation.cache.resultPath,
+        operation.cache.sourceHash
+      )
     }
 
     return evaluations
