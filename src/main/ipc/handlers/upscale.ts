@@ -3,7 +3,10 @@ import { IPC_CHANNELS } from '../channels'
 import type { UpscaleService } from '../../upscale/upscale-service'
 import type { UpscaleRequest } from '../../types'
 
-export function registerUpscaleHandlers(upscaleService: UpscaleService): void {
+export function registerUpscaleHandlers(
+  upscaleService: UpscaleService,
+  options?: { onLibraryUpdated?: () => void }
+): void {
   ipcMain.handle(IPC_CHANNELS.UPSCALE_GET_MODELS, () => {
     return upscaleService.getModels()
   })
@@ -22,16 +25,19 @@ export function registerUpscaleHandlers(upscaleService: UpscaleService): void {
 
   ipcMain.handle(
     IPC_CHANNELS.UPSCALE_SET_ACTIVE,
-    (_event, mediaId: string, variantId: string | null) => {
-      upscaleService.setActiveVariant(mediaId, variantId)
+    async (_event, mediaId: string, variantId: string | null) => {
+      await upscaleService.setActiveVariant(mediaId, variantId)
+      options?.onLibraryUpdated?.()
     }
   )
 
-  ipcMain.handle(IPC_CHANNELS.UPSCALE_DELETE_VARIANT, (_event, variantId: string) => {
-    upscaleService.deleteVariant(variantId)
+  ipcMain.handle(IPC_CHANNELS.UPSCALE_DELETE_VARIANT, async (_event, variantId: string) => {
+    await upscaleService.deleteVariant(variantId)
+    options?.onLibraryUpdated?.()
   })
 
-  ipcMain.handle(IPC_CHANNELS.UPSCALE_DELETE_ALL, (_event, mediaId: string) => {
-    upscaleService.deleteAllVariants(mediaId)
+  ipcMain.handle(IPC_CHANNELS.UPSCALE_DELETE_ALL, async (_event, mediaId: string) => {
+    await upscaleService.deleteAllVariants(mediaId)
+    options?.onLibraryUpdated?.()
   })
 }

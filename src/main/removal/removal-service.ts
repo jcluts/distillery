@@ -9,6 +9,7 @@ import { regenerateThumbnail } from '../files/image-derivatives'
 import { FileManager } from '../files/file-manager'
 import { WorkQueueManager } from '../queue/work-queue-manager'
 import { WORK_TASK_TYPES } from '../queue/work-task-types'
+import type { SourceDependentEditHandler } from '../source-dependent-edits'
 import type {
   MediaRecord,
   RemovalCache,
@@ -78,7 +79,9 @@ function normalizeData(data: RemovalData | null): RemovalData | null {
   }
 }
 
-export class RemovalService extends EventEmitter {
+export class RemovalService extends EventEmitter implements SourceDependentEditHandler {
+  readonly id = 'removal'
+
   private db: Database.Database
   private fileManager: FileManager
   private workQueueManager: WorkQueueManager
@@ -291,6 +294,19 @@ export class RemovalService extends EventEmitter {
     const transforms = mediaRepo.getTransforms(this.db, media.id)
 
     await regenerateThumbnail(sourcePath, thumbPath, transforms)
+  }
+
+  async handleSourceChanged(mediaId: string): Promise<void> {
+    const queuedTaskIds = await this.processAllStale(mediaId)
+    if (queuedTaskIds.length > 0) {
+      return
+    }
+
+    try {
+      await this.refreshThumbnail(mediaId)
+    } catch (error) {
+      console.warn('[RemovalService] Failed to refresh thumbnail after source change:', error)
+    }
   }
 
   emitProgress(event: RemovalProgressEvent): void {

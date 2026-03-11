@@ -51,6 +51,7 @@ import { ModelCatalogService } from './models/model-catalog-service'
 import { ModelDownloadManager } from './models/model-download-manager'
 import { bootstrapQuantSelections } from './models/selection-bootstrap'
 import { initializeAutoImportFolders } from './import/import-folder-service'
+import { SourceDependentEditCoordinator } from './source-dependent-edits'
 
 // Allow the renderer to load library files via a safe custom protocol.
 // This avoids `file://` restrictions when running the renderer from http:// (dev server).
@@ -376,6 +377,9 @@ app.whenReady().then(async () => {
     workQueueManager
   })
 
+  const sourceDependentEditCoordinator = new SourceDependentEditCoordinator()
+  sourceDependentEditCoordinator.registerHandler(removalService)
+
   const mediaIngestionService = new MediaIngestionService(db, fileManager, removalService)
   const providerConfigService = new ProviderConfigService()
   const modelIdentityService = new ModelIdentityService(db)
@@ -451,7 +455,10 @@ app.whenReady().then(async () => {
     db,
     fileManager,
     modelService: upscaleModelService,
-    workQueueManager
+    workQueueManager,
+    onSourceChanged: async (mediaId) => {
+      await sourceDependentEditCoordinator.handleSourceChanged(mediaId)
+    }
   })
 
   workQueueManager.registerHandler(
@@ -529,7 +536,11 @@ app.whenReady().then(async () => {
     providerManagerService,
     modelIdentityService
   })
-  registerUpscaleHandlers(upscaleService)
+  registerUpscaleHandlers(upscaleService, {
+    onLibraryUpdated: () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
+    }
+  })
   registerTransformsHandlers(fileManager, {
     onLibraryUpdated: () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)

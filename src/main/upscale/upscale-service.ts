@@ -14,23 +14,28 @@ import { WorkQueueManager } from '../queue/work-queue-manager'
 import { WORK_TASK_TYPES } from '../queue/work-task-types'
 import * as variantRepo from '../db/repositories/upscale-variants'
 
+type SourceChangeHandler = (mediaId: string) => Promise<void>
+
 export class UpscaleService extends EventEmitter {
   private db: Database.Database
   private fileManager: FileManager
   private modelService: UpscaleModelService
   private workQueueManager: WorkQueueManager
+  private onSourceChanged: SourceChangeHandler | null
 
   constructor(deps: {
     db: Database.Database
     fileManager: FileManager
     modelService: UpscaleModelService
     workQueueManager: WorkQueueManager
+    onSourceChanged?: SourceChangeHandler
   }) {
     super()
     this.db = deps.db
     this.fileManager = deps.fileManager
     this.modelService = deps.modelService
     this.workQueueManager = deps.workQueueManager
+    this.onSourceChanged = deps.onSourceChanged ?? null
   }
 
   async submit(request: UpscaleRequest): Promise<string> {
@@ -55,16 +60,27 @@ export class UpscaleService extends EventEmitter {
     }
   }
 
-  setActiveVariant(mediaId: string, variantId: string | null): void {
+  async setActiveVariant(mediaId: string, variantId: string | null): Promise<void> {
+    const currentVariantId = variantRepo.getActiveVariant(this.db, mediaId)?.id ?? null
+    if (currentVariantId === variantId) {
+      return
+    }
+
     variantRepo.setActiveVariant(this.db, mediaId, variantId)
+    await this.handleSourceChanged(mediaId)
   }
 
-  deleteVariant(variantId: string): void {
+  async deleteVariant(variantId: string): Promise<void> {
     const variant = variantRepo.getVariant(this.db, variantId)
     if (!variant) return
 
+    const activeVariantId = variantRepo.getActiveVariant(this.db, variant.media_id)?.id ?? null
+    const wasActive = activeVariantId === variantId
+
     // If this variant was active, clear the active reference
-    variantRepo.setActiveVariant(this.db, variant.media_id, null)
+    if (wasActive) {
+      variantRepo.setActiveVariant(this.db, variant.media_id, null)
+    }
 
     // Delete file from disk
     const absPath = this.fileManager.resolve(variant.file_path)
@@ -75,10 +91,16 @@ export class UpscaleService extends EventEmitter {
     }
 
     variantRepo.deleteVariant(this.db, variantId)
+
+    if (wasActive) {
+      await this.handleSourceChanged(variant.media_id)
+    }
   }
 
-  deleteAllVariants(mediaId: string): void {
+  async deleteAllVariants(mediaId: string): Promise<void> {
     const variants = variantRepo.getVariantsForMedia(this.db, mediaId)
+    const hadActiveVariant = (variantRepo.getActiveVariant(this.db, mediaId)?.id ?? null) !== null
+
     for (const v of variants) {
       const absPath = this.fileManager.resolve(v.file_path)
       try {
@@ -89,6 +111,10 @@ export class UpscaleService extends EventEmitter {
     }
     variantRepo.setActiveVariant(this.db, mediaId, null)
     variantRepo.deleteAllVariantsForMedia(this.db, mediaId)
+
+    if (hadActiveVariant) {
+      await this.handleSourceChanged(mediaId)
+    }
   }
 
   getUpscaleData(mediaId: string): {
@@ -113,5 +139,17 @@ export class UpscaleService extends EventEmitter {
 
   emitResult(event: UpscaleResultEvent): void {
     this.emit('result', event)
+  }
+
+  private async handleSourceChanged(mediaId: string): Promise<void> {
+    if (!this.onSourceChanged) {
+      return
+    }
+
+    try {
+      await this.onSourceChanged(mediaId)
+    } catch (error) {
+      console.warn('[UpscaleService] Failed to update source-dependent edits:', error)
+    }
   }
 }

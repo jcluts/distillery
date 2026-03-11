@@ -143,8 +143,8 @@ export class UpscaleTaskHandler implements WorkTaskHandler {
 
       variantRepo.insertVariant(this.db, variant)
 
-      // 9. Set as active variant
-      variantRepo.setActiveVariant(this.db, mediaId, variantId)
+      // 9. Set as active variant and reapply source-dependent edits.
+      await this.upscaleService.setActiveVariant(mediaId, variantId)
 
       // 10. Emit result
       this.upscaleService.emitProgress({ mediaId, phase: 'complete' })
