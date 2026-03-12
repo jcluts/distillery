@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { SectionHeader } from '@/components/ui/section-header'
 import { cn } from '@/lib/utils'
+import { useModelStore } from '@/stores/model-store'
 import { useUIStore } from '@/stores/ui-store'
 import type { AppSettings, SettingsUpdate } from '@/types'
 
@@ -87,6 +88,7 @@ function BoolField({
 export function SettingsModal(): React.JSX.Element {
   const activeModals = useUIStore((s) => s.activeModals)
   const closeModal = useUIStore((s) => s.closeModal)
+  const hydrateModels = useModelStore((s) => s.hydrate)
 
   const open = activeModals.includes('settings')
 
@@ -146,6 +148,8 @@ export function SettingsModal(): React.JSX.Element {
     setError(null)
 
     try {
+      const modelBasePathChanged = draft.model_base_path !== loaded?.model_base_path
+
       const updates: SettingsUpdate = {
         library_root: draft.library_root,
         engine_path: draft.engine_path,
@@ -158,6 +162,11 @@ export function SettingsModal(): React.JSX.Element {
       }
 
       await window.api.saveSettings(updates)
+
+      if (modelBasePathChanged) {
+        await hydrateModels()
+      }
+
       close()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
