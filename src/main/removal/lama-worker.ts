@@ -1,20 +1,6 @@
 import { parentPort } from 'worker_threads'
 import * as ort from 'onnxruntime-node'
-
-interface InitMessage {
-  type: 'init'
-  modelPath: string
-}
-
-interface InferMessage {
-  type: 'infer'
-  imageBuffer: Uint8Array
-  maskBuffer: Uint8Array
-  width: number
-  height: number
-}
-
-type WorkerMessage = InitMessage | InferMessage
+import type { InferMessage, WorkerMessage } from './lama-worker-contract'
 
 let session: ort.InferenceSession | null = null
 
@@ -104,7 +90,12 @@ async function runInference(msg: InferMessage): Promise<Buffer> {
 
   const imageBuffer = Buffer.from(msg.imageBuffer)
   const maskBuffer = Buffer.from(msg.maskBuffer)
-  const { imageTensor, maskTensor } = buildInputTensors(imageBuffer, maskBuffer, msg.width, msg.height)
+  const { imageTensor, maskTensor } = buildInputTensors(
+    imageBuffer,
+    maskBuffer,
+    msg.width,
+    msg.height
+  )
 
   const feeds: Record<string, ort.Tensor> = {}
   for (const inputName of session.inputNames) {
