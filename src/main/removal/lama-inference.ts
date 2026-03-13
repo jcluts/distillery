@@ -1,9 +1,14 @@
 import { app } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
-import { Worker } from 'worker_threads'
 import workerPath from './lama-worker?modulePath'
-import type { WorkerResponse } from './lama-worker-contract'
+import { OnnxWorkerClient } from '../onnx/worker-client'
+import type {
+  InitMessage,
+  ResultMessage,
+  WorkerMessage,
+  WorkerResponse
+} from './lama-worker-contract'
 
 function getResourcesRoot(): string {
   return app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), 'resources')
@@ -19,30 +24,8 @@ function resolveModelPath(): string {
 }
 
 export class LamaInference {
-  private worker: Worker | null = null
+  private client = new OnnxWorkerClient<WorkerMessage, WorkerResponse>(workerPath, 'LamaInference')
   private initPromise: Promise<void> | null = null
-
-  private ensureWorker(): Worker {
-    if (this.worker) {
-      return this.worker
-    }
-
-    this.worker = new Worker(workerPath)
-    this.worker.on('error', (error) => {
-      console.error('[LamaInference] Worker error:', error)
-      this.worker = null
-      this.initPromise = null
-    })
-    this.worker.on('exit', (code) => {
-      if (code !== 0) {
-        console.warn(`[LamaInference] Worker exited with code ${code}`)
-      }
-      this.worker = null
-      this.initPromise = null
-    })
-
-    return this.worker
-  }
 
   async infer(
     imageBuffer: Buffer,
@@ -52,52 +35,28 @@ export class LamaInference {
   ): Promise<Buffer> {
     await this.ensureInitialized()
 
-    const worker = this.ensureWorker()
-    return await new Promise<Buffer>((resolve, reject) => {
-      const onMessage = (msg: WorkerResponse): void => {
-        if (msg.type === 'result') {
-          cleanup()
-          resolve(Buffer.from(msg.outputBuffer))
-          return
-        }
-
-        if (msg.type === 'error') {
-          cleanup()
-          reject(new Error(msg.error))
-        }
-      }
-
-      const onError = (error: Error): void => {
-        cleanup()
-        reject(error)
-      }
-
-      const cleanup = (): void => {
-        worker.off('message', onMessage)
-        worker.off('error', onError)
-      }
-
-      worker.on('message', onMessage)
-      worker.on('error', onError)
-      worker.postMessage({
+    const imageData = new Uint8Array(imageBuffer)
+    const maskData = new Uint8Array(maskBuffer)
+    const result = await this.client.sendRequest(
+      {
         type: 'infer',
-        imageBuffer: new Uint8Array(imageBuffer),
-        maskBuffer: new Uint8Array(maskBuffer),
+        imageBuffer: imageData,
+        maskBuffer: maskData,
         width,
         height
-      })
-    })
+      },
+      {
+        isFinal: (msg) => msg.type === 'result',
+        transferList: [imageData.buffer, maskData.buffer]
+      }
+    )
+
+    return Buffer.from((result as ResultMessage).outputBuffer)
   }
 
   async dispose(): Promise<void> {
-    if (!this.worker) {
-      return
-    }
-
-    const worker = this.worker
-    this.worker = null
     this.initPromise = null
-    await worker.terminate()
+    await this.client.dispose()
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -111,35 +70,11 @@ export class LamaInference {
       throw new Error(`LaMa model file not found: ${modelPath}`)
     }
 
-    const worker = this.ensureWorker()
-    this.initPromise = new Promise<void>((resolve, reject) => {
-      const onMessage = (msg: WorkerResponse): void => {
-        if (msg.type === 'ready') {
-          cleanup()
-          resolve()
-          return
-        }
-
-        if (msg.type === 'error') {
-          cleanup()
-          reject(new Error(msg.error))
-        }
-      }
-
-      const onError = (error: Error): void => {
-        cleanup()
-        reject(error)
-      }
-
-      const cleanup = (): void => {
-        worker.off('message', onMessage)
-        worker.off('error', onError)
-      }
-
-      worker.on('message', onMessage)
-      worker.on('error', onError)
-      worker.postMessage({ type: 'init', modelPath })
-    })
+    this.initPromise = this.client
+      .sendRequest({ type: 'init', modelPath } satisfies Omit<InitMessage, 'requestId'>, {
+        isFinal: (msg) => msg.type === 'ready'
+      })
+      .then(() => undefined)
 
     try {
       await this.initPromise

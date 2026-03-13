@@ -1,35 +1,30 @@
 import { v4 as uuidv4 } from 'uuid'
 import * as path from 'path'
-import sharp from 'sharp'
 import Database from 'better-sqlite3'
 import type { WorkItem, WorkTaskResult, UpscaleVariant } from '../types'
 import type { WorkTaskHandler } from '../queue/work-handler-registry'
-import { EngineManager } from '../engine/engine-manager'
-import { UpscaleModelService } from './upscale-model-service'
 import { UpscaleService } from './upscale-service'
 import { FileManager } from '../files/file-manager'
 import * as mediaRepo from '../db/repositories/media'
 import * as variantRepo from '../db/repositories/upscale-variants'
+import { UpscaleExecutionService } from './upscale-execution-service'
 
 export class UpscaleTaskHandler implements WorkTaskHandler {
   private db: Database.Database
-  private engineManager: EngineManager
-  private modelService: UpscaleModelService
   private upscaleService: UpscaleService
   private fileManager: FileManager
+  private executionService: UpscaleExecutionService
 
   constructor(deps: {
     db: Database.Database
-    engineManager: EngineManager
-    modelService: UpscaleModelService
     upscaleService: UpscaleService
     fileManager: FileManager
+    executionService: UpscaleExecutionService
   }) {
     this.db = deps.db
-    this.engineManager = deps.engineManager
-    this.modelService = deps.modelService
     this.upscaleService = deps.upscaleService
     this.fileManager = deps.fileManager
+    this.executionService = deps.executionService
   }
 
   async execute(item: WorkItem): Promise<WorkTaskResult> {
@@ -53,104 +48,62 @@ export class UpscaleTaskHandler implements WorkTaskHandler {
         ? media.file_path
         : this.fileManager.resolve(media.file_path)
 
-      // 3. Resolve the upscale model path
-      const modelAbsPath = this.modelService.resolveModelAbsolutePath(modelId)
-      if (!modelAbsPath) throw new Error(`Upscale model not available: ${modelId}`)
-
-      const modelConfig = this.modelService.getModelConfig(modelId)
-      if (!modelConfig) throw new Error(`Upscale model config not found: ${modelId}`)
-
-      // 4. Generate output path
+      // 3. Generate output path
       const variantId = uuidv4()
       const relFilePath = path.join('upscaled', `${variantId}.png`)
       const outputAbsPath = this.fileManager.resolve(relFilePath)
 
-      // 5. Send upscale command to engine
+      // 4. Run the configured backend
       this.upscaleService.emitProgress({ mediaId, phase: 'upscaling' })
+      this.upscaleService.emitProgress({ mediaId, phase: 'saving' })
 
-      const progressListener = (event: any) => {
-        if (event.jobId === `upscale-${variantId}`) {
+      const result = await this.executionService.execute({
+        media,
+        modelId,
+        scaleFactor,
+        variantId,
+        inputAbsPath,
+        outputAbsPath,
+        onProgress: (progress) => {
           this.upscaleService.emitProgress({
             mediaId,
             phase: 'upscaling',
-            step: event.step,
-            totalSteps: event.totalSteps,
-            message: event.message
+            step: progress.step,
+            totalSteps: progress.totalSteps,
+            message: progress.message
           })
         }
-      }
-      this.engineManager.on('progress', progressListener)
+      })
 
-      let result
-      try {
-        result = await this.engineManager.upscale({
-          id: `upscale-${variantId}`,
-          input: inputAbsPath,
-          output: outputAbsPath,
-          upscale_model: modelAbsPath,
-          upscale_repeats: 1
-        })
-      } finally {
-        this.engineManager.off('progress', progressListener)
-      }
-
-      if (!result.success) {
-        throw new Error(result.error ?? 'Upscale failed')
-      }
-
-      // 6. Post-processing: downsample if requested scale < native scale
-      this.upscaleService.emitProgress({ mediaId, phase: 'saving' })
-
-      let finalWidth: number
-      let finalHeight: number
-
-      if (scaleFactor < modelConfig.nativeScale && media.width && media.height) {
-        const targetWidth = media.width * scaleFactor
-        const targetHeight = media.height * scaleFactor
-        await sharp(outputAbsPath)
-          .resize(targetWidth, targetHeight, { kernel: sharp.kernel.lanczos3 })
-          .png()
-          .toFile(outputAbsPath + '.tmp')
-
-        const fs = await import('fs')
-        await fs.promises.rename(outputAbsPath + '.tmp', outputAbsPath)
-        finalWidth = targetWidth
-        finalHeight = targetHeight
-      } else {
-        const meta = await sharp(outputAbsPath).metadata()
-        finalWidth = meta.width ?? 0
-        finalHeight = meta.height ?? 0
-      }
-
-      // 7. Get file size
+      // 5. Get file size
       const fsModule = await import('fs')
       const stat = await fsModule.promises.stat(outputAbsPath)
 
-      // 8. Insert variant record
+      // 6. Insert variant record
       const now = new Date().toISOString()
       const variant: UpscaleVariant = {
         id: variantId,
         media_id: mediaId,
         file_path: relFilePath,
         model_id: modelId,
-        model_name: modelConfig.name,
+        model_name: `${result.modelConfig.name} (${result.backend === 'onnx' ? 'ONNX' : 'cn-engine'})`,
         scale_factor: scaleFactor,
-        width: finalWidth,
-        height: finalHeight,
+        width: result.width,
+        height: result.height,
         file_size: stat.size,
         created_at: now
       }
 
       variantRepo.insertVariant(this.db, variant)
 
-      // 9. Set as active variant and reapply source-dependent edits.
+      // 7. Set as active variant and reapply source-dependent edits.
       await this.upscaleService.setActiveVariant(mediaId, variantId)
 
-      // 10. Emit result
+      // 8. Emit result
       this.upscaleService.emitProgress({ mediaId, phase: 'complete' })
-      this.upscaleService.emitResult({ 
-        mediaId, 
-        success: true, 
+      this.upscaleService.emitResult({
+        mediaId,
+        success: true,
         variant,
         totalTimeMs: result.totalTimeMs
       })

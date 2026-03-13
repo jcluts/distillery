@@ -220,6 +220,8 @@ export interface EnqueueWorkInput {
   max_attempts?: number
 }
 
+export type WorkResourceResolver = (item: WorkItem) => string[]
+
 export interface WorkFilter {
   status?: QueueStatus
   task_type?: string
@@ -333,6 +335,7 @@ export interface AppSettings {
   library_root: string
   engine_path: string
   model_base_path: string
+  upscale_backend: UpscaleBackendPreference
   active_model_id: string
   model_quant_selections: ModelQuantSelections
   offload_to_cpu: boolean
@@ -369,14 +372,22 @@ export interface HardwareProfile {
 }
 
 // Upscale types
+export type UpscaleBackend = 'onnx' | 'cn-engine'
+export type UpscaleBackendPreference = 'auto' | UpscaleBackend
+
+export interface UpscaleModelArtifactConfig {
+  files: string[]
+  tileSize?: number
+}
+
 export interface UpscaleModelConfig {
   id: string
   name: string
   description: string
-  file: string
   nativeScale: number
   supportedScales: number[]
   enabled: boolean
+  backends: Partial<Record<UpscaleBackend, UpscaleModelArtifactConfig>>
 }
 
 export interface UpscaleModelInfo {
@@ -385,6 +396,7 @@ export interface UpscaleModelInfo {
   description: string
   supportedScales: number[]
   available: boolean
+  backend?: UpscaleBackend
 }
 
 export interface UpscaleVariant {

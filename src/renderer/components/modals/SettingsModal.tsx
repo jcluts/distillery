@@ -17,7 +17,8 @@ import { SectionHeader } from '@/components/ui/section-header'
 import { cn } from '@/lib/utils'
 import { useModelStore } from '@/stores/model-store'
 import { useUIStore } from '@/stores/ui-store'
-import type { AppSettings, SettingsUpdate } from '@/types'
+import { useUpscaleStore } from '@/stores/upscale-store'
+import type { AppSettings, SettingsUpdate, UpscaleBackendPreference } from '@/types'
 
 function FieldLabel({ children }: { children: React.ReactNode }): React.JSX.Element {
   return <div className="text-xs font-medium text-muted-foreground">{children}</div>
@@ -85,10 +86,44 @@ function BoolField({
   )
 }
 
+function ChoiceField({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string
+  value: string
+  options: Array<{ value: string; label: string }>
+  onChange: (value: string) => void
+}): React.JSX.Element {
+  return (
+    <div className="space-y-2">
+      <FieldLabel>{label}</FieldLabel>
+      <ToggleGroup
+        type="single"
+        value={value}
+        onValueChange={(next) => {
+          if (!next) return
+          onChange(next)
+        }}
+        className="justify-start gap-1"
+      >
+        {options.map((option) => (
+          <ToggleGroupItem key={option.value} value={option.value} size="sm">
+            {option.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  )
+}
+
 export function SettingsModal(): React.JSX.Element {
   const activeModals = useUIStore((s) => s.activeModals)
   const closeModal = useUIStore((s) => s.closeModal)
   const hydrateModels = useModelStore((s) => s.hydrate)
+  const loadUpscaleModels = useUpscaleStore((s) => s.loadModels)
 
   const open = activeModals.includes('settings')
 
@@ -149,11 +184,13 @@ export function SettingsModal(): React.JSX.Element {
 
     try {
       const modelBasePathChanged = draft.model_base_path !== loaded?.model_base_path
+      const upscaleBackendChanged = draft.upscale_backend !== loaded?.upscale_backend
 
       const updates: SettingsUpdate = {
         library_root: draft.library_root,
         engine_path: draft.engine_path,
         model_base_path: draft.model_base_path,
+        upscale_backend: draft.upscale_backend,
         offload_to_cpu: draft.offload_to_cpu,
         flash_attn: draft.flash_attn,
         vae_on_cpu: draft.vae_on_cpu,
@@ -165,6 +202,10 @@ export function SettingsModal(): React.JSX.Element {
 
       if (modelBasePathChanged) {
         await hydrateModels()
+      }
+
+      if (upscaleBackendChanged) {
+        await loadUpscaleModels()
       }
 
       close()
@@ -233,6 +274,17 @@ export function SettingsModal(): React.JSX.Element {
                   const selected = await browseFolder('Choose model directory')
                   if (selected) update('model_base_path', selected)
                 }}
+              />
+
+              <ChoiceField
+                label="Upscale backend"
+                value={draft?.upscale_backend ?? 'auto'}
+                options={[
+                  { value: 'auto', label: 'Auto' },
+                  { value: 'onnx', label: 'ONNX' },
+                  { value: 'cn-engine', label: 'cn-engine' }
+                ]}
+                onChange={(value) => update('upscale_backend', value as UpscaleBackendPreference)}
               />
             </div>
           </div>

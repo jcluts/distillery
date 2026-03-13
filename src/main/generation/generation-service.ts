@@ -73,7 +73,12 @@ export class GenerationService extends EventEmitter {
       this.mediaIngestionService.insertInputRecords(inputRecords)
     })()
 
-    const payload = { generationId, endpointKey: endpoint.endpointKey, params }
+    const payload = {
+      generationId,
+      endpointKey: endpoint.endpointKey,
+      params,
+      executionMode: endpoint.executionMode
+    }
 
     console.log('[GenerationService] submit', {
       generationId,

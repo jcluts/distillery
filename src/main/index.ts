@@ -3,11 +3,12 @@ import * as fs from 'fs'
 import { join } from 'path'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import icon from '../../build/icon.png?asset'
 import { getDatabase, closeDatabase } from './db/connection'
 import { EngineManager } from './engine/engine-manager'
 import { TimelineService } from './timeline/timeline-service'
 import { WorkQueueManager } from './queue/work-queue-manager'
+import { WORK_RESOURCE_KEYS } from './queue/work-resources'
 import { WORK_TASK_TYPES } from './queue/work-task-types'
 import { FileManager } from './files/file-manager'
 import { MediaIngestionService } from './generation/media-ingestion-service'
@@ -43,6 +44,7 @@ import { registerRemovalHandlers } from './ipc/handlers/removal'
 import { UpscaleModelService } from './upscale/upscale-model-service'
 import { UpscaleService } from './upscale/upscale-service'
 import { UpscaleTaskHandler } from './upscale/upscale-task-handler'
+import { UpscaleExecutionService } from './upscale/upscale-execution-service'
 import { RemovalService } from './removal/removal-service'
 import { RemovalTaskHandler } from './removal/removal-task-handler'
 import { getAllSettings, getSetting, saveSettings } from './db/repositories/settings'
@@ -446,11 +448,21 @@ app.whenReady().then(async () => {
   )
 
   workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.GENERATION, 4)
+  workQueueManager.setResourceResolver(WORK_TASK_TYPES.GENERATION, (item) => {
+    try {
+      const payload = JSON.parse(item.payload_json) as { executionMode?: string }
+      return payload.executionMode === 'queued-local' ? [WORK_RESOURCE_KEYS.LOCAL_INFERENCE] : []
+    } catch {
+      return []
+    }
+  })
+  workQueueManager.setConcurrencyLimit(WORK_RESOURCE_KEYS.LOCAL_INFERENCE, 1)
 
   console.log('[Main] Work queue + generation services initialized')
 
   // Initialize upscale services
   const upscaleModelService = new UpscaleModelService()
+  const upscaleExecutionService = new UpscaleExecutionService(db, upscaleModelService, engineManager)
   const upscaleService = new UpscaleService({
     db,
     fileManager,
@@ -465,13 +477,15 @@ app.whenReady().then(async () => {
     WORK_TASK_TYPES.UPSCALE,
     new UpscaleTaskHandler({
       db,
-      engineManager,
-      modelService: upscaleModelService,
       upscaleService,
-      fileManager
+      fileManager,
+      executionService: upscaleExecutionService
     })
   )
   workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.UPSCALE, 1)
+  workQueueManager.setResourceResolver(WORK_TASK_TYPES.UPSCALE, () => [
+    WORK_RESOURCE_KEYS.LOCAL_INFERENCE
+  ])
 
   workQueueManager.registerHandler(
     WORK_TASK_TYPES.REMOVAL,
@@ -481,6 +495,9 @@ app.whenReady().then(async () => {
     })
   )
   workQueueManager.setConcurrencyLimit(WORK_TASK_TYPES.REMOVAL, 1)
+  workQueueManager.setResourceResolver(WORK_TASK_TYPES.REMOVAL, () => [
+    WORK_RESOURCE_KEYS.LOCAL_INFERENCE
+  ])
 
   console.log('[Main] Upscale services initialized')
 

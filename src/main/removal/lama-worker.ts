@@ -1,8 +1,10 @@
 import { parentPort } from 'worker_threads'
 import * as ort from 'onnxruntime-node'
 import type { InferMessage, WorkerMessage } from './lama-worker-contract'
+import { createOnnxSession, disposeOnnxSession } from '../onnx/runtime'
 
 let session: ort.InferenceSession | null = null
+let currentModelPath: string | null = null
 
 function clamp01(value: number): number {
   if (Number.isNaN(value)) return 0
@@ -12,14 +14,13 @@ function clamp01(value: number): number {
 }
 
 async function initSession(modelPath: string): Promise<void> {
-  if (session) {
+  if (session && currentModelPath === modelPath) {
     return
   }
 
-  session = await ort.InferenceSession.create(modelPath, {
-    executionProviders: ['cpu'],
-    graphOptimizationLevel: 'all'
-  })
+  await disposeOnnxSession(session)
+  session = await createOnnxSession(modelPath)
+  currentModelPath = modelPath
 }
 
 function buildInputTensors(
@@ -118,16 +119,16 @@ parentPort?.on('message', async (msg: WorkerMessage) => {
   try {
     if (msg.type === 'init') {
       await initSession(msg.modelPath)
-      parentPort?.postMessage({ type: 'ready' })
+      parentPort?.postMessage({ type: 'ready', requestId: msg.requestId })
       return
     }
 
     if (msg.type === 'infer') {
       const output = await runInference(msg)
-      parentPort?.postMessage({ type: 'result', outputBuffer: output })
+      parentPort?.postMessage({ type: 'result', outputBuffer: output, requestId: msg.requestId })
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    parentPort?.postMessage({ type: 'error', error: message })
+    parentPort?.postMessage({ type: 'error', error: message, requestId: msg.requestId })
   }
 })

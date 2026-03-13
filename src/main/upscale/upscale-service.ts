@@ -13,6 +13,7 @@ import { FileManager } from '../files/file-manager'
 import { WorkQueueManager } from '../queue/work-queue-manager'
 import { WORK_TASK_TYPES } from '../queue/work-task-types'
 import * as variantRepo from '../db/repositories/upscale-variants'
+import * as settingsRepo from '../db/repositories/settings'
 
 type SourceChangeHandler = (mediaId: string) => Promise<void>
 
@@ -130,7 +131,8 @@ export class UpscaleService extends EventEmitter {
   }
 
   getModels(): UpscaleModelInfo[] {
-    return this.modelService.getModels()
+    const backendPreference = settingsRepo.getSetting(this.db, 'upscale_backend')
+    return this.modelService.getModels(backendPreference)
   }
 
   emitProgress(event: UpscaleProgressEvent): void {

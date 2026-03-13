@@ -489,6 +489,7 @@ export interface AppSettings {
   library_root: string
   engine_path: string
   model_base_path: string
+  upscale_backend: UpscaleBackendPreference
   active_model_id: string
   model_quant_selections: ModelQuantSelections
 
@@ -544,12 +545,16 @@ export interface HardwareProfile {
 // Upscale
 // -----------------------------------------------------------------------------
 
+export type UpscaleBackend = 'onnx' | 'cn-engine'
+export type UpscaleBackendPreference = 'auto' | UpscaleBackend
+
 export interface UpscaleModelInfo {
   id: string
   name: string
   description: string
   supportedScales: number[]
   available: boolean
+  backend?: UpscaleBackend
 }
 
 export interface UpscaleVariant {

@@ -1,9 +1,11 @@
 import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import Database from 'better-sqlite3'
-import type { EnqueueWorkInput, WorkFilter, WorkItem } from '../types'
+import type { EnqueueWorkInput, WorkFilter, WorkItem, WorkResourceResolver } from '../types'
 import * as workQueueRepo from '../db/repositories/work-queue'
 import { WorkHandlerRegistry, type WorkTaskHandler } from './work-handler-registry'
+
+const taskLimitKey = (taskType: string): string => `task:${taskType}`
 
 export class WorkQueueManager extends EventEmitter {
   private db: Database.Database
@@ -11,6 +13,8 @@ export class WorkQueueManager extends EventEmitter {
   private activeCounts = new Map<string, number>()
   private concurrencyLimits = new Map<string, number>()
   private activeWorkIds = new Set<string>()
+  private resourceResolvers = new Map<string, WorkResourceResolver>()
+  private activeResourcesByWorkId = new Map<string, string[]>()
 
   constructor(db: Database.Database) {
     super()
@@ -21,8 +25,13 @@ export class WorkQueueManager extends EventEmitter {
     this.registry.register(taskType, handler)
   }
 
+  setResourceResolver(taskType: string, resolver: WorkResourceResolver): void {
+    this.resourceResolvers.set(taskType, resolver)
+    void this.processNext()
+  }
+
   setConcurrencyLimit(taskType: string, limit: number): void {
-    this.concurrencyLimits.set(taskType, Math.max(1, limit))
+    this.concurrencyLimits.set(taskLimitKey(taskType), Math.max(1, limit))
     void this.processNext()
   }
 
@@ -62,9 +71,8 @@ export class WorkQueueManager extends EventEmitter {
         continue
       }
 
-      const active = this.getActiveCount(item.task_type)
-      const limit = this.getConcurrencyLimit(item.task_type)
-      if (active >= limit) {
+      const resourceKeys = this.getResourceKeys(item)
+      if (!this.canAcquireResources(resourceKeys)) {
         continue
       }
 
@@ -82,7 +90,8 @@ export class WorkQueueManager extends EventEmitter {
       }
 
       this.activeWorkIds.add(item.id)
-      this.activeCounts.set(item.task_type, active + 1)
+      this.activeResourcesByWorkId.set(item.id, resourceKeys)
+      this.acquireResources(resourceKeys)
 
       workQueueRepo.updateWorkStatus(this.db, item.id, 'processing')
       workQueueRepo.incrementAttemptCount(this.db, item.id)
@@ -92,12 +101,49 @@ export class WorkQueueManager extends EventEmitter {
     }
   }
 
-  private getConcurrencyLimit(taskType: string): number {
-    return this.concurrencyLimits.get(taskType) ?? 1
+  private getResourceKeys(item: WorkItem): string[] {
+    const keys = [taskLimitKey(item.task_type)]
+    const resolver = this.resourceResolvers.get(item.task_type)
+    if (!resolver) {
+      return keys
+    }
+
+    for (const key of resolver(item)) {
+      if (key && !keys.includes(key)) {
+        keys.push(key)
+      }
+    }
+
+    return keys
   }
 
-  private getActiveCount(taskType: string): number {
-    return this.activeCounts.get(taskType) ?? 0
+  private canAcquireResources(resourceKeys: string[]): boolean {
+    return resourceKeys.every((key) => this.getActiveCount(key) < this.getLimitForKey(key))
+  }
+
+  private acquireResources(resourceKeys: string[]): void {
+    for (const key of resourceKeys) {
+      this.activeCounts.set(key, this.getActiveCount(key) + 1)
+    }
+  }
+
+  private releaseResources(resourceKeys: string[]): void {
+    for (const key of resourceKeys) {
+      const next = this.getActiveCount(key) - 1
+      if (next > 0) {
+        this.activeCounts.set(key, next)
+      } else {
+        this.activeCounts.delete(key)
+      }
+    }
+  }
+
+  private getLimitForKey(key: string): number {
+    return this.concurrencyLimits.get(key) ?? 1
+  }
+
+  private getActiveCount(key: string): number {
+    return this.activeCounts.get(key) ?? 0
   }
 
   private async executeItem(item: WorkItem, handler: WorkTaskHandler): Promise<void> {
@@ -113,9 +159,9 @@ export class WorkQueueManager extends EventEmitter {
       workQueueRepo.updateWorkStatus(this.db, item.id, 'failed', message)
     } finally {
       this.activeWorkIds.delete(item.id)
-
-      const active = this.getActiveCount(item.task_type)
-      this.activeCounts.set(item.task_type, Math.max(0, active - 1))
+      const resourceKeys = this.activeResourcesByWorkId.get(item.id) ?? [taskLimitKey(item.task_type)]
+      this.activeResourcesByWorkId.delete(item.id)
+      this.releaseResources(resourceKeys)
 
       this.emit('updated')
       void this.processNext()

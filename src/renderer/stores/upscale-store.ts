@@ -50,11 +50,12 @@ export const useUpscaleStore = create<UpscaleState>((set, get) => ({
     try {
       const models = await window.api.upscale.getModels()
       const availableModels = models.filter((m) => m.available)
-      set({ models: availableModels })
-      // Auto-select first model if none selected
-      if (!get().selectedModelId && availableModels.length > 0) {
-        set({ selectedModelId: availableModels[0].id })
-      }
+      const selectedModelId = get().selectedModelId
+      const nextSelectedModelId = availableModels.some((model) => model.id === selectedModelId)
+        ? selectedModelId
+        : (availableModels[0]?.id ?? null)
+
+      set({ models: availableModels, selectedModelId: nextSelectedModelId })
     } catch {
       // ignore
     }
@@ -81,9 +82,9 @@ export const useUpscaleStore = create<UpscaleState>((set, get) => ({
     const { selectedModelId, selectedScale } = get()
     if (!selectedModelId) return
 
-    set({ 
-      isUpscaling: true, 
-      progressPhase: 'preparing', 
+    set({
+      isUpscaling: true,
+      progressPhase: 'preparing',
       progressMessage: null,
       progressStep: null,
       progressTotalSteps: null,
@@ -172,9 +173,9 @@ export const useUpscaleStore = create<UpscaleState>((set, get) => ({
   },
 
   handleResult: (event: UpscaleResultEvent) => {
-    set({ 
-      isUpscaling: false, 
-      progressPhase: null, 
+    set({
+      isUpscaling: false,
+      progressPhase: null,
       progressMessage: null,
       progressStep: null,
       progressTotalSteps: null,

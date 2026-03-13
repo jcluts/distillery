@@ -36,6 +36,7 @@ function getDefaults(): AppSettings {
     library_root: DEFAULT_LIBRARY_ROOT,
     engine_path: getDefaultEnginePath(),
     model_base_path: getDefaultModelBasePath(),
+    upscale_backend: 'auto',
     active_model_id: DEFAULT_ACTIVE_MODEL_ID,
     model_quant_selections: JSON.parse(JSON.stringify(DEFAULT_MODEL_QUANT_SELECTIONS)),
     offload_to_cpu: true,
@@ -72,6 +73,12 @@ function normalizeSettings(settings: AppSettings, defaults: AppSettings): AppSet
       typeof settings.active_model_id === 'string' && settings.active_model_id.trim()
         ? settings.active_model_id
         : defaults.active_model_id,
+    upscale_backend:
+      settings.upscale_backend === 'onnx' ||
+      settings.upscale_backend === 'cn-engine' ||
+      settings.upscale_backend === 'auto'
+        ? settings.upscale_backend
+        : defaults.upscale_backend,
     model_quant_selections:
       settings.model_quant_selections && typeof settings.model_quant_selections === 'object'
         ? settings.model_quant_selections
