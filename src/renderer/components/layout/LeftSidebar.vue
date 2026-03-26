@@ -15,16 +15,10 @@ const tabs: { id: LeftPanelTab; icon: string; label: string }[] = [
 </script>
 
 <template>
-  <UDashboardSidebar
+  <aside
     id="left-sidebar"
-    resizable
-    collapsible
-    :collapsed="collapsed"
-    :collapsed-size="PANEL_ICON_STRIP_WIDTH_PX"
-    :default-size="LEFT_PANEL_WIDTH_PX"
-    :min-size="280"
-    :max-size="520"
-    :ui="{ root: 'min-h-0', body: 'p-0 overflow-hidden' }"
+    class="flex h-full shrink-0 border-r border-default bg-default transition-[width] duration-150 ease-linear"
+    :style="{ width: `${collapsed ? PANEL_ICON_STRIP_WIDTH_PX : LEFT_PANEL_WIDTH_PX}px` }"
   >
     <div class="flex h-full">
       <div class="flex w-12 shrink-0 flex-col items-center gap-1 pt-2">
@@ -42,5 +36,5 @@ const tabs: { id: LeftPanelTab; icon: string; label: string }[] = [
 
       <div v-if="!collapsed" class="min-w-0 flex-1 overflow-y-auto" />
     </div>
-  </UDashboardSidebar>
+  </aside>
 </template>

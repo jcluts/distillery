@@ -9,17 +9,13 @@ useKeyboardShortcuts()
 </script>
 
 <template>
-  <div class="flex h-screen w-screen flex-col overflow-hidden">
+  <div class="flex h-screen w-screen flex-col overflow-hidden bg-default">
     <TitleBar />
 
-    <UDashboardGroup
-      unit="px"
-      storage-key="distillery-layout"
-      :ui="{ base: 'relative inset-auto flex min-h-0 flex-1 overflow-hidden' }"
-    >
+    <UMain :ui="{ base: 'flex min-h-0 flex-1 overflow-hidden' }">
       <LeftSidebar />
       <MainContent />
       <RightSidebar />
-    </UDashboardGroup>
+    </UMain>
   </div>
 </template>

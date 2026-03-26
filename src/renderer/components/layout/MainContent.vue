@@ -4,16 +4,10 @@ import LibraryStatusBar from '@/components/library/LibraryStatusBar.vue'
 </script>
 
 <template>
-  <UDashboardPanel
-    id="main-content"
-    resizable
-    :ui="{ root: 'min-h-0 flex-1' }"
-  >
-    <div class="flex h-full flex-col">
-      <div class="min-h-0 flex-1">
-        <GridView />
-      </div>
-      <LibraryStatusBar />
+  <section id="main-content" class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-default">
+    <div class="min-h-0 flex-1">
+      <GridView />
     </div>
-  </UDashboardPanel>
+    <LibraryStatusBar />
+  </section>
 </template>

@@ -14,22 +14,15 @@ const tabs: { id: RightPanelTab; icon: string; label: string }[] = [
 </script>
 
 <template>
-  <UDashboardSidebar
+  <aside
     id="right-sidebar"
-    side="right"
-    resizable
-    collapsible
-    :collapsed="collapsed"
-    :collapsed-size="PANEL_ICON_STRIP_WIDTH_PX"
-    :default-size="RIGHT_PANEL_WIDTH_PX"
-    :min-size="240"
-    :max-size="420"
-    :ui="{ root: 'min-h-0 border-s border-default', body: 'p-0 overflow-hidden' }"
+    class="flex h-full shrink-0 border-l border-default bg-default transition-[width] duration-150 ease-linear"
+    :style="{ width: `${collapsed ? PANEL_ICON_STRIP_WIDTH_PX : RIGHT_PANEL_WIDTH_PX}px` }"
   >
-    <div class="flex h-full">
+    <div class="flex h-full w-full">
       <div v-if="!collapsed" class="min-w-0 flex-1 overflow-y-auto" />
 
-      <div class="flex w-12 shrink-0 flex-col items-center gap-1 pt-2">
+      <div class="ms-auto flex w-12 shrink-0 flex-col items-center gap-1 pt-2">
         <UButton
           v-for="tab in tabs"
           :key="tab.id"
@@ -42,5 +35,5 @@ const tabs: { id: RightPanelTab; icon: string; label: string }[] = [
         />
       </div>
     </div>
-  </UDashboardSidebar>
+  </aside>
 </template>
