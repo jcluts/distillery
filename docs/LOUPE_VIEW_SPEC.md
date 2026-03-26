@@ -282,11 +282,14 @@ No additional wiring is needed — the existing store actions handle everything.
 
 | Key | Action | Condition |
 |---|---|---|
-| `Space` | Cycle zoom (`fit` → `actual` → `fit`) | Only in loupe view |
+| `Z` | Cycle zoom (`fit` → `actual` → `fit`) | Only in loupe view |
+| `Space` | Cycle zoom (alias for `Z`) | Only in loupe view |
+
+Both `Z` and `Space` perform the same action: `uiStore.cycleZoom()`. The `Z` key matches the Lightroom convention for zoom toggle. `Space` is a common alternative.
 
 **Implementation:** In the `onKeyDown` handler, after the existing checks:
 ```ts
-if (event.key === ' ' && uiStore.viewMode === 'loupe') {
+if ((event.key.toLowerCase() === 'z' || event.key === ' ') && uiStore.viewMode === 'loupe') {
   event.preventDefault()
   uiStore.cycleZoom()
   return
@@ -295,7 +298,128 @@ if (event.key === ' ' && uiStore.viewMode === 'loupe') {
 
 ---
 
-## 9. Performance Considerations
+## 9. Status Bar Controls (`LibraryStatusBar.vue`)
+
+The existing status bar needs to be extended with view-mode-aware controls. The status bar is always visible regardless of view mode — its content adapts.
+
+Both the view mode toggle and the zoom selector use `UTabs` with `:content="false"` — this gives us a pill-style toggle control with an animated indicator, no panel content needed.
+
+### 9.1 View Mode Toggle
+
+A `UTabs` toggle displayed on the right side of the status bar, always visible.
+
+```vue
+<UTabs
+  v-model="uiStore.viewMode"
+  :content="false"
+  :items="viewModeItems"
+  color="neutral"
+  variant="pill"
+  size="xs"
+/>
+```
+
+```ts
+const viewModeItems: TabsItem[] = [
+  { value: 'grid', icon: 'i-lucide-grid-2x2' },
+  { value: 'loupe', icon: 'i-lucide-image' }
+]
+```
+
+- `v-model` bound directly to `uiStore.viewMode` (or a local computed that calls `uiStore.setViewMode`)
+- `color="neutral"` for a subtle, non-primary-colored indicator
+- `size="xs"` to keep it compact in the status bar
+- Icon-only items (no labels) — small, recognizable
+
+### 9.2 Zoom Toggle (Loupe Only)
+
+A `UTabs` toggle shown **only when `viewMode === 'loupe'`**, replacing the thumbnail slider.
+
+```vue
+<UTabs
+  v-if="uiStore.viewMode === 'loupe'"
+  v-model="uiStore.loupeZoom"
+  :content="false"
+  :items="zoomItems"
+  color="neutral"
+  variant="pill"
+  size="xs"
+/>
+```
+
+```ts
+const zoomItems: TabsItem[] = [
+  { value: 'fit', label: 'Fit' },
+  { value: 'actual', label: '1:1' }
+]
+```
+
+- `v-model` bound to `uiStore.loupeZoom` (or a local computed that calls `uiStore.setLoupeZoom`)
+- Same `color="neutral"` / `size="xs"` styling as the view mode toggle for consistency
+- Text labels (`Fit` / `1:1`) since the zoom levels aren't obvious as icons
+
+### 9.3 Thumbnail Slider (Grid Only)
+
+The existing thumbnail size slider should be wrapped in `v-if="uiStore.viewMode === 'grid'"` so it only appears in grid mode.
+
+### 9.4 Image Counter (Enhanced)
+
+Update the image count display to be context-aware:
+- **Grid mode:** `"42 images"` (current behavior)
+- **Loupe mode:** `"3 / 42 images"` — shows the 1-based index of the focused item within the total count
+- When multiple items are selected: append `" · 5 selected"` (both modes)
+
+### 9.5 Updated Status Bar Layout
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│ [counter]          [spacer]    [sort] [zoom/slider] [G|L]    │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+| Slot | Grid mode | Loupe mode |
+|---|---|---|
+| Counter (left) | `42 images` | `3 / 42 images` |
+| Sort (right) | Sort dropdown | Sort dropdown |
+| Zoom / Slider | Thumbnail size slider | UTabs zoom toggle (`Fit` \| `1:1`) |
+| View toggle | UTabs: Grid (active) \| Loupe | UTabs: Grid \| Loupe (active) |
+
+---
+
+## 10. Zoom — Complete Behavior
+
+Zoom applies only in loupe view. All zoom controls converge on the same store state.
+
+### 10.1 Zoom Levels
+
+```ts
+export type ZoomLevel = 'fit' | 'actual'
+```
+
+| Level | Behavior |
+|---|---|
+| `fit` | Image scaled to fit the canvas viewport (default). No panning. |
+| `actual` | Image displayed at native pixel resolution (1:1). Panning enabled if image exceeds viewport. |
+
+### 10.2 Zoom Triggers
+
+| Trigger | Action |
+|---|---|
+| `Z` key (loupe only) | `cycleZoom()` — toggles fit ↔ actual |
+| `Space` key (loupe only) | `cycleZoom()` — same as Z |
+| Status bar zoom `UTabs` | `setLoupeZoom(value)` — sets explicitly |
+| View mode change | Resets to `fit` (via `setViewMode`) |
+| Image change (navigation) | Pan offset resets to `{x:0, y:0}`, zoom level preserved |
+
+### 10.3 Zoom Reset Rules
+
+- **Switching view modes:** `setViewMode()` always resets `loupeZoom` to `'fit'`.
+- **Navigating to a different image:** Zoom level is **preserved** (user stays at `actual` while arrowing through images), but the pan offset resets to center.
+- **Returning to loupe from grid:** Zoom resets to `fit` because `setViewMode('loupe')` was called.
+
+---
+
+## 11. Performance Considerations
 
 | Concern | Solution |
 |---|---|
@@ -309,11 +433,13 @@ if (event.key === ' ' && uiStore.viewMode === 'loupe') {
 
 ---
 
-## 10. Nuxt UI Components Used
+## 12. Nuxt UI Components Used
 
 | Component | Usage |
 |---|---|
-| `UButton` | Filmstrip prev/next navigation buttons (`variant="ghost"`, `size="md"`) |
+| `UTabs` | Status bar view mode toggle (icon-only, `content: false`), zoom toggle (label, `content: false`) |
+| `UButton` | Filmstrip prev/next navigation |
+| `USlider` | Status bar thumbnail size slider (grid mode, already exists) |
 | `UIcon` | Rating stars, status badges inside filmstrip thumbnails (via existing `MediaThumbnail.vue`) |
 | `UTooltip` | *(Optional)* Tooltip on filmstrip items showing file name on hover |
 
@@ -321,7 +447,7 @@ The canvas viewer and the filmstrip layout are custom — no Nuxt UI component m
 
 ---
 
-## 11. Future Extensibility (Not In Scope)
+## 13. Future Extensibility (Not In Scope)
 
 These are **not** part of this implementation but the architecture should not preclude them:
 
@@ -332,20 +458,21 @@ These are **not** part of this implementation but the architecture should not pr
 
 ---
 
-## 12. Implementation Order
+## 14. Implementation Order
 
-1. **`canvas-draw.ts`** — Pure draw function, testable in isolation.
-2. **`CanvasViewer.vue`** — Wire up canvas, ResizeObserver, image loading, pan/zoom.
-3. **UI store additions** — `loupeZoom`, `setLoupeZoom`, `cycleZoom`, reset on mode change.
+1. **UI store additions** — `loupeZoom`, `setLoupeZoom`, `cycleZoom`, `ZoomLevel` type, reset on mode change.
+2. **`canvas-draw.ts`** — Pure draw function, testable in isolation.
+3. **`CanvasViewer.vue`** — Wire up canvas, ResizeObserver, image loading, pan/zoom.
 4. **`LoupeFilmstrip.vue`** — Virtualized horizontal strip with navigation.
 5. **`LoupeView.vue`** — Compose CanvasViewer + Filmstrip.
 6. **`MainContent.vue`** — Conditional rendering of grid vs. loupe.
-7. **Keyboard shortcut** — Add `Space` → `cycleZoom()` in loupe mode.
-8. **Verify grid ↔ loupe sync** — Test round-trip: grid → loupe → navigate → grid, confirm scroll position.
+7. **`LibraryStatusBar.vue`** — Add view mode toggle, zoom selector (loupe), conditional thumbnail slider (grid), enhanced image counter.
+8. **Keyboard shortcuts** — Add `Z` and `Space` → `cycleZoom()` in loupe mode.
+9. **Verify grid ↔ loupe sync** — Test round-trip: grid → loupe → navigate → grid, confirm scroll position and zoom reset.
 
 ---
 
-## 13. Constants Summary
+## 15. Constants Summary
 
 Add to `src/renderer/lib/constants.ts`:
 
