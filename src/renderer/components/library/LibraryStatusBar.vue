@@ -125,7 +125,7 @@ function handleThumbnailSizeUpdate(value: number | number[] | undefined): void {
 </script>
 
 <template>
-  <div class="flex shrink-0 items-center gap-3 px-3 py-2 text-xs">
+  <div class="flex shrink-0 items-center gap-3 px-3 py-2 bg-default text-xs">
     <span class="tabular-nums text-muted">{{ counterLabel }}{{ selectionSuffix }}</span>
 
     <div class="flex-1" />

@@ -6,8 +6,8 @@ defineProps<{
 
 <template>
   <div class="flex h-full min-w-0 flex-col overflow-hidden">
-    <div class="shrink-0 border-b border-default px-4 py-3">
-      <h2 class="truncate text-xs font-semibold tracking-[0.12em] text-toned uppercase">
+    <div class="flex shrink-0 border-b border-default px-4 h-10 items-center">
+      <h2 class="truncate text-xs font-semibold tracking-[0.12em] uppercase">
         {{ title }}
       </h2>
     </div>
