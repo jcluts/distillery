@@ -1,0 +1,90 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+
+import { formatDuration } from '@/lib/media'
+import type { MediaRecord } from '@/types'
+
+const props = defineProps<{
+  media: MediaRecord
+  index: number
+  selected: boolean
+  focused: boolean
+}>()
+
+defineEmits<{
+  click: [event: MouseEvent]
+  dblclick: []
+}>()
+
+const starCount = computed(() => Math.max(0, Math.min(5, Math.floor(props.media.rating))))
+const isVideo = computed(() => props.media.media_type === 'video')
+
+const ringClass = computed(() => {
+  if (props.focused) return 'ring-2 ring-primary'
+  if (props.selected) return 'ring-2 ring-ring'
+  return ''
+})
+</script>
+
+<template>
+  <button
+    type="button"
+    class="group relative aspect-square rounded-lg outline-none"
+    :class="ringClass"
+    @click="$emit('click', $event)"
+    @dblclick="$emit('dblclick')"
+  >
+    <div class="relative h-full w-full overflow-hidden rounded-md border bg-muted">
+      <img
+        v-if="media.thumb_path"
+        :src="media.thumb_path"
+        :alt="media.file_name"
+        class="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+        draggable="false"
+      />
+
+      <div
+        v-else
+        class="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground"
+      >
+        {{ index + 1 }}
+      </div>
+
+      <div
+        v-if="media.status"
+        class="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+      >
+        <UIcon
+          :name="media.status === 'selected' ? 'i-lucide-check' : 'i-lucide-x'"
+          class="size-3"
+        />
+      </div>
+
+      <div
+        v-if="starCount > 0"
+        class="absolute top-1.5 right-1.5 flex items-center gap-px drop-shadow-sm"
+      >
+        <UIcon
+          v-for="starIndex in starCount"
+          :key="starIndex"
+          name="i-lucide-star"
+          class="size-3 fill-primary text-primary"
+        />
+      </div>
+
+      <template v-if="isVideo">
+        <div class="absolute bottom-1.5 left-1.5 rounded-full bg-black/65 p-1 text-white shadow-sm">
+          <UIcon name="i-lucide-play" class="size-3" />
+        </div>
+
+        <div
+          v-if="media.duration !== null"
+          class="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white shadow-sm"
+        >
+          {{ formatDuration(media.duration) }}
+        </div>
+      </template>
+    </div>
+  </button>
+</template>

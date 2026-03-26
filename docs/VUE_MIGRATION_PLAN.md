@@ -960,3 +960,35 @@ electron-vite supports `@vitejs/plugin-vue` out of the box — it's just a stand
 ### CSP Considerations
 
 The Nuxt UI Vite plugin uses `unplugin-auto-import` and `unplugin-vue-components` which generate code at build time, not runtime. The existing CSP (`script-src 'self'`) should work. If Nuxt UI injects inline styles at runtime, we may need to verify `style-src 'unsafe-inline'` covers it (it's already present).
+
+---
+
+## References
+
+### Nuxt UI (Vue/Vite mode)
+- **MCP Server:** `nuxt-ui` — installed in this workspace. Use it to look up component docs, examples, composables, and templates.
+- **LLM-optimized docs:** https://ui.nuxt.com/llms.txt
+- **Vue/Vite installation guide:** https://ui.nuxt.com/getting-started/installation/vue
+- **Component list:** https://ui.nuxt.com/components
+- **Dashboard layout components:** https://ui.nuxt.com/components/dashboard-group, https://ui.nuxt.com/components/dashboard-sidebar, https://ui.nuxt.com/components/dashboard-panel
+- **Theming / design system:** https://ui.nuxt.com/getting-started/theme
+
+### Vue 3
+- **Quick start:** https://vuejs.org/guide/quick-start.html
+- **Composition API:** https://vuejs.org/guide/extras/composition-api-faq.html
+- **`<script setup>` syntax:** https://vuejs.org/api/sfc-script-setup.html
+
+### Pinia
+- **Getting started:** https://pinia.vuejs.org/getting-started.html
+- **Defining stores (composition API):** https://pinia.vuejs.org/core-concepts/#setup-stores
+
+### TanStack Virtual (Vue)
+- **Vue adapter:** https://tanstack.com/virtual/latest/docs/framework/vue/vue-virtual
+- **Virtualizer API:** https://tanstack.com/virtual/latest/docs/api/virtualizer
+
+### React Reference Codebase
+- **Location:** `C:\Users\jason\projects\distillery-react` (git worktree, branch `react-reference`)
+- **Key files for grid:** `src/renderer/components/library/GridView.tsx`, `MediaThumbnail.tsx`, `LibraryStatusBar.tsx`
+- **Selection logic:** `src/renderer/hooks/useMediaItemHandlers.ts`
+- **UI store (thumbnail size):** `src/renderer/stores/ui-store.ts`
+- **Constants:** `src/renderer/lib/constants.ts`

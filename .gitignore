@@ -4,5 +4,7 @@ out
 .DS_Store
 .eslintcache
 *.log*
+auto-imports.d.ts
+components.d.ts
 agent_docs
 /resources/

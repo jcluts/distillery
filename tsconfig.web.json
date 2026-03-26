@@ -3,12 +3,13 @@
   "include": [
     "src/renderer/env.d.ts",
     "src/renderer/**/*",
-    "src/renderer/**/*.tsx",
-    "src/preload/*.d.ts"
+    "src/renderer/**/*.vue",
+    "src/preload/*.d.ts",
+    "auto-imports.d.ts",
+    "components.d.ts"
   ],
   "compilerOptions": {
     "composite": true,
-    "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
       "@renderer/*": [
@@ -16,6 +17,12 @@
       ],
       "@/*": [
         "src/renderer/*"
+      ],
+      "#build/ui": [
+        "./node_modules/.nuxt-ui/ui"
+      ],
+      "#build/ui/*": [
+        "./node_modules/.nuxt-ui/ui/*"
       ]
     }
   }
