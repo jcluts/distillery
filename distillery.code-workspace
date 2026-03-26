@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "../../simple-ai-client"
+		},
+		{
+			"path": "../distillery-react"
 		}
 	],
 	"settings": {}
