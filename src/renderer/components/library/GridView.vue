@@ -114,20 +114,6 @@ async function onDropImport(event: DragEvent): Promise<void> {
 <template>
   <div ref="scrollRef" class="h-full overflow-auto p-3" @dragover.prevent @drop="onDropImport">
     <div
-      v-if="libraryStore.items.length === 0 && !libraryStore.isLoading"
-      class="flex h-full items-center justify-center px-6 text-center"
-    >
-      <div class="max-w-md space-y-2">
-        <h2 class="text-base font-medium">Library Ready</h2>
-        <p class="text-sm leading-6 text-muted-foreground">
-          Drop files anywhere in the grid to import media into the library. The virtualization and
-          selection model are already active for larger libraries.
-        </p>
-      </div>
-    </div>
-
-    <div
-      v-else
       :style="{
         height: `${totalSize}px`,
         position: 'relative',

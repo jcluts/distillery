@@ -21,7 +21,7 @@ const isVideo = computed(() => props.media.media_type === 'video')
 
 const ringClass = computed(() => {
   if (props.focused) return 'ring-2 ring-primary'
-  if (props.selected) return 'ring-2 ring-ring'
+  if (props.selected) return 'ring-2'
   return ''
 })
 </script>
@@ -46,14 +46,14 @@ const ringClass = computed(() => {
 
       <div
         v-else
-        class="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground"
+        class="absolute inset-0 flex items-center justify-center text-xs text-muted"
       >
         {{ index + 1 }}
       </div>
 
       <div
         v-if="media.status"
-        class="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+        class="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-inverted shadow-sm"
       >
         <UIcon
           :name="media.status === 'selected' ? 'i-lucide-check' : 'i-lucide-x'"

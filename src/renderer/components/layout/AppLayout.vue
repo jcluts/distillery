@@ -15,8 +15,7 @@ useKeyboardShortcuts()
     <UDashboardGroup
       unit="px"
       storage-key="distillery-layout"
-      :persistent="false"
-      class="min-h-0 flex-1"
+      :ui="{ base: 'relative inset-auto flex min-h-0 flex-1 overflow-hidden' }"
     >
       <LeftSidebar />
       <MainContent />

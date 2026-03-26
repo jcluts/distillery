@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 import { THUMBNAIL_SIZE_DEFAULT, THUMBNAIL_SIZE_MAX, THUMBNAIL_SIZE_MIN } from '@/lib/constants'
-import { LEFT_PANEL_WIDTH_PX, RIGHT_PANEL_WIDTH_PX } from '@/lib/layout'
 import type { AppSettings } from '@/types'
 
 export type ViewMode = 'grid' | 'loupe'
@@ -32,11 +31,9 @@ function isViewMode(value: string): value is ViewMode {
 export const useUIStore = defineStore('ui', () => {
   const leftPanelOpen = ref(true)
   const leftPanelTab = ref<LeftPanelTab>('generation')
-  const leftPanelWidth = ref(LEFT_PANEL_WIDTH_PX)
 
   const rightPanelOpen = ref(true)
   const rightPanelTab = ref<RightPanelTab>('info')
-  const rightPanelWidth = ref(RIGHT_PANEL_WIDTH_PX)
 
   const viewMode = ref<ViewMode>('grid')
   const thumbnailSize = ref(THUMBNAIL_SIZE_DEFAULT)
@@ -64,15 +61,11 @@ export const useUIStore = defineStore('ui', () => {
     leftPanelTab.value = isLeftPanelTab(settings.left_panel_tab)
       ? settings.left_panel_tab
       : 'generation'
-    leftPanelWidth.value = settings.left_panel_width || LEFT_PANEL_WIDTH_PX
 
     rightPanelOpen.value = settings.right_panel_open
     rightPanelTab.value = isRightPanelTab(settings.right_panel_tab)
       ? settings.right_panel_tab
-      : settings.right_panel_tab === 'generation-info'
-        ? 'generation'
-        : 'info'
-    rightPanelWidth.value = settings.right_panel_width || RIGHT_PANEL_WIDTH_PX
+      : 'info'
 
     viewMode.value = isViewMode(settings.view_mode) ? settings.view_mode : 'grid'
     thumbnailSize.value = clampThumbnailSize(settings.thumbnail_size || THUMBNAIL_SIZE_DEFAULT)
@@ -134,10 +127,8 @@ export const useUIStore = defineStore('ui', () => {
   return {
     leftPanelOpen,
     leftPanelTab,
-    leftPanelWidth,
     rightPanelOpen,
     rightPanelTab,
-    rightPanelWidth,
     viewMode,
     thumbnailSize,
     settingsLoaded,

@@ -40,39 +40,42 @@ onBeforeUnmount(() => {
 
 <template>
   <header
-    class="flex h-10 shrink-0 items-center border-b px-3"
+    class="flex h-10 shrink-0 items-center border-b border-default bg-default px-3"
     :style="dragStyle"
     @dblclick="handleToggleMaximize"
   >
-    <div class="flex min-w-0 flex-1 items-center">
-      <span class="truncate text-sm font-medium">Distillery</span>
+    <div class="min-w-0 flex-1">
+      <span class="text-sm font-medium">Distillery</span>
     </div>
 
-    <div class="flex items-stretch gap-1" :style="noDragStyle" @dblclick.stop>
-      <UButton color="neutral" variant="ghost" square aria-label="Minimize" @click="handleMinimize">
-        <UIcon name="i-lucide-minus" class="size-4" />
-      </UButton>
+    <div class="flex items-center" :style="noDragStyle" @dblclick.stop>
+      <UButton
+        icon="i-lucide-minus"
+        color="neutral"
+        variant="ghost"
+        square
+        aria-label="Minimize"
+        @click="handleMinimize"
+      />
 
       <UButton
+        :icon="isMaximized ? 'i-lucide-copy' : 'i-lucide-square'"
         color="neutral"
         variant="ghost"
         square
         :aria-label="isMaximized ? 'Restore window' : 'Maximize window'"
         @click="handleToggleMaximize"
-      >
-        <UIcon :name="isMaximized ? 'i-lucide-copy' : 'i-lucide-square'" class="size-4" />
-      </UButton>
+      />
 
       <UButton
+        icon="i-lucide-x"
         color="neutral"
         variant="ghost"
         square
         aria-label="Close"
         class="hover:bg-error hover:text-white"
         @click="handleClose"
-      >
-        <UIcon name="i-lucide-x" class="size-4" />
-      </UButton>
+      />
     </div>
   </header>
 </template>
