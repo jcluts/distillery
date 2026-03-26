@@ -8,7 +8,7 @@ General-purpose context for porting functionality from the React reference codeb
 
 Distillery is an Electron desktop app for local AI image generation and media management. The renderer is being rewritten from React / shadcn/ui to **Vue 3 / Nuxt UI / Pinia**. The main process, preload bridge, database, engine, and all backend services are unchanged — only `src/renderer/` is rebuilt.
 
-The proven UI/UX patterns from the React version are the design spec. The goal is a clean Vue implementation on top of Nuxt UI — not a line-by-line translation.
+The React version and V1 prototype are **wireframes** — they define *what* functionality exists and roughly *how* it's laid out, but not the pixel-level styling. The goal is a clean, idiomatic Nuxt UI implementation. We are content with default Nuxt UI appearance. Do not try to replicate the exact look of the React or V1 versions.
 
 ---
 
@@ -18,11 +18,12 @@ When porting a feature, consult these in order:
 
 | Source | Location | What it provides |
 |---|---|---|
-| React reference codebase | `C:\Users\jason\projects\distillery-react` | Canonical component behavior, store logic, IPC calls, form layouts. The `src/renderer/` tree is the reference for every feature. |
-| V1 screenshots | `agent_docs/distillery_v1_screenshots/` | Visual reference for look and feel. |
-| V1 source (Distillery prototype) | `C:\Users\jason\simple-ai-client` | Legacy codebase that informed the React version. Use only if the React reference is unclear on a UI detail. |
-| Nuxt UI skill | `.agents/skills/nuxt-ui/SKILL.md` | Component library reference — use this **before** reading raw Nuxt UI docs. It covers components, composables, theming, and layouts. Load via the skill system. |
-| Nuxt UI generated theme files | `node_modules/.nuxt-ui/ui/<component>.ts` | Slot names, variants, and default classes for any Nuxt UI component. Inspect these when customizing a component's `:ui` prop. |
+| React reference codebase | `C:\Users\jason\projects\distillery-react` | **Wireframe reference** for component behavior, store logic, IPC calls, and layout structure. Defines *what* to build, not how it should look. |
+| V1 screenshots | `agent_docs/distillery_v1_screenshots/` | Rough visual reference for layout intent. Do not pixel-match — Nuxt UI defaults take priority. |
+| V1 source (Distillery prototype) | `C:\Users\jason\simple-ai-client` | Legacy codebase. Use only if the React reference is unclear on a behavioral detail. |
+| Nuxt UI component docs | `docs/ui_components/` | **Full documentation for every Nuxt UI component** — props, slots, variants, examples. Consult this exhaustively before resorting to custom Tailwind. |
+| Nuxt UI skill | `.agents/skills/nuxt-ui/SKILL.md` | Summarized component library reference with composables, theming, and layout guidance. Load via the skill system. |
+| Nuxt UI generated theme files | `node_modules/.nuxt-ui/ui/<component>.ts` | Slot names, variants, and default classes for any Nuxt UI component. Inspect these when using the `:ui` prop. |
 | AGENTS.md | Project root | Architecture overview, process boundary, engine protocol, generation pipeline. **Note:** The renderer sections still describe the React version. Ignore those sections; this document is the renderer guide. |
 | DistilleryAPI interface | `src/renderer/types/index.ts` | The complete IPC surface. Every `window.api.*` call and event subscription is defined here. |
 | IPC channel constants | `src/main/ipc/channels.ts` | All IPC channel name strings. |
@@ -163,7 +164,7 @@ export function useSomething(arg: MaybeRef<string>) {
 | `<ResizablePanelGroup>` | No direct equivalent | Use CSS flex + a simple drag handle if needed |
 | `cn()` utility | Not needed | Use Tailwind classes directly; Nuxt UI `:class` merging handles conflicts |
 
-For any component not listed, check the Nuxt UI skill (`.agents/skills/nuxt-ui/SKILL.md`) — it covers 125+ components.
+For any component not listed, check `docs/ui_components/` (full component docs) or the Nuxt UI skill (`.agents/skills/nuxt-ui/SKILL.md`). Always look for a built-in Nuxt UI component before building custom markup.
 
 ### Icons
 
@@ -194,18 +195,26 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 - Never leave legacy or compatibility shims. Zero users, zero backwards-compatibility concerns.
 - No ad-hoc band-aids. If something is broken, fix the architecture.
 
-### Components & Styling
-- **Use Nuxt UI components** for every standard UI element (buttons, inputs, modals, dropdowns, tooltips, badges, etc.).
-- **Use Tailwind utilities** for layout, spacing, and any styling Nuxt UI doesn't cover.
-- **Use Nuxt UI's `:ui` prop** to customize component slots when the default theme doesn't match the design. Check the generated theme file (`node_modules/.nuxt-ui/ui/<component>.ts`) to find slot names.
-- **Use semantic color utilities** (`text-default`, `bg-elevated`, `border-muted`, etc.) — never raw Tailwind palette colors.
-- **Custom CSS classes** are a last resort for effects that can't be achieved with Tailwind or Nuxt UI.
+### Components & Styling — Nuxt UI First
+
+**The #1 rule: Always use a Nuxt UI component when one exists.** Do not build custom HTML+Tailwind versions of things Nuxt UI already provides. Before writing any custom markup, exhaustively check `docs/ui_components/` for a suitable component. Nuxt UI has 125+ components — the right one almost always exists.
+
+**Priority order for any UI element:**
+1. **Nuxt UI component with its built-in props/variants** — use `variant`, `color`, `size`, `icon`, `loading`, `:items`, etc. Accept the default Nuxt UI appearance.
+2. **Nuxt UI component with `:ui` prop overrides** — override specific slots only when the built-in props can't express the need. Check slot names in `node_modules/.nuxt-ui/ui/<component>.ts`.
+3. **Tailwind utilities for layout only** — flex, grid, spacing, sizing, overflow, positioning. These are fine and expected for arranging components on the page.
+4. **Custom Tailwind for visual styling** — absolute last resort. Only when no Nuxt UI component or prop can achieve the effect.
+
+**Do not:**
+- Recreate the React/V1 styling with custom Tailwind classes. Those designs were built on shadcn/ui — a completely different component library. Trying to replicate them defeats the purpose of this rewrite.
+- Add decorative Tailwind classes (colors, borders, shadows, rounded corners, typography styles) to elements that a Nuxt UI component could render instead.
+- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use Nuxt UI's semantic utilities (`text-muted`, `bg-elevated`, `border-default`, `text-toned`) or component props (`color="primary"`).
 
 ### UI/UX
-- Professional, clean, elegant. Match the React reference's look and feel.
+- Professional, clean, elegant — but achieved through **Nuxt UI defaults**, not custom CSS.
 - Dark mode is the default (`class="dark"` on `<html>`).
-- Don't copy React JSX or CSS verbatim — understand the intent, then implement cleanly in Vue/Nuxt UI.
-- The V1 screenshots and React reference define "what it should look like." The Vue code defines "how it's built."
+- The React and V1 versions are **wireframes**: they define the feature set, layout structure, and user flows. They do **not** define the visual styling — Nuxt UI's default appearance is the target.
+- Never copy React JSX, shadcn class lists, or V1 CSS. Understand the *behavior*, then find the Nuxt UI component that provides it.
 
 ### TypeScript
 - All components use `<script setup lang="ts">`.
@@ -286,6 +295,6 @@ When picking up a new feature to port:
 2. **Check types** in `src/renderer/types/index.ts` — the type definitions are already ported and shared. If a type is missing, check `src/main/types.ts` and add it to the renderer types.
 3. **Check the IPC surface** in `src/renderer/types/index.ts` (the `DistilleryAPI` interface). The methods you need should already exist since the main process is unchanged.
 4. **Check if a Pinia store exists** for this feature. If not, create one following the setup syntax pattern of the existing stores.
-5. **Build the Vue component(s)**. Use Nuxt UI components where possible. Match the React version's behavior and visual output, not its code structure.
+5. **Build the Vue component(s)**. Exhaustively search `docs/ui_components/` for Nuxt UI components that match each UI element. Use their built-in props and variants. Accept the default Nuxt UI appearance — do not try to pixel-match the React version's styling. Match behavior and layout intent, not visual details.
 6. **Wire IPC subscriptions** in `useIpcSubscriptions.ts` if the feature receives push events from the main process.
 7. **Run `npx vue-tsc --noEmit -p tsconfig.web.json`** to typecheck before considering the work done.
