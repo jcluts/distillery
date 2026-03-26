@@ -4,11 +4,40 @@ import { computed } from 'vue'
 import { formatDuration } from '@/lib/media'
 import type { MediaRecord } from '@/types'
 
+type OverlaySize = 'grid' | 'filmstrip'
+
+const overlayClassBySize: Record<
+  OverlaySize,
+  {
+    statusPosition: string
+    statusBadgeSize: string
+    statusIconSize: string
+    ratingPosition: string
+    ratingStarSize: string
+  }
+> = {
+  grid: {
+    statusPosition: 'top-1.5 left-1.5',
+    statusBadgeSize: 'h-5 w-5',
+    statusIconSize: 'size-3',
+    ratingPosition: 'top-1.5 right-1.5',
+    ratingStarSize: 'size-3'
+  },
+  filmstrip: {
+    statusPosition: 'top-1 left-1',
+    statusBadgeSize: 'h-4 w-4',
+    statusIconSize: 'size-2.5',
+    ratingPosition: 'top-1 right-1',
+    ratingStarSize: 'size-2.5'
+  }
+}
+
 const props = defineProps<{
   media: MediaRecord
   index: number
   selected: boolean
   focused: boolean
+  overlaySize?: OverlaySize
 }>()
 
 defineEmits<{
@@ -18,6 +47,7 @@ defineEmits<{
 
 const starCount = computed(() => Math.max(0, Math.min(5, Math.floor(props.media.rating))))
 const isVideo = computed(() => props.media.media_type === 'video')
+const overlayClasses = computed(() => overlayClassBySize[props.overlaySize ?? 'grid'])
 
 const ringClass = computed(() => {
   if (props.focused) return 'ring-2 ring-primary'
@@ -34,7 +64,7 @@ const ringClass = computed(() => {
     @click="$emit('click', $event)"
     @dblclick="$emit('dblclick')"
   >
-    <div class="relative h-full w-full overflow-hidden rounded-md border bg-muted">
+    <div class="relative h-full w-full overflow-hidden rounded-lg bg-muted">
       <img
         v-if="media.thumb_path"
         :src="media.thumb_path"
@@ -44,32 +74,32 @@ const ringClass = computed(() => {
         draggable="false"
       />
 
-      <div
-        v-else
-        class="absolute inset-0 flex items-center justify-center text-xs text-muted"
-      >
+      <div v-else class="absolute inset-0 flex items-center justify-center text-xs text-muted">
         {{ index + 1 }}
       </div>
 
       <div
         v-if="media.status"
-        class="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-inverted shadow-sm"
+        class="absolute flex items-center justify-center rounded-full bg-primary text-inverted shadow-sm"
+        :class="[overlayClasses.statusPosition, overlayClasses.statusBadgeSize]"
       >
         <UIcon
           :name="media.status === 'selected' ? 'i-lucide-check' : 'i-lucide-x'"
-          class="size-3"
+          :class="overlayClasses.statusIconSize"
         />
       </div>
 
       <div
         v-if="starCount > 0"
-        class="absolute top-1.5 right-1.5 flex items-center gap-px drop-shadow-sm"
+        class="absolute flex items-center gap-px drop-shadow-sm"
+        :class="overlayClasses.ratingPosition"
       >
         <UIcon
           v-for="starIndex in starCount"
           :key="starIndex"
           name="i-lucide-star"
-          class="size-3 fill-primary text-primary"
+          class="fill-primary text-primary"
+          :class="overlayClasses.ratingStarSize"
         />
       </div>
 

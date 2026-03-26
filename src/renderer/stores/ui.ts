@@ -5,12 +5,12 @@ import { THUMBNAIL_SIZE_DEFAULT, THUMBNAIL_SIZE_MAX, THUMBNAIL_SIZE_MIN } from '
 import type { AppSettings } from '@/types'
 
 export type ViewMode = 'grid' | 'loupe'
+export type ZoomLevel = 'fit' | 'actual'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
 export type RightPanelTab = 'info' | 'generation'
 
 const LEFT_PANEL_TABS: LeftPanelTab[] = ['generation', 'timeline', 'import']
 const RIGHT_PANEL_TABS: RightPanelTab[] = ['info', 'generation']
-const VIEW_MODES: ViewMode[] = ['grid', 'loupe']
 
 function clampThumbnailSize(size: number): number {
   return Math.min(THUMBNAIL_SIZE_MAX, Math.max(THUMBNAIL_SIZE_MIN, Math.round(size)))
@@ -24,10 +24,6 @@ function isRightPanelTab(value: string): value is RightPanelTab {
   return RIGHT_PANEL_TABS.includes(value as RightPanelTab)
 }
 
-function isViewMode(value: string): value is ViewMode {
-  return VIEW_MODES.includes(value as ViewMode)
-}
-
 export const useUIStore = defineStore('ui', () => {
   const leftPanelOpen = ref(true)
   const leftPanelTab = ref<LeftPanelTab>('generation')
@@ -36,6 +32,7 @@ export const useUIStore = defineStore('ui', () => {
   const rightPanelTab = ref<RightPanelTab>('info')
 
   const viewMode = ref<ViewMode>('grid')
+  const loupeZoom = ref<ZoomLevel>('fit')
   const thumbnailSize = ref(THUMBNAIL_SIZE_DEFAULT)
   const settingsLoaded = ref(false)
 
@@ -48,8 +45,7 @@ export const useUIStore = defineStore('ui', () => {
         left_panel_tab: leftPanelTab.value,
         right_panel_open: rightPanelOpen.value,
         right_panel_tab: rightPanelTab.value,
-        thumbnail_size: thumbnailSize.value,
-        view_mode: viewMode.value
+        thumbnail_size: thumbnailSize.value
       })
     } catch (error) {
       console.warn('[ui-store] Failed to persist UI settings', error)
@@ -67,7 +63,8 @@ export const useUIStore = defineStore('ui', () => {
       ? settings.right_panel_tab
       : 'info'
 
-    viewMode.value = isViewMode(settings.view_mode) ? settings.view_mode : 'grid'
+    viewMode.value = 'grid'
+    loupeZoom.value = 'fit'
     thumbnailSize.value = clampThumbnailSize(settings.thumbnail_size || THUMBNAIL_SIZE_DEFAULT)
     settingsLoaded.value = true
   }
@@ -116,7 +113,16 @@ export const useUIStore = defineStore('ui', () => {
 
   function setViewMode(mode: ViewMode): void {
     viewMode.value = mode
+    loupeZoom.value = 'fit'
     void persistSettings()
+  }
+
+  function setLoupeZoom(level: ZoomLevel): void {
+    loupeZoom.value = level
+  }
+
+  function cycleZoom(): void {
+    loupeZoom.value = loupeZoom.value === 'fit' ? 'actual' : 'fit'
   }
 
   function setThumbnailSize(size: number): void {
@@ -130,6 +136,7 @@ export const useUIStore = defineStore('ui', () => {
     rightPanelOpen,
     rightPanelTab,
     viewMode,
+    loupeZoom,
     thumbnailSize,
     settingsLoaded,
     applySettings,
@@ -140,6 +147,8 @@ export const useUIStore = defineStore('ui', () => {
     setRightPanelTab,
     toggleRightPanel,
     setViewMode,
+    setLoupeZoom,
+    cycleZoom,
     setThumbnailSize
   }
 })

@@ -1,0 +1,181 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
+
+import { draw } from '@/lib/canvas-draw'
+import type { ZoomLevel } from '@/stores/ui'
+import type { MediaRecord } from '@/types'
+
+const props = withDefaults(
+  defineProps<{
+    media: MediaRecord | null
+    zoom?: ZoomLevel
+  }>(),
+  {
+    zoom: 'fit'
+  }
+)
+
+const containerRef = ref<HTMLDivElement | null>(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const imageRef = ref<HTMLImageElement | null>(null)
+const isPannable = ref(false)
+const dragging = ref(false)
+
+const panOffset = { x: 0, y: 0 }
+const dragStart = { x: 0, y: 0 }
+const dragStartOffset = { x: 0, y: 0 }
+let isDragging = false
+let resizeObserver: ResizeObserver | null = null
+
+const imageUrl = computed(() => props.media?.working_file_path ?? props.media?.file_path ?? null)
+const cursor = computed(() => {
+  if (!isPannable.value) return 'default'
+  return dragging.value ? 'grabbing' : 'grab'
+})
+
+function resetPan(): void {
+  panOffset.x = 0
+  panOffset.y = 0
+}
+
+function redraw(): void {
+  const container = containerRef.value
+  const canvas = canvasRef.value
+  if (!container || !canvas) return
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const rect = container.getBoundingClientRect()
+  const result = draw({
+    ctx,
+    width: rect.width,
+    height: rect.height,
+    img: imageRef.value,
+    media: props.media,
+    zoom: props.zoom,
+    panOffset
+  })
+
+  panOffset.x = result.clampedPanOffset.x
+  panOffset.y = result.clampedPanOffset.y
+  isPannable.value = result.pannable
+}
+
+function resizeCanvas(): void {
+  const container = containerRef.value
+  const canvas = canvasRef.value
+  if (!container || !canvas) return
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const rect = container.getBoundingClientRect()
+  const dpr = window.devicePixelRatio || 1
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr))
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr))
+  canvas.style.width = `${rect.width}px`
+  canvas.style.height = `${rect.height}px`
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  redraw()
+}
+
+function onMouseDown(event: MouseEvent): void {
+  if (!isPannable.value) return
+
+  isDragging = true
+  dragging.value = true
+  dragStart.x = event.clientX
+  dragStart.y = event.clientY
+  dragStartOffset.x = panOffset.x
+  dragStartOffset.y = panOffset.y
+}
+
+function onMouseMove(event: MouseEvent): void {
+  if (!isDragging) return
+
+  panOffset.x = dragStartOffset.x + (event.clientX - dragStart.x)
+  panOffset.y = dragStartOffset.y + (event.clientY - dragStart.y)
+  redraw()
+}
+
+function onMouseUp(): void {
+  isDragging = false
+  dragging.value = false
+}
+
+watch(
+  [() => props.zoom, imageUrl, () => props.media?.id],
+  () => {
+    resetPan()
+    redraw()
+  },
+  { immediate: true }
+)
+
+watchEffect((onCleanup) => {
+  const url = imageUrl.value
+  let cancelled = false
+
+  async function loadImage(): Promise<void> {
+    if (!url) {
+      imageRef.value = null
+      redraw()
+      return
+    }
+
+    try {
+      const image = new Image()
+      image.src = url
+      await image.decode()
+
+      if (cancelled) return
+
+      imageRef.value = image
+      redraw()
+    } catch {
+      if (cancelled) return
+
+      imageRef.value = null
+      redraw()
+    }
+  }
+
+  void loadImage()
+
+  onCleanup(() => {
+    cancelled = true
+  })
+})
+
+onMounted(() => {
+  resizeCanvas()
+
+  if (containerRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      resizeCanvas()
+    })
+
+    resizeObserver.observe(containerRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+</script>
+
+<template>
+  <div
+    ref="containerRef"
+    class="h-full w-full"
+    :style="{ cursor }"
+    @mousedown="onMouseDown"
+    @mousemove="onMouseMove"
+    @mouseup="onMouseUp"
+    @mouseleave="onMouseUp"
+  >
+    <canvas ref="canvasRef" class="block h-full w-full" />
+  </div>
+</template>

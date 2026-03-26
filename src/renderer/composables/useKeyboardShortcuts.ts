@@ -68,6 +68,12 @@ export function useKeyboardShortcuts(): void {
       return
     }
 
+    if ((event.key.toLowerCase() === 'z' || event.key === ' ') && uiStore.viewMode === 'loupe') {
+      event.preventDefault()
+      uiStore.cycleZoom()
+      return
+    }
+
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
       libraryStore.focusRelative(-1)

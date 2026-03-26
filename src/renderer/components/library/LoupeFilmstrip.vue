@@ -1,0 +1,132 @@
+<script setup lang="ts">
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import { computed, nextTick, ref, watch } from 'vue'
+
+import MediaThumbnail from '@/components/library/MediaThumbnail.vue'
+import { useFilmstripSelection } from '@/composables/useFilmstripSelection'
+import {
+  FILMSTRIP_GAP,
+  FILMSTRIP_HEIGHT,
+  FILMSTRIP_ITEM_SIZE,
+  FILMSTRIP_OVERSCAN
+} from '@/lib/constants'
+import { useLibraryStore } from '@/stores/library'
+import type { MediaRecord } from '@/types'
+
+const props = defineProps<{
+  items: MediaRecord[]
+  currentIndex: number
+}>()
+
+const emit = defineEmits<{
+  select: [id: string]
+}>()
+
+const libraryStore = useLibraryStore()
+const { handleClick, handleDragStart } = useFilmstripSelection()
+
+const scrollRef = ref<HTMLDivElement | null>(null)
+const isInitialScroll = ref(true)
+
+const virtualizer = useVirtualizer(
+  computed(() => ({
+    count: props.items.length,
+    getScrollElement: () => scrollRef.value,
+    estimateSize: () => FILMSTRIP_ITEM_SIZE + FILMSTRIP_GAP,
+    horizontal: true,
+    overscan: FILMSTRIP_OVERSCAN
+  }))
+)
+
+const virtualItems = computed(() => virtualizer.value.getVirtualItems())
+const totalSize = computed(() => virtualizer.value.getTotalSize())
+
+watch(
+  () => props.items.length,
+  () => {
+    virtualizer.value.measure()
+  }
+)
+
+watch(
+  [() => props.currentIndex, () => props.items.length],
+  async ([currentIndex, itemCount]) => {
+    if (currentIndex < 0 || currentIndex >= itemCount) return
+
+    await nextTick()
+    virtualizer.value.scrollToIndex(currentIndex, {
+      align: isInitialScroll.value ? 'center' : 'auto'
+    })
+    isInitialScroll.value = false
+  },
+  { immediate: true }
+)
+
+function selectRelative(offset: -1 | 1): void {
+  const nextItem = props.items[props.currentIndex + offset]
+  if (nextItem) {
+    emit('select', nextItem.id)
+  }
+}
+</script>
+
+<template>
+  <div class="flex shrink-0 items-center gap-2 px-2" :style="{ height: `${FILMSTRIP_HEIGHT}px` }">
+    <UButton
+      type="button"
+      variant="ghost"
+      size="md"
+      class="h-9 w-9 shrink-0"
+      :disabled="currentIndex <= 0"
+      aria-label="Previous"
+      @click="selectRelative(-1)"
+    >
+      <UIcon name="i-lucide-chevron-left" class="size-4" />
+    </UButton>
+
+    <div ref="scrollRef" class="h-full w-full overflow-x-auto overflow-y-hidden px-3">
+      <div
+        class="relative flex h-full items-center"
+        :style="{
+          width: `${totalSize}px`,
+          minHeight: '100%'
+        }"
+      >
+        <div
+          v-for="virtualItem in virtualItems"
+          :key="props.items[virtualItem.index]?.id"
+          class="absolute top-1/2 -translate-y-1/2"
+          :style="{
+            left: `${virtualItem.start}px`,
+            width: `${FILMSTRIP_ITEM_SIZE}px`,
+            height: `${FILMSTRIP_ITEM_SIZE}px`
+          }"
+        >
+          <MediaThumbnail
+            :media="props.items[virtualItem.index]!"
+            :index="virtualItem.index"
+            :selected="libraryStore.selectedIds.has(props.items[virtualItem.index]!.id)"
+            :focused="props.items[virtualItem.index]!.id === libraryStore.focusedId"
+            overlay-size="filmstrip"
+            class="size-[86px]"
+            draggable="true"
+            @click="(event: MouseEvent) => handleClick(event, props.items[virtualItem.index]!.id)"
+            @dragstart="(event: DragEvent) => handleDragStart(event, props.items[virtualItem.index]!.id)"
+          />
+        </div>
+      </div>
+    </div>
+
+    <UButton
+      type="button"
+      variant="ghost"
+      size="md"
+      class="h-9 w-9 shrink-0"
+      :disabled="currentIndex < 0 || currentIndex >= items.length - 1"
+      aria-label="Next"
+      @click="selectRelative(1)"
+    >
+      <UIcon name="i-lucide-chevron-right" class="size-4" />
+    </UButton>
+  </div>
+</template>
