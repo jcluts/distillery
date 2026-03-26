@@ -2,6 +2,9 @@
 import { computed } from 'vue'
 
 import { LEFT_PANEL_WIDTH_PX, PANEL_ICON_STRIP_WIDTH_PX } from '@/lib/layout'
+import GenerationPane from '@/components/panes/GenerationPane.vue'
+import ImportPane from '@/components/panes/ImportPane.vue'
+import TimelinePane from '@/components/panes/TimelinePane.vue'
 import { useUIStore, type LeftPanelTab } from '@/stores/ui'
 
 const uiStore = useUIStore()
@@ -12,6 +15,17 @@ const tabs: { id: LeftPanelTab; icon: string; label: string }[] = [
   { id: 'timeline', icon: 'i-lucide-clock-3', label: 'Timeline' },
   { id: 'import', icon: 'i-lucide-download', label: 'Import' }
 ]
+
+const activePaneComponent = computed(() => {
+  switch (uiStore.leftPanelTab) {
+    case 'timeline':
+      return TimelinePane
+    case 'import':
+      return ImportPane
+    default:
+      return GenerationPane
+  }
+})
 </script>
 
 <template>
@@ -20,7 +34,7 @@ const tabs: { id: LeftPanelTab; icon: string; label: string }[] = [
     class="flex h-full shrink-0 border-r border-default bg-default transition-[width] duration-150 ease-linear"
     :style="{ width: `${collapsed ? PANEL_ICON_STRIP_WIDTH_PX : LEFT_PANEL_WIDTH_PX}px` }"
   >
-    <div class="flex h-full">
+    <div class="flex h-full w-full overflow-hidden">
       <div class="flex w-12 shrink-0 flex-col items-center gap-1 pt-2">
         <UButton
           v-for="tab in tabs"
@@ -34,7 +48,9 @@ const tabs: { id: LeftPanelTab; icon: string; label: string }[] = [
         />
       </div>
 
-      <div v-if="!collapsed" class="min-w-0 flex-1 overflow-y-auto" />
+      <div v-if="!collapsed" class="min-w-0 flex-1 overflow-hidden border-l border-default">
+        <component :is="activePaneComponent" />
+      </div>
     </div>
   </aside>
 </template>
