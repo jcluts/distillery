@@ -70,7 +70,32 @@ The layout uses **plain HTML flex containers** — no UDashboardGroup/UDashboard
 
 ### Pane System
 
-Sidebar content switches based on the active tab in the UI store. Each sidebar uses a computed `activePaneComponent` that resolves to a concrete pane component (GenerationPane, TimelinePane, etc.). Pane components wrap `PaneLayout.vue` for consistent header/body chrome.
+Sidebar content switches based on the active tab in the UI store. Each sidebar uses a computed `activePaneComponent` that resolves to a concrete pane component (GenerationPane, TimelinePane, etc.).
+
+Panes use two structural components:
+
+- **`PaneLayout`** — Wraps an entire pane. Provides the pane title header and a scrollable body area. Every pane's root element should be `<PaneLayout title="...">`.
+- **`PaneSection`** — Wraps a labeled section *within* a pane (e.g. "Rating", "File Info", "Actions"). Provides a consistent uppercase section header and vertical spacing. Use this instead of hand-writing `<div class="space-y-1.5"><p class="text-xs ...">` blocks.
+
+Typical pane structure:
+
+```vue
+<template>
+  <PaneLayout title="Media Info">
+    <div class="space-y-5">
+      <PaneSection title="Rating">
+        <StarRating ... />
+      </PaneSection>
+
+      <PaneSection v-if="showDetails" title="File Info">
+        <!-- content -->
+      </PaneSection>
+    </div>
+  </PaneLayout>
+</template>
+```
+
+**Reference implementation:** `MediaInfoPane.vue` is the first fully ported pane — use it as the definitive pattern for all future panes.
 
 ### IPC Pattern
 
@@ -153,13 +178,16 @@ export function useSomething(arg: MaybeRef<string>) {
 | `<Slider>` | `<USlider>` | |
 | `<Switch>` | `<USwitch>` | |
 | `<Checkbox>` | `<UCheckbox>` | |
-| `<Dialog>` | `<UModal>` | Use `v-model:open` |
-| `<Tooltip>` | `<UTooltip>` | |
+| `<Dialog>` / `<AlertDialog>` | `<UModal>` | Use `v-model:open`, `title`, `description` props + `#footer` slot |
+| `<Tooltip>` | `<UTooltip>` | Use `text` prop — wraps the trigger element in default slot |
 | `<ContextMenu>` | `<UContextMenu>` | |
 | `<DropdownMenu>` | `<UDropdownMenu>` | Pass flat or nested arrays to `:items` |
 | `<Tabs>` | `<UTabs>` | |
-| `<Badge>` | `<UBadge>` | |
+| `<Badge>` | `<UBadge>` | Use `color`, `variant`, `size` props |
 | `<Separator>` | `<USeparator>` | |
+| `<ToggleGroup>` | Row of `<UButton>` | No direct equivalent — use buttons with conditional `color`/`variant` |
+| `<SectionLabel>` | `<PaneSection>` | Custom React component replaced by our `PaneSection.vue` |
+| `<InfoTable>` | `<dl>` grid | Use `grid grid-cols-[auto_1fr]` with `<dt>`/`<dd>` pairs |
 | `<ScrollArea>` | `overflow-auto` (Tailwind) | Nuxt UI has no direct equivalent; use native overflow |
 | `<ResizablePanelGroup>` | No direct equivalent | Use CSS flex + a simple drag handle if needed |
 | `cn()` utility | Not needed | Use Tailwind classes directly; Nuxt UI `:class` merging handles conflicts |
@@ -223,11 +251,16 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 - The `DistilleryAPI` interface in `src/renderer/types/index.ts` defines every available IPC method and event. Check it before adding new IPC calls.
 
 ### File Organization
-- Components: `src/renderer/components/{feature}/ComponentName.vue`
+- Pane components: `src/renderer/components/panes/PaneName.vue`
+- Pane sub-components: `src/renderer/components/panes/{pane-name}/SubComponent.vue`
+- Shared pane primitives: `src/renderer/components/panes/PaneLayout.vue`, `PaneSection.vue`
+- Other components: `src/renderer/components/{feature}/ComponentName.vue`
 - Stores: `src/renderer/stores/{name}.ts`
 - Composables: `src/renderer/composables/useXxx.ts`
 - Pure utilities: `src/renderer/lib/{name}.ts`
 - Types: `src/renderer/types/index.ts` (single file, mirrors `src/main/types.ts`)
+
+When a pane has sub-components (e.g. StarRating, KeywordEditor inside MediaInfoPane), place them in a kebab-case subfolder: `components/panes/media-info/StarRating.vue`. The pane itself stays at `components/panes/MediaInfoPane.vue`.
 
 ---
 
@@ -292,9 +325,106 @@ Nuxt UI forms use Standard Schema (Zod, Valibot, etc.):
 When picking up a new feature to port:
 
 1. **Read the React component(s)** in `distillery-react/src/renderer/`. Understand the behavior, props, store interactions, and IPC calls.
-2. **Check types** in `src/renderer/types/index.ts` — the type definitions are already ported and shared. If a type is missing, check `src/main/types.ts` and add it to the renderer types.
-3. **Check the IPC surface** in `src/renderer/types/index.ts` (the `DistilleryAPI` interface). The methods you need should already exist since the main process is unchanged.
-4. **Check if a Pinia store exists** for this feature. If not, create one following the setup syntax pattern of the existing stores.
-5. **Build the Vue component(s)**. Exhaustively search `docs/ui_components/` for Nuxt UI components that match each UI element. Use their built-in props and variants. Accept the default Nuxt UI appearance — do not try to pixel-match the React version's styling. Match behavior and layout intent, not visual details.
-6. **Wire IPC subscriptions** in `useIpcSubscriptions.ts` if the feature receives push events from the main process.
-7. **Run `npx vue-tsc --noEmit -p tsconfig.web.json`** to typecheck before considering the work done.
+2. **Read `MediaInfoPane.vue`** as the reference implementation. Follow its patterns for pane structure, store usage, IPC calls, and sub-component organization.
+3. **Check types** in `src/renderer/types/index.ts` — the type definitions are already ported and shared. If a type is missing, check `src/main/types.ts` and add it to the renderer types.
+4. **Check the IPC surface** in `src/renderer/types/index.ts` (the `DistilleryAPI` interface). The methods you need should already exist since the main process is unchanged.
+5. **Check if a Pinia store exists** for this feature. If not, create one following the setup syntax pattern of the existing stores. If the store exists but is missing methods the React version relies on, add them.
+6. **Build the Vue component(s)**:
+   - Use `PaneLayout` as the root wrapper for any sidebar pane.
+   - Use `PaneSection` for every labeled section within that pane.
+   - Map React sub-components (e.g. `StarRating`, `KeywordEditor`) to Vue SFCs in a subfolder.
+   - Convert React callback props to Vue `defineEmits` — keep the parent in control of IPC/store logic.
+   - Exhaustively search `docs/ui_components/` for Nuxt UI components that match each UI element. Use their built-in props and variants. Accept the default Nuxt UI appearance — do not try to pixel-match the React version's styling.
+7. **Wire IPC subscriptions** in `useIpcSubscriptions.ts` if the feature receives push events from the main process.
+8. **Run `npx vue-tsc --noEmit -p tsconfig.web.json`** to typecheck before considering the work done.
+
+---
+
+## Established Component Patterns
+
+These patterns have been established by already-ported components. Follow them for consistency.
+
+### Pane Structure
+
+Every sidebar pane follows the same skeleton:
+
+```
+PaneLayout (title header + scrollable body)
+└── div.space-y-5 (vertical rhythm between sections)
+    ├── PaneSection title="Section A"
+    │   └── content...
+    ├── PaneSection title="Section B" (can have v-if for conditional sections)
+    │   └── content...
+    └── PaneSection title="Section C"
+        └── content...
+```
+
+### Sub-component Communication
+
+Sub-components within a pane are **dumb UI** — they emit events, and the parent pane handles all IPC and store logic:
+
+```vue
+<!-- Parent (MediaInfoPane.vue) -->
+<StarRating :rating="media?.rating ?? 0" @change="handleRatingChange" />
+
+<!-- Child (StarRating.vue) -->
+<script setup lang="ts">
+defineProps<{ rating: number }>()
+const emit = defineEmits<{ change: [rating: number] }>()
+</script>
+```
+
+This keeps IPC calls centralized in the pane and makes sub-components reusable.
+
+### Status/Toggle Buttons (React ToggleGroup → Vue UButton row)
+
+React's `<ToggleGroup>` has no direct Nuxt UI equivalent. Use a row of `<UButton>` with conditional `color` and `variant` props to express the active state:
+
+```vue
+<UButton
+  icon="i-lucide-circle-check"
+  :color="isActive ? 'primary' : 'neutral'"
+  :variant="isActive ? 'subtle' : 'ghost'"
+  size="sm"
+/>
+```
+
+### Action Button Rows
+
+Icon-only action buttons use `<UTooltip>` wrapping `<UButton>`:
+
+```vue
+<div class="flex flex-wrap gap-1">
+  <UTooltip text="Show in folder">
+    <UButton icon="i-lucide-folder-open" color="neutral" variant="outline" size="sm" @click="..." />
+  </UTooltip>
+</div>
+```
+
+### Confirmation Dialogs
+
+Use `UModal` with `title`, `description`, and a `#footer` slot containing Cancel + action buttons:
+
+```vue
+<UModal v-model:open="dialogOpen" title="Delete image?" description="This cannot be undone.">
+  <template #footer>
+    <div class="flex justify-end gap-2">
+      <UButton label="Cancel" color="neutral" variant="outline" @click="dialogOpen = false" />
+      <UButton label="Delete" color="error" @click="executeDelete" />
+    </div>
+  </template>
+</UModal>
+```
+
+### Info Tables
+
+For key-value metadata display, use a `<dl>` with CSS grid — no custom component needed:
+
+```vue
+<dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+  <template v-for="row in rows" :key="row.label">
+    <dt class="text-muted">{{ row.label }}</dt>
+    <dd class="truncate text-default">{{ row.value }}</dd>
+  </template>
+</dl>
+```

@@ -115,6 +115,25 @@ export const useLibraryStore = defineStore('library', () => {
     items.value = items.value.map((item) => (item.id === id ? { ...item, ...updates } : item))
   }
 
+  function removeItems(ids: string[]): void {
+    const deleteSet = new Set(ids)
+    items.value = items.value.filter((item) => !deleteSet.has(item.id))
+    total.value = Math.max(0, total.value - ids.length)
+    selectedIds.value = normalizeSelection(items.value, selectedIds.value)
+    if (focusedId.value && deleteSet.has(focusedId.value)) {
+      focusedId.value = selectedIds.value.values().next().value ?? null
+    }
+  }
+
+  function setSelection(ids: Set<string>): void {
+    selectedIds.value = ids
+    if (ids.size === 0) {
+      focusedId.value = null
+    } else if (focusedId.value && !ids.has(focusedId.value)) {
+      focusedId.value = ids.values().next().value ?? null
+    }
+  }
+
   return {
     items,
     total,
@@ -135,6 +154,8 @@ export const useLibraryStore = defineStore('library', () => {
     toggleSelect,
     rangeSelect,
     focusRelative,
-    updateLocalItem
+    updateLocalItem,
+    removeItems,
+    setSelection
   }
 })
