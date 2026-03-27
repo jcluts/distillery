@@ -95,7 +95,9 @@ Typical pane structure:
 </template>
 ```
 
-**Reference implementation:** `MediaInfoPane.vue` is the first fully ported pane — use it as the definitive pattern for all future panes.
+**Reference implementations:**
+- `MediaInfoPane.vue` — The definitive pattern for pane structure, store usage, IPC calls, and sub-component organization.
+- `CollectionsPane.vue` — Example of a list-selection pane using `SelectableItem`, drag-and-drop, and cross-store reactivity.
 
 ### IPC Pattern
 
@@ -107,7 +109,27 @@ IPC subscriptions are centralized in `useIpcSubscriptions` (composable mounted i
 
 ### Modal System
 
-No router. Modals are tracked by `activeModals: string[]` in the UI store. Components are always mounted; visibility is driven by `activeModals.includes(id)`. Use Nuxt UI's `UModal` with `v-model:open` bound to a computed getter/setter that reads from/writes to the store.
+No router. Modals are tracked by `activeModals: string[]` in the UI store (`openModal(id)` / `closeModal(id)`). Modal components are always mounted in `App.vue`; visibility is driven by a computed getter/setter:
+
+```vue
+<script setup lang="ts">
+const uiStore = useUIStore()
+
+const open = computed({
+  get: () => uiStore.activeModals.includes('my-modal'),
+  set: (val: boolean) => { if (!val) uiStore.closeModal('my-modal') }
+})
+</script>
+
+<template>
+  <UModal v-model:open="open" title="My Modal">
+    <template #body>...</template>
+    <template #footer>...</template>
+  </UModal>
+</template>
+```
+
+This pattern keeps modal open/close logic in the store (so any component can trigger it) while giving `UModal` a reactive two-way binding. All modals mount inside `<UApp>` in `App.vue` — never inside a pane or sidebar.
 
 ---
 
@@ -254,6 +276,8 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 - Pane components: `src/renderer/components/panes/PaneName.vue`
 - Pane sub-components: `src/renderer/components/panes/{pane-name}/SubComponent.vue`
 - Shared pane primitives: `src/renderer/components/panes/PaneLayout.vue`, `PaneSection.vue`
+- Shared reusable components: `src/renderer/components/shared/ComponentName.vue`
+- Modal components: `src/renderer/components/modals/ModalName.vue`
 - Other components: `src/renderer/components/{feature}/ComponentName.vue`
 - Stores: `src/renderer/stores/{name}.ts`
 - Composables: `src/renderer/composables/useXxx.ts`
@@ -427,4 +451,95 @@ For key-value metadata display, use a `<dl>` with CSS grid — no custom compone
     <dd class="truncate text-default">{{ row.value }}</dd>
   </template>
 </dl>
+```
+
+### Selectable Item Lists (React Item/ItemGroup → Vue SelectableItem)
+
+The React codebase uses a custom `Item` / `ItemGroup` component family for selectable list rows (collections, import folders, etc.). In Vue, use the reusable **`SelectableItem`** component at `components/shared/SelectableItem.vue`.
+
+Props: `selected`, `draggable`, `dragOver`. Emits: `select`. Content goes in the default slot. The component provides a `group/item` CSS group so children can use `group-hover/item:opacity-100` for reveal-on-hover actions.
+
+```vue
+<SelectableItem
+  :selected="item.id === activeId"
+  @select="setActive(item.id)"
+>
+  <UIcon name="i-lucide-layers-3" class="size-4 shrink-0" />
+  <span class="min-w-0 flex-1 truncate">{{ item.name }}</span>
+  <UButton
+    icon="i-lucide-settings"
+    color="neutral"
+    variant="ghost"
+    size="xs"
+    class="opacity-0 group-hover/item:opacity-100"
+    @click.stop="onEdit(item.id)"
+  />
+  <UBadge color="neutral" variant="subtle" size="sm">
+    {{ item.count }}
+  </UBadge>
+</SelectableItem>
+```
+
+For drag-and-drop support (reordering or media drops), pass `:draggable="true"` and `:drag-over="isDragTarget"`, then handle native drag events (`@dragstart`, `@dragover`, `@drop`, etc.) on the same element.
+
+### Cross-Store Reactivity
+
+When one store's state depends on another (e.g. library queries need the active collection ID), use `storeToRefs` to get a reactive ref from the dependency store:
+
+```ts
+import { storeToRefs } from 'pinia'
+import { useCollectionStore } from '@/stores/collection'
+
+export const useLibraryStore = defineStore('library', () => {
+  const collectionStore = useCollectionStore()
+  const { activeCollectionId } = storeToRefs(collectionStore)
+
+  function buildQuery(): MediaQuery {
+    return {
+      // ...other filters
+      collectionId: activeCollectionId.value
+    }
+  }
+
+  // Auto-reload when the dependency changes
+  watch(activeCollectionId, () => {
+    page.value = 1
+    void loadMedia()
+  })
+})
+```
+
+This is the Pinia equivalent of the React pattern where `buildQuery()` reads `useOtherStore.getState().field`. The key difference: Pinia refs are reactive, so you can `watch` them to trigger side effects — no need for React-style `useEffect` dependency arrays.
+
+**Important:** Only use this when there's a genuine data dependency. Avoid circular store dependencies (A → B → A).
+
+### Modal Pattern (Create/Edit/Delete)
+
+For modals that handle both creating and editing an entity (collections, import folders, etc.), follow the `CollectionModal.vue` pattern:
+
+1. Read `editingId` from the entity's store to determine create vs. edit mode.
+2. Use a `watch` on the `open` computed to reset form state when the modal opens/closes.
+3. Keep Save/Delete handlers in the modal — they call store actions directly.
+4. Always call `closeModal` + clear `editingId` on close.
+
+```vue
+const open = computed({
+  get: () => uiStore.activeModals.includes('entity'),
+  set: (val) => { if (!val) handleClose() }
+})
+
+const isEditing = computed(() => !!entityStore.editingId)
+
+watch(open, (isOpen) => {
+  if (isOpen && editingEntity.value) {
+    // Pre-fill form for edit
+  } else {
+    // Reset form for create
+  }
+})
+
+function handleClose() {
+  uiStore.closeModal('entity')
+  entityStore.setEditingId(null)
+}
 ```

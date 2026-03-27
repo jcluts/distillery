@@ -8,7 +8,9 @@ Distillery is a desktop application for local AI image generation and media mana
 
 **MVP scope:** Local image generation via FLUX.2 Klein, a performant media library with culling and browsing workflows, generation timeline/history, and import support. The architecture anticipates future features (video, API providers, non-destructive editing, upscaling, collections) without implementing them.
 
-**Context:** This is a ground-up rewrite of an existing prototype (simple-ai-client). The V1 validated the UI/UX patterns and architecture but suffers from accumulated tech debt (vanilla JS origins, no CSS framework, 328 files of organically grown code). This rewrite ports the proven design decisions onto a clean foundation with shadcn/ui for consistent component styling.
+**Context:** This is a ground-up rewrite of an existing prototype (simple-ai-client). The V1 validated the UI/UX patterns and architecture but suffers from accumulated tech debt (vanilla JS origins, no CSS framework, 328 files of organically grown code). This rewrite ports the proven design decisions onto a clean foundation with Nuxt UI for consistent component styling.
+
+**React reference:** The React version of the renderer lives at `C:\Users\jason\projects\distillery-react` (git worktree of the `react-reference` branch). It and the V1 prototype serve as **wireframes** — they define the feature set, layout structure, and user flows, but the Vue renderer does not attempt to replicate their visual styling. Default Nuxt UI appearance is the target.
 
 ---
 
@@ -26,14 +28,26 @@ Distillery is a desktop application for local AI image generation and media mana
 - Never take an ad-hoc approach, slapping on band-aids to address issues rather than creating the properly architected solution. 
 - This application is a fresh start with zero users at the moment, never worry about breaking changes or backwards compatibility.
 
-### CSS and Components
-- Religiously use shadcn/ui for any UI elements where they have a suitable component.
-- Use Tailwind for all other CSS.
-- Custom CSS classes should be a last resort when a UI element cannot otherwise be realized.
+### Components & Styling — Nuxt UI First
+
+**The #1 rule: Always use a Nuxt UI component when one exists.** Do not build custom HTML+Tailwind versions of things Nuxt UI already provides. Before writing any custom markup, exhaustively check `docs/ui_components/` for a suitable component. Nuxt UI has 125+ components — the right one almost always exists.
+
+**Priority order for any UI element:**
+1. **Nuxt UI component with its built-in props/variants** — use `variant`, `color`, `size`, `icon`, `loading`, `:items`, etc. Accept the default Nuxt UI appearance.
+2. **Nuxt UI component with `:ui` prop overrides** — override specific slots only when the built-in props can't express the need. Check slot names in `node_modules/.nuxt-ui/ui/<component>.ts`.
+3. **Tailwind utilities for layout only** — flex, grid, spacing, sizing, overflow, positioning. These are fine and expected for arranging components on the page.
+4. **Custom Tailwind for visual styling** — absolute last resort. Only when no Nuxt UI component or prop can achieve the effect.
+
+**Do not:**
+- Recreate the React/V1 styling with custom Tailwind classes. Those designs were built on shadcn/ui — a completely different component library.
+- Add decorative Tailwind classes (colors, borders, shadows, rounded corners, typography styles) to elements that a Nuxt UI component could render instead.
+- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use Nuxt UI's semantic utilities (`text-muted`, `bg-elevated`, `border-default`, `text-toned`) or component props (`color="primary"`).
 
 ### UI/UX Aesthetic
-- Professional, clean, and elegant at all times.
-- The Distillery V1 repo at `C:\Users\jason\simple-ai-client` and screenshots at `agent_docs/distillery_v1_screenshots/` are the design reference. Match V1's look and feel, but never copy UI/HTML/CSS code wholesale — clean implementation on the shadcn/ui foundation is the whole point.
+- Professional, clean, elegant — achieved through **Nuxt UI defaults**, not custom CSS.
+- Dark mode is the default (`class="dark"` on `<html>`).
+- The React reference and V1 screenshots define the feature set and layout structure. They do **not** define the visual styling — Nuxt UI's default appearance is the target.
+- Never copy React JSX, shadcn class lists, or V1 CSS. Understand the *behavior*, then find the Nuxt UI component that provides it.
 
 ---
 
@@ -42,18 +56,23 @@ Distillery is a desktop application for local AI image generation and media mana
 | Layer | Technology |
 |---|---|
 | Desktop shell | Electron 39, electron-vite 5 |
-| Renderer | React 19, TypeScript 5.9, Tailwind 4, shadcn/ui (Radix Nova) |
-| State | Zustand 5 (ephemeral stores, no persistence middleware) |
+| Renderer | Vue 3 (Composition API, `<script setup>` SFCs), TypeScript 5.9 |
+| UI library | Nuxt UI v4 (Vue/Vite mode — `@nuxt/ui/vite`, `router: false`) |
+| State | Pinia (setup syntax stores, no persistence middleware) |
+| CSS | Tailwind 4 (via Nuxt UI) |
 | Database | better-sqlite3 (WAL mode, main process only) |
 | Image processing | sharp (thumbnails + ref image prep) |
 | AI engine | condenser.cpp (`cn-engine`), NDJSON-over-stdio child process |
-| Virtualization | @tanstack/react-virtual |
-| Icons | lucide-react |
+| Virtualization | @tanstack/vue-virtual |
+| Icons | Iconify via Nuxt UI (collection: `lucide`, prefix: `i-lucide-*`) |
 | Font | Inter Variable (`@fontsource-variable/inter`) |
 
-**shadcn/ui config:** Radix Nova style, neutral base color, cyan theme (`oklch(0.71 0.13 215)`), `0.45rem` radius, Inter font.
+**Nuxt UI config** (in `electron.vite.config.ts`):
+- `router: false` — no vue-router; navigation is modal-driven
+- `colorMode: true` — dark mode via `class="dark"` on `<html>`
+- Colors: `primary: 'cyan'`, `neutral: 'neutral'`
 
-**Important:** Always use `npx shadcn@latest add [component]` for installing Shadcn components.
+**Template syntax:** SFC templates **only** — no JSX, no render functions.
 
 **Path aliases:** `@` / `@renderer` → `src/renderer/`, `@main` → `src/main/`.
 
@@ -111,38 +130,32 @@ src/
 │   └── index.d.ts                  # Window type augmentation
 │
 └── renderer/
-    ├── main.tsx                    # React entry point
-    ├── App.tsx                     # Root: IPC subscriptions, data hydration, modal mount
-    ├── assets/main.css             # Tailwind 4 + shadcn CSS variables (light + dark)
+    ├── main.ts                     # Vue app entry (createApp, Pinia, Nuxt UI plugin)
+    ├── App.vue                     # Root: UApp wrapper + IPC subscription bootstrap
+    ├── assets/main.css             # Tailwind 4 + Nuxt UI imports, Inter font
     ├── types/index.ts              # Renderer type surface + DistilleryAPI interface
     ├── lib/
     │   ├── constants.ts            # Resolution presets, aspect ratios, defaults
     │   ├── layout.ts               # Panel pixel widths
-    │   └── utils.ts                # cn() helper (clsx + tailwind-merge)
-    ├── stores/
-    │   ├── ui-store.ts             # Panels, view mode, thumbnails, modals
-    │   ├── library-store.ts        # Media list, selection, filters, sort
-    │   ├── engine-store.ts         # Engine state mirror
-    │   ├── generation-store.ts     # Form state + timeline records
-    │   ├── provider-store.ts       # Provider configs, API key presence, connection status
-    │   ├── model-browsing-store.ts # Provider model browsing, user models, identity mappings
-    │   ├── queue-store.ts          # Work queue + active generation progress
-    │   └── model-store.ts          # Catalog, settings, downloads, file presence
-    ├── hooks/
+    │   ├── canvas-draw.ts          # Canvas rendering utilities
+    │   └── media.ts                # Duration formatting
+    ├── stores/                     # Pinia stores (setup syntax)
+    │   ├── ui.ts                   # Panels, view mode, thumbnails, modals
+    │   ├── library.ts              # Media list, selection, filters, sort
+    │   └── engine.ts               # Engine state mirror
+    ├── composables/                # Vue composables (replace React hooks)
+    │   ├── useIpcSubscriptions.ts  # Centralized IPC event subscriptions
     │   ├── useKeyboardShortcuts.ts # Lightroom-style keyboard shortcuts
-    │   ├── useModelCatalog.ts      # Hydrates model-store on mount
-    │   └── useModelDownload.ts     # Download progress subscription
+    │   ├── useGridSelection.ts     # Grid click/shift-click/ctrl-click selection
+    │   └── useFilmstripSelection.ts # Filmstrip selection logic
     └── components/
-        ├── ui/                     # shadcn/ui primitives (~20 components, generated)
-        ├── layout/                 # AppLayout, TitleBar, LeftSidebar, RightSidebar
-        ├── library/                # FilterBar, GridView, LoupeView, LibraryStatusBar
+        ├── layout/                 # AppLayout, TitleBar, LeftSidebar, RightSidebar, MainContent
+        ├── library/                # FilterBar, GridView, LoupeView, LibraryStatusBar,
+        │   │                       #   MediaThumbnail, LoupeFilmstrip
         │   └── canvas/             # CanvasViewer (HTML Canvas, DPR-aware)
-        ├── panes/                  # Sidebar content panels (GenerationPane, TimelinePane,
-        │                           #   ImportPane, MediaInfoPane, GenerationInfoPane,
-        │                           #   ModelSetupWizard)
-        ├── generation/             # ModelSelector
-        ├── models/                 # ModelManager, ModelCard, QuantSection, VaeSection
-        └── modals/                 # GenerationDetailModal, ModelManagerModal, SettingsModal
+        └── panes/                  # Sidebar content panels (PaneLayout, PaneSection,
+                                    #   GenerationPane, TimelinePane, ImportPane,
+                                    #   MediaInfoPane, GenerationInfoPane, CollectionsPane)
 ```
 
 ---
@@ -177,26 +190,29 @@ Key tables: `media`, `generations`, `generation_inputs`, `work_queue`, `base_mod
 
 ### Modal System
 
-No React Router. Navigation is modal-driven via `useUIStore`:
+No vue-router. Navigation is modal-driven via the UI store:
 - `activeModals: string[]` tracks open modals by ID (`'settings'`, `'models'`, `'generation-detail'`)
-- All modal components are always mounted; `open` prop derives from `activeModals.includes(id)`
+- Use Nuxt UI's `UModal` with `v-model:open` bound to a computed getter/setter that reads from/writes to the store
 
 ### Three-Panel Layout
 
 ```
-TitleBar (drag region, Models/Settings buttons, custom window controls)
-├── LeftSidebar (shadcn Sidebar, collapsible="icon")
-│   ├── Icon rail (48px): Generate | Timeline | Import
-│   ├── Content panel (360px default)
-│   └── Footer: LeftSidebarStatusBar (engine status + progress)
-├── Center (flex-1)
-│   ├── FilterBar
-│   ├── GridView | LoupeView
-│   └── LibraryStatusBar
-└── RightSidebar (shadcn Sidebar, side="right", collapsible="icon")
-    ├── Content panel (300px default): MediaInfo | GenerationInfo
-    └── Icon rail (48px): Info | Generation
+AppLayout (flex h-screen w-screen flex-col)
+├── TitleBar (drag region, window controls)
+└── UMain (flex min-h-0 flex-1 overflow-hidden)
+    ├── LeftSidebar (aside)
+    │   ├── Icon rail (w-12): Generate | Timeline | Import
+    │   └── Pane content (360px default)
+    ├── MainContent (section, flex-1)
+    │   ├── FilterBar
+    │   ├── GridView | LoupeView
+    │   └── LibraryStatusBar
+    └── RightSidebar (aside)
+        ├── Pane content (300px default): MediaInfo | GenerationInfo
+        └── Icon rail (w-12, pinned right)
 ```
+
+The layout uses **plain HTML flex containers** — no UDashboardGroup/UDashboardSidebar/UDashboardPanel. Sidebar pane switching is driven by the UI store.
 
 ### Keyboard Shortcuts (Lightroom-style)
 
@@ -280,20 +296,17 @@ Files download to `{model_base_path}/{model-dir}/{filename}.gguf`. The renderer'
 
 ---
 
-## 9. Zustand Stores
+## 9. Pinia Stores
 
-All stores are ephemeral (no persistence middleware). State syncs to the main process via IPC.
+All stores use **setup syntax** (`defineStore('id', () => { ... })`) — not the options syntax. State is `ref()`, derived state is `computed()`, methods are plain functions. Return all public state, getters, and actions from the setup function.
+
+Stores are ephemeral (no persistence middleware). State syncs to the main process via IPC.
 
 | Store | Responsibility |
 |---|---|
 | `useUIStore` | Panel open/tab/width, view mode, thumbnail size, modal stack |
 | `useLibraryStore` | Media items, selection, focus, filters, sort, pagination |
 | `useEngineStore` | Engine state + model name (mirror of main process) |
-| `useGenerationStore` | Generation form fields + timeline records |
-| `useQueueStore` | Queue items + active generation progress/elapsed time |
-| `useModelStore` | Model catalog, settings, download statuses, file presence |
-
-Store selectors always select individual fields (`useStore((s) => s.field)`) to minimize re-renders.
 
 ---
 
@@ -314,6 +327,10 @@ Store selectors always select individual fields (`useStore((s) => s.field)`) to 
 
 | Document | Location |
 |---|---|
+| **Vue porting guide** | `docs/PORTING_GUIDE.md` |
+| Nuxt UI component docs | `docs/ui_components/` |
+| Nuxt UI skill | `.agents/skills/nuxt-ui/SKILL.md` |
+| React reference codebase | `C:\Users\jason\projects\distillery-react` |
 | Product spec | `docs/SPEC.md` |
 | Model manager spec | `docs/MODEL_MANAGER_SPEC.md` |
 | Queue/generation spec | `docs/QUEUE_GENERATION_FOUNDATION_SPEC.md` |

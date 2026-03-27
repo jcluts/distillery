@@ -7,10 +7,10 @@ import type { AppSettings } from '@/types'
 export type ViewMode = 'grid' | 'loupe'
 export type ZoomLevel = 'fit' | 'actual'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
-export type RightPanelTab = 'info' | 'generation'
+export type RightPanelTab = 'info' | 'generation' | 'collections'
 
 const LEFT_PANEL_TABS: LeftPanelTab[] = ['generation', 'timeline', 'import']
-const RIGHT_PANEL_TABS: RightPanelTab[] = ['info', 'generation']
+const RIGHT_PANEL_TABS: RightPanelTab[] = ['info', 'generation', 'collections']
 
 function clampThumbnailSize(size: number): number {
   return Math.min(THUMBNAIL_SIZE_MAX, Math.max(THUMBNAIL_SIZE_MIN, Math.round(size)))
@@ -35,6 +35,8 @@ export const useUIStore = defineStore('ui', () => {
   const loupeZoom = ref<ZoomLevel>('fit')
   const thumbnailSize = ref(THUMBNAIL_SIZE_DEFAULT)
   const settingsLoaded = ref(false)
+
+  const activeModals = ref<string[]>([])
 
   async function persistSettings(): Promise<void> {
     if (!settingsLoaded.value) return
@@ -130,6 +132,16 @@ export const useUIStore = defineStore('ui', () => {
     void persistSettings()
   }
 
+  function openModal(id: string): void {
+    if (!activeModals.value.includes(id)) {
+      activeModals.value = [...activeModals.value, id]
+    }
+  }
+
+  function closeModal(id: string): void {
+    activeModals.value = activeModals.value.filter((m) => m !== id)
+  }
+
   return {
     leftPanelOpen,
     leftPanelTab,
@@ -149,6 +161,9 @@ export const useUIStore = defineStore('ui', () => {
     setViewMode,
     setLoupeZoom,
     cycleZoom,
-    setThumbnailSize
+    setThumbnailSize,
+    activeModals,
+    openModal,
+    closeModal
   }
 })

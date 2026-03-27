@@ -1,7 +1,8 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { defineStore, storeToRefs } from 'pinia'
+import { ref, watch } from 'vue'
 
 import { GRID_PAGE_SIZE } from '@/lib/constants'
+import { useCollectionStore } from '@/stores/collection'
 import type { MediaPage, MediaQuery, MediaRecord, MediaSortField, MediaStatus } from '@/types'
 
 function normalizeSelection(items: MediaRecord[], selectedIds: Set<string>): Set<string> {
@@ -27,6 +28,9 @@ export const useLibraryStore = defineStore('library', () => {
   const sortField = ref<MediaSortField>('created_at')
   const sortDirection = ref<'asc' | 'desc'>('desc')
 
+  const collectionStore = useCollectionStore()
+  const { activeCollectionId } = storeToRefs(collectionStore)
+
   function buildQuery(): MediaQuery {
     return {
       page: page.value,
@@ -35,9 +39,15 @@ export const useLibraryStore = defineStore('library', () => {
       status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
       sort: sortField.value,
       sortDirection: sortDirection.value,
-      search: searchQuery.value || undefined
+      search: searchQuery.value || undefined,
+      collectionId: activeCollectionId.value
     }
   }
+
+  watch(activeCollectionId, () => {
+    page.value = 1
+    void loadMedia()
+  })
 
   function setItems(mediaPage: MediaPage): void {
     items.value = mediaPage.items

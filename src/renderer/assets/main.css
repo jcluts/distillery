@@ -13,3 +13,11 @@
   --ui-text-highlighted: white;
   --ui-text-inverted: var(--ui-color-neutral-900);
 }
+
+button {
+  cursor: pointer;
+
+  &:is([disabled]) {
+    cursor: not-allowed;
+  }
+}
