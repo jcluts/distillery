@@ -79,10 +79,13 @@ const wrapperRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 const cursor = ref<{ x: number; y: number } | null>(null)
+const cursorInImage = ref(false)
+const liveStroke = ref<DraftStroke | null>(null)
 
 // Non-reactive drawing state
 let drawing = false
 let draftPoints: Array<{ x: number; y: number }> = []
+let rafId = 0
 
 // -----------------------------------------------------------------------
 // Computed
@@ -139,15 +142,10 @@ function redraw(): void {
     drawStroke(ctx, stroke, imageX.value, imageY.value, imageWidth.value, imageHeight.value)
   }
 
-  // Draw active in-progress stroke
-  if (drawing && draftPoints.length > 0) {
+  if (liveStroke.value) {
     drawStroke(
       ctx,
-      {
-        points: draftPoints,
-        erasing: removalStore.tool === 'erase',
-        brushSizeNormalized: removalStore.brushSizeNormalized
-      },
+      liveStroke.value,
       imageX.value,
       imageY.value,
       imageWidth.value,
@@ -156,6 +154,11 @@ function redraw(): void {
   }
 
   ctx.globalCompositeOperation = 'source-over'
+}
+
+function scheduleRedraw(): void {
+  cancelAnimationFrame(rafId)
+  rafId = requestAnimationFrame(redraw)
 }
 
 // -----------------------------------------------------------------------
@@ -198,10 +201,17 @@ function onPointerDown(event: PointerEvent): void {
   const point = toNormalizedPoint(event)
   if (!point) return
 
+  event.preventDefault()
+
   drawing = true
   draftPoints = [point]
+  liveStroke.value = {
+    points: [...draftPoints],
+    erasing: removalStore.tool === 'erase',
+    brushSizeNormalized: removalStore.brushSizeNormalized
+  }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  redraw()
+  scheduleRedraw()
 }
 
 function commitStroke(): void {
@@ -210,6 +220,7 @@ function commitStroke(): void {
   drawing = false
   const points = draftPoints
   draftPoints = []
+  liveStroke.value = null
 
   if (points.length > 0) {
     removalStore.addStroke(points)
@@ -235,7 +246,8 @@ function onPointerMove(event: PointerEvent): void {
     localX <= imageX.value + imageWidth.value &&
     localY <= imageY.value + imageHeight.value
 
-  cursor.value = insideImage ? { x: localX, y: localY } : null
+  cursor.value = { x: localX, y: localY }
+  cursorInImage.value = insideImage
 
   if (!drawing) return
 
@@ -243,7 +255,12 @@ function onPointerMove(event: PointerEvent): void {
   if (!point) return
 
   draftPoints.push(point)
-  redraw()
+  liveStroke.value = {
+    points: [...draftPoints],
+    erasing: removalStore.tool === 'erase',
+    brushSizeNormalized: removalStore.brushSizeNormalized
+  }
+  scheduleRedraw()
 }
 
 function onPointerUp(): void {
@@ -252,6 +269,7 @@ function onPointerUp(): void {
 
 function onPointerLeave(): void {
   cursor.value = null
+  cursorInImage.value = false
   commitStroke()
 }
 
@@ -264,6 +282,7 @@ watch(
   [
     () => removalStore.maskOverlay,
     () => removalStore.draftStrokes,
+    liveStroke,
     () => removalStore.tool,
     () => removalStore.brushSizeNormalized
   ],
@@ -278,13 +297,18 @@ watch(isPaintTarget, (active) => {
   if (!active) {
     drawing = false
     draftPoints = []
+    liveStroke.value = null
     cursor.value = null
+    cursorInImage.value = false
+    cancelAnimationFrame(rafId)
   }
 })
 
 onBeforeUnmount(() => {
   drawing = false
   draftPoints = []
+  liveStroke.value = null
+  cancelAnimationFrame(rafId)
 })
 </script>
 
@@ -293,7 +317,7 @@ onBeforeUnmount(() => {
     v-if="isPaintTarget && removalStore.maskOverlay"
     ref="wrapperRef"
     class="absolute inset-0 z-40"
-    style="cursor: none"
+    :style="{ cursor: cursor && !cursorInImage ? 'crosshair' : 'none' }"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -301,9 +325,9 @@ onBeforeUnmount(() => {
   >
     <canvas ref="canvasRef" class="pointer-events-none absolute inset-0" />
 
-    <!-- Brush cursor -->
+    <!-- Brush cursor (only over image area) -->
     <div
-      v-if="cursor"
+      v-if="cursor && cursorInImage"
       class="pointer-events-none absolute rounded-full border border-white/80 bg-white/10"
       :style="{
         width: `${brushCursorSize}px`,
