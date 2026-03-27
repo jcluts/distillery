@@ -321,10 +321,10 @@ Create `src/renderer/webgl/` with the following files:
 ```ts
 class WebGLProcessor {
   constructor()                                     // Creates offscreen canvas
-  initialize(): void                                // Creates GL context (throws on failure)
-  loadImage(url: string): Promise<TextureInfo>      // Load image → GPU texture
+  initialize(): void                                // Creates GL context (throws on failure, sets up webglcontextlost listeners)
+  loadImage(source: HTMLImageElement | string): Promise<TextureInfo> // Load image/URL → GPU texture
   render(adjustments?: ImageAdjustments): void      // Render to offscreen canvas
-  getCanvas(): HTMLCanvasElement                     // For 2D pipeline to use as source
+  getCanvas(): HTMLCanvasElement | OffscreenCanvas  // For 2D pipeline to use as source
   getTextureDimensions(): { width, height, originalWidth, originalHeight }
   dispose(): void                                   // Release all GPU resources
 }
@@ -334,6 +334,8 @@ Key design decisions versus V1:
 - **No texture cache.** V1 cached 10 textures for grid thumbnail rendering. The Vue app only needs WebGL for the single loupe image, so one texture at a time is sufficient. If future grid WebGL rendering is needed, add caching then.
 - **No LocalAdjustmentsRenderer.** The adjustment brush is out of scope. The same fragment shader *already* has mask uniforms (`u_maskEnabled`, `u_maskTexture`, `u_maskOpacity`) — a future brush feature can reuse the same shader without a separate renderer class.
 - **No WebGLImage component.** V1 had a `WebGLImage` React component that wrapped a `<canvas>`. In the Vue app, `CanvasViewer.vue` already owns the canvas. WebGL renders to an *offscreen* canvas that `canvas-draw.ts` uses as the image source.
+- **Context Loss Recovery.** Like V1, `WebGLProcessor` must handle `webglcontextlost` and `webglcontextrestored` events on its backing canvas to re-initialize and avoid permanent rendering failure if the GPU process resets.
+- **Image Upload:** To prevent re-downloading/re-decoding the image, `loadImage` should accept an `HTMLImageElement` directly. `CanvasViewer.vue` already has the loaded `img` reference.
 
 ### Fragment Shader
 
@@ -356,17 +358,25 @@ Modify `DrawOptions` to accept an optional adjusted image source:
 ```ts
 export interface DrawOptions {
   // ... existing fields ...
-  adjustedSource?: HTMLCanvasElement | null  // WebGL output canvas
+  adjustedSource?: HTMLCanvasElement | OffscreenCanvas | null  // WebGL output canvas
 }
 ```
 
 When `adjustedSource` is provided, `draw()` uses it instead of `img` as the source for the offscreen transform canvas. All rotation/flip/crop/pan/zoom logic remains unchanged.
 
 In `CanvasViewer.vue`:
-1. Watch the adjustment store for the current media's adjustments
-2. When adjustments are non-null, create/reuse a `WebGLProcessor`, load the image texture, and render
-3. Pass the WebGL output canvas as `adjustedSource` to `draw()`
-4. When adjustments are null/default, pass `null` (existing behavior, no WebGL overhead)
+1. Watch the adjustment store for the current media's adjustments.
+2. Maintain a single, reusable `WebGLProcessor` instance inside the component. Do not instantiate a new processor for every image change to avoid leaking WebGL contexts.
+3. When adjustments are non-null, initialize the processor (if needed), load the image texture, and render.
+4. Pass the WebGL output canvas as `adjustedSource` to `draw()`.
+5. When adjustments are null/default, pass `null` (existing behavior, no WebGL overhead).
+6. **Cleanup:** On component unmount, invoke `processor.dispose()` to correctly release WebGL buffers, textures, and framebuffers.
+
+**CRITICAL PERFORMANCE OPTIMIZATION:** 
+Currently, `canvas-draw.ts` creates a `transformedCanvas` via `document.createElement('canvas')` on *every single call* to `draw()`. Since `draw()` fires continuously during panning, this causes severe garbage collection thrashing and performance degradation, which will only get worse once an `adjustedSource` is introduced. 
+While integrating this feature, update `canvas-draw.ts` to:
+1. Skip the offscreen `transformedCanvas` entirely when `rotation === 0` and `flip_h/flip_v` are both false.
+2. Accept an optional pre-allocated `transformCanvas` via `DrawOptions`, allowing `CanvasViewer.vue` to own and reuse the intermediate canvas, or cache it intelligently.
 
 ---
 
