@@ -3,11 +3,14 @@ import { computed, watch } from 'vue'
 
 import LoupeFilmstrip from '@/components/library/LoupeFilmstrip.vue'
 import CanvasViewer from '@/components/library/canvas/CanvasViewer.vue'
+import CropOverlay from '@/components/library/canvas/CropOverlay.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
+import { useTransformStore } from '@/stores/transform'
 
 const libraryStore = useLibraryStore()
 const uiStore = useUIStore()
+const transformStore = useTransformStore()
 
 const currentIndex = computed(() => {
   if (libraryStore.items.length === 0) return -1
@@ -32,6 +35,17 @@ watch(
   { immediate: true }
 )
 
+// Cancel crop if navigated away from the crop target
+watch(
+  () => currentItem.value,
+  (current) => {
+    if (!transformStore.cropMode || !transformStore.cropMediaId) return
+    if (!current || current.id !== transformStore.cropMediaId || current.media_type !== 'image') {
+      transformStore.cancelCrop()
+    }
+  }
+)
+
 function onSelect(id: string): void {
   libraryStore.selectSingle(id)
 }
@@ -39,8 +53,9 @@ function onSelect(id: string): void {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <div class="min-h-0 flex-1 overflow-hidden px-4 pt-4 pb-2">
+    <div class="relative min-h-0 flex-1 overflow-hidden px-4 pt-4 pb-2">
       <CanvasViewer :media="currentItem" :zoom="uiStore.loupeZoom" />
+      <CropOverlay />
     </div>
 
     <LoupeFilmstrip :items="libraryStore.items" :current-index="currentIndex" @select="onSelect" />

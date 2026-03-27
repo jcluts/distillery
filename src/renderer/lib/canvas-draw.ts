@@ -1,3 +1,6 @@
+import type { ImageTransforms } from '@/types'
+import { normalizeCrop } from '@/lib/transform-math'
+
 export interface DrawOptions {
   ctx: CanvasRenderingContext2D
   width: number
@@ -6,6 +9,8 @@ export interface DrawOptions {
   media: { file_name: string } | null
   zoom: 'fit' | 'actual'
   panOffset: { x: number; y: number }
+  transforms?: ImageTransforms | null
+  suppressCrop?: boolean
 }
 
 export interface DrawResult {
@@ -14,7 +19,28 @@ export interface DrawResult {
   clampedPanOffset: { x: number; y: number }
 }
 
-export function draw({ ctx, width, height, img, media, zoom, panOffset }: DrawOptions): DrawResult {
+function getRotatedDimensions(
+  width: number,
+  height: number,
+  rotation: ImageTransforms['rotation']
+): { width: number; height: number } {
+  if (rotation === 90 || rotation === 270) {
+    return { width: height, height: width }
+  }
+  return { width, height }
+}
+
+export function draw({
+  ctx,
+  width,
+  height,
+  img,
+  media,
+  zoom,
+  panOffset,
+  transforms,
+  suppressCrop
+}: DrawOptions): DrawResult {
   ctx.clearRect(0, 0, width, height)
   ctx.fillStyle = 'rgba(0, 0, 0, 0)'
   ctx.fillRect(0, 0, width, height)
@@ -34,10 +60,10 @@ export function draw({ ctx, width, height, img, media, zoom, panOffset }: DrawOp
     }
   }
 
-  const imageWidth = img.naturalWidth || img.width
-  const imageHeight = img.naturalHeight || img.height
+  const iw = img.naturalWidth || img.width
+  const ih = img.naturalHeight || img.height
 
-  if (!imageWidth || !imageHeight || !width || !height) {
+  if (!iw || !ih || !width || !height) {
     return {
       imageRect: null,
       pannable: false,
@@ -45,28 +71,66 @@ export function draw({ ctx, width, height, img, media, zoom, panOffset }: DrawOp
     }
   }
 
-  const scale =
-    zoom === 'actual' ? 1 : Math.min(width / imageWidth, height / imageHeight)
-  const drawnWidth = imageWidth * scale
-  const drawnHeight = imageHeight * scale
+  const active: ImageTransforms = transforms ?? {
+    rotation: 0,
+    flip_h: false,
+    flip_v: false,
+    crop: null,
+    aspect_ratio: null
+  }
 
-  const overflowX = Math.max(0, drawnWidth - width)
-  const overflowY = Math.max(0, drawnHeight - height)
+  // Apply rotation + flip via an off-screen canvas
+  const rotated = getRotatedDimensions(iw, ih, active.rotation)
+
+  const transformedCanvas = document.createElement('canvas')
+  transformedCanvas.width = Math.max(1, Math.round(rotated.width))
+  transformedCanvas.height = Math.max(1, Math.round(rotated.height))
+
+  const transformedCtx = transformedCanvas.getContext('2d')
+  if (!transformedCtx) {
+    return { imageRect: null, pannable: false, clampedPanOffset: { x: 0, y: 0 } }
+  }
+
+  transformedCtx.imageSmoothingEnabled = true
+  transformedCtx.imageSmoothingQuality = 'high'
+  transformedCtx.translate(rotated.width / 2, rotated.height / 2)
+  transformedCtx.rotate((active.rotation * Math.PI) / 180)
+  transformedCtx.scale(active.flip_h ? -1 : 1, active.flip_v ? -1 : 1)
+  transformedCtx.drawImage(img, -iw / 2, -ih / 2, iw, ih)
+
+  // Extract crop region (suppressed during crop mode so full image is shown)
+  const crop = suppressCrop ? null : normalizeCrop(active.crop)
+
+  const sx = crop ? Math.floor(crop.x * rotated.width) : 0
+  const sy = crop ? Math.floor(crop.y * rotated.height) : 0
+  const sw = crop
+    ? Math.max(1, Math.min(rotated.width - sx, Math.round(crop.w * rotated.width)))
+    : rotated.width
+  const sh = crop
+    ? Math.max(1, Math.min(rotated.height - sy, Math.round(crop.h * rotated.height)))
+    : rotated.height
+
+  const scale = zoom === 'actual' ? 1.0 : Math.min(width / sw, height / sh)
+  const dw = sw * scale
+  const dh = sh * scale
+
+  const overflowX = Math.max(0, dw - width)
+  const overflowY = Math.max(0, dh - height)
   const clampedPanX =
     overflowX > 0 ? Math.max(-overflowX / 2, Math.min(overflowX / 2, panOffset.x)) : 0
   const clampedPanY =
     overflowY > 0 ? Math.max(-overflowY / 2, Math.min(overflowY / 2, panOffset.y)) : 0
 
-  const drawX = (width - drawnWidth) / 2 + clampedPanX
-  const drawY = (height - drawnHeight) / 2 + clampedPanY
+  const dx = (width - dw) / 2 + clampedPanX
+  const dy = (height - dh) / 2 + clampedPanY
 
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, drawX, drawY, drawnWidth, drawnHeight)
+  ctx.drawImage(transformedCanvas, sx, sy, sw, sh, dx, dy, dw, dh)
 
   return {
-    imageRect: { x: drawX, y: drawY, w: drawnWidth, h: drawnHeight },
-    pannable: drawnWidth > width || drawnHeight > height,
+    imageRect: { x: dx, y: dy, w: dw, h: dh },
+    pannable: dw > width || dh > height,
     clampedPanOffset: { x: clampedPanX, y: clampedPanY }
   }
 }

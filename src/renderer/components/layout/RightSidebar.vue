@@ -5,6 +5,7 @@ import { PANEL_ICON_STRIP_WIDTH_PX, RIGHT_PANEL_WIDTH_PX } from '@/lib/layout'
 import CollectionsPane from '@/components/panes/CollectionsPane.vue'
 import GenerationInfoPane from '@/components/panes/GenerationInfoPane.vue'
 import MediaInfoPane from '@/components/panes/MediaInfoPane.vue'
+import TransformPane from '@/components/panes/TransformPane.vue'
 import { useUIStore, type RightPanelTab } from '@/stores/ui'
 
 const uiStore = useUIStore()
@@ -12,8 +13,8 @@ const collapsed = computed(() => !uiStore.rightPanelOpen)
 
 const tabs: { id: RightPanelTab; icon: string; label: string }[] = [
   { id: 'info', icon: 'i-lucide-info', label: 'Info' },
-  { id: 'generation', icon: 'i-lucide-sliders-horizontal', label: 'Generation' },
-  { id: 'collections', icon: 'i-lucide-layers-3', label: 'Collections' }
+  { id: 'collections', icon: 'i-lucide-layers-3', label: 'Collections' },
+  { id: 'transform', icon: 'i-lucide-crop', label: 'Transform' }
 ]
 
 const activePaneComponent = computed(() => {
@@ -22,6 +23,8 @@ const activePaneComponent = computed(() => {
       return GenerationInfoPane
     case 'collections':
       return CollectionsPane
+    case 'transform':
+      return TransformPane
     default:
       return MediaInfoPane
   }
@@ -29,27 +32,17 @@ const activePaneComponent = computed(() => {
 </script>
 
 <template>
-  <aside
-    id="right-sidebar"
-    class="flex h-full shrink-0 border-l border-default bg-default transition-[width] duration-150 ease-linear"
-    :style="{ width: `${collapsed ? PANEL_ICON_STRIP_WIDTH_PX : RIGHT_PANEL_WIDTH_PX}px` }"
-  >
+  <aside id="right-sidebar" class="flex h-full shrink-0 bg-default transition-[width] duration-150 ease-linear"
+    :style="{ width: `${collapsed ? PANEL_ICON_STRIP_WIDTH_PX : RIGHT_PANEL_WIDTH_PX}px` }">
     <div class="flex h-full w-full">
-      <div v-if="!collapsed" class="min-w-0 flex-1 overflow-hidden border-r border-default">
+      <div v-if="!collapsed" class="min-w-0 flex-1 overflow-hidden">
         <component :is="activePaneComponent" />
       </div>
 
-      <div class="ms-auto flex w-12 shrink-0 flex-col items-center gap-1 pt-2">
-        <UButton
-          v-for="tab in tabs"
-          :key="tab.id"
-          :icon="tab.icon"
-          :color="uiStore.rightPanelTab === tab.id && !collapsed ? 'primary' : 'neutral'"
-          variant="ghost"
-          square
-          :aria-label="tab.label"
-          @click="uiStore.toggleRightPanel(tab.id)"
-        />
+      <div class="ms-auto flex w-12 shrink-0 flex-col items-center gap-1 pt-2 bg-elevated">
+        <UButton v-for="tab in tabs" :key="tab.id" :icon="tab.icon"
+          :color="uiStore.rightPanelTab === tab.id && !collapsed ? 'primary' : 'neutral'" variant="ghost" square
+          :aria-label="tab.label" @click="uiStore.toggleRightPanel(tab.id)" />
       </div>
     </div>
   </aside>

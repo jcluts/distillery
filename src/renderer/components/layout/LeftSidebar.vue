@@ -31,11 +31,11 @@ const activePaneComponent = computed(() => {
 <template>
   <aside
     id="left-sidebar"
-    class="flex h-full shrink-0 border-r border-default bg-default transition-[width] duration-150 ease-linear"
+    class="flex h-full shrink-0 bg-default transition-[width] duration-150 ease-linear"
     :style="{ width: `${collapsed ? PANEL_ICON_STRIP_WIDTH_PX : LEFT_PANEL_WIDTH_PX}px` }"
   >
     <div class="flex h-full w-full overflow-hidden">
-      <div class="flex w-12 shrink-0 flex-col items-center gap-1 pt-2">
+      <div class="flex w-12 shrink-0 flex-col items-center gap-1 pt-2 bg-elevated">
         <UButton
           v-for="tab in tabs"
           :key="tab.id"
@@ -48,7 +48,7 @@ const activePaneComponent = computed(() => {
         />
       </div>
 
-      <div v-if="!collapsed" class="min-w-0 flex-1 overflow-hidden border-l border-default">
+      <div v-if="!collapsed" class="min-w-0 flex-1 overflow-hidden">
         <component :is="activePaneComponent" />
       </div>
     </div>

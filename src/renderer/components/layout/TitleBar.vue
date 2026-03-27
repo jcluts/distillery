@@ -40,7 +40,7 @@ onBeforeUnmount(() => {
 
 <template>
   <header
-    class="flex h-10 shrink-0 items-center border-b border-default bg-default px-3"
+    class="flex h-10 shrink-0 items-center bg-elevated px-3"
     :style="dragStyle"
     @dblclick="handleToggleMaximize"
   >

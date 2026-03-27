@@ -21,7 +21,7 @@ function handleSearch(value: string): void {
 </script>
 
 <template>
-  <div class="flex items-center gap-10 border-b border-default bg-default px-3 h-10">
+  <div class="flex items-center gap-10 bg-default px-3 h-10">
     <!-- Rating filter -->
     <div class="flex items-center gap-0.5">
       <UTooltip v-for="value in 5" :key="value" :text="`${value}+ stars`">

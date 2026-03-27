@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'v
 
 import { draw } from '@/lib/canvas-draw'
 import type { ZoomLevel } from '@/stores/ui'
+import { useTransformStore } from '@/stores/transform'
 import type { MediaRecord } from '@/types'
 
 const props = withDefaults(
@@ -14,6 +15,8 @@ const props = withDefaults(
     zoom: 'fit'
   }
 )
+
+const transformStore = useTransformStore()
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -28,10 +31,31 @@ let isDragging = false
 let resizeObserver: ResizeObserver | null = null
 
 const imageUrl = computed(() => props.media?.working_file_path ?? props.media?.file_path ?? null)
+
+const transforms = computed(() =>
+  props.media ? transformStore.getTransformsFor(props.media.id) : null
+)
+
+const isCropTarget = computed(
+  () => transformStore.cropMode && transformStore.cropMediaId === props.media?.id
+)
+
 const cursor = computed(() => {
+  if (isCropTarget.value) return 'crosshair'
   if (!isPannable.value) return 'default'
   return dragging.value ? 'grabbing' : 'grab'
 })
+
+// Load transforms when media changes
+watch(
+  () => props.media,
+  (media) => {
+    if (media?.id && media.media_type === 'image') {
+      void transformStore.loadTransforms(media.id)
+    }
+  },
+  { immediate: true }
+)
 
 function resetPan(): void {
   panOffset.x = 0
@@ -54,12 +78,28 @@ function redraw(): void {
     img: imageRef.value,
     media: props.media,
     zoom: props.zoom,
-    panOffset
+    panOffset,
+    transforms: transforms.value,
+    suppressCrop: isCropTarget.value
   })
 
   panOffset.x = result.clampedPanOffset.x
   panOffset.y = result.clampedPanOffset.y
-  isPannable.value = result.pannable
+  isPannable.value = !isCropTarget.value && result.pannable
+
+  // Report image rect to transform store for crop overlay positioning
+  if (isCropTarget.value && result.imageRect) {
+    transformStore.setCropOverlay({
+      containerWidth: rect.width,
+      containerHeight: rect.height,
+      imageX: result.imageRect.x,
+      imageY: result.imageRect.y,
+      imageWidth: result.imageRect.w,
+      imageHeight: result.imageRect.h
+    })
+  } else {
+    transformStore.setCropOverlay(null)
+  }
 }
 
 function resizeCanvas(): void {
@@ -81,7 +121,7 @@ function resizeCanvas(): void {
 }
 
 function onMouseDown(event: MouseEvent): void {
-  if (!isPannable.value) return
+  if (isCropTarget.value || !isPannable.value) return
 
   isDragging = true
   dragging.value = true
@@ -92,7 +132,7 @@ function onMouseDown(event: MouseEvent): void {
 }
 
 function onMouseMove(event: MouseEvent): void {
-  if (!isDragging) return
+  if (!isDragging || isCropTarget.value) return
 
   panOffset.x = dragStartOffset.x + (event.clientX - dragStart.x)
   panOffset.y = dragStartOffset.y + (event.clientY - dragStart.y)
@@ -104,14 +144,19 @@ function onMouseUp(): void {
   dragging.value = false
 }
 
+// Reset pan when zoom, transforms, crop mode, or image changes
 watch(
-  [() => props.zoom, imageUrl, () => props.media?.id],
+  [() => props.zoom, imageUrl, transforms, isCropTarget],
   () => {
     resetPan()
     redraw()
-  },
-  { immediate: true }
+  }
 )
+
+// Redraw when transforms change (rotation, flip, crop applied)
+watch(transforms, () => {
+  redraw()
+})
 
 watchEffect((onCleanup) => {
   const url = imageUrl.value
@@ -163,6 +208,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
+  transformStore.setCropOverlay(null)
 })
 </script>
 

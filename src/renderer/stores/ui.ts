@@ -7,10 +7,10 @@ import type { AppSettings } from '@/types'
 export type ViewMode = 'grid' | 'loupe'
 export type ZoomLevel = 'fit' | 'actual'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
-export type RightPanelTab = 'info' | 'generation' | 'collections'
+export type RightPanelTab = 'info' | 'generation' | 'collections' | 'transform'
 
 const LEFT_PANEL_TABS: LeftPanelTab[] = ['generation', 'timeline', 'import']
-const RIGHT_PANEL_TABS: RightPanelTab[] = ['info', 'generation', 'collections']
+const RIGHT_PANEL_TABS: RightPanelTab[] = ['info', 'generation', 'collections', 'transform']
 
 function clampThumbnailSize(size: number): number {
   return Math.min(THUMBNAIL_SIZE_MAX, Math.max(THUMBNAIL_SIZE_MIN, Math.round(size)))
