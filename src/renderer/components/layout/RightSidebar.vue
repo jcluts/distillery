@@ -5,6 +5,7 @@ import { PANEL_ICON_STRIP_WIDTH_PX, RIGHT_PANEL_WIDTH_PX } from '@/lib/layout'
 import CollectionsPane from '@/components/panes/CollectionsPane.vue'
 import GenerationInfoPane from '@/components/panes/GenerationInfoPane.vue'
 import MediaInfoPane from '@/components/panes/MediaInfoPane.vue'
+import RemovalPane from '@/components/panes/RemovalPane.vue'
 import TransformPane from '@/components/panes/TransformPane.vue'
 import { useUIStore, type RightPanelTab } from '@/stores/ui'
 
@@ -14,7 +15,8 @@ const collapsed = computed(() => !uiStore.rightPanelOpen)
 const tabs: { id: RightPanelTab; icon: string; label: string }[] = [
   { id: 'info', icon: 'i-lucide-info', label: 'Info' },
   { id: 'collections', icon: 'i-lucide-layers-3', label: 'Collections' },
-  { id: 'transform', icon: 'i-lucide-crop', label: 'Transform' }
+  { id: 'transform', icon: 'i-lucide-crop', label: 'Transform' },
+  { id: 'removal', icon: 'i-lucide-eraser', label: 'Removals' }
 ]
 
 const activePaneComponent = computed(() => {
@@ -25,6 +27,8 @@ const activePaneComponent = computed(() => {
       return CollectionsPane
     case 'transform':
       return TransformPane
+    case 'removal':
+      return RemovalPane
     default:
       return MediaInfoPane
   }

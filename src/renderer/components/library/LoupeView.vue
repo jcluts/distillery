@@ -4,11 +4,14 @@ import { computed, watch } from 'vue'
 import LoupeFilmstrip from '@/components/library/LoupeFilmstrip.vue'
 import CanvasViewer from '@/components/library/canvas/CanvasViewer.vue'
 import CropOverlay from '@/components/library/canvas/CropOverlay.vue'
+import MaskOverlay from '@/components/library/canvas/MaskOverlay.vue'
 import { useLibraryStore } from '@/stores/library'
+import { useRemovalStore } from '@/stores/removal'
 import { useUIStore } from '@/stores/ui'
 import { useTransformStore } from '@/stores/transform'
 
 const libraryStore = useLibraryStore()
+const removalStore = useRemovalStore()
 const uiStore = useUIStore()
 const transformStore = useTransformStore()
 
@@ -46,6 +49,17 @@ watch(
   }
 )
 
+// Cancel paint mode if navigated away from the paint target
+watch(
+  () => currentItem.value,
+  (current) => {
+    if (!removalStore.paintMode || !removalStore.paintMediaId) return
+    if (!current || current.id !== removalStore.paintMediaId || current.media_type !== 'image') {
+      removalStore.cancelPaintMode()
+    }
+  }
+)
+
 function onSelect(id: string): void {
   libraryStore.selectSingle(id)
 }
@@ -56,6 +70,7 @@ function onSelect(id: string): void {
     <div class="relative min-h-0 flex-1 overflow-hidden px-4 pt-4 pb-2">
       <CanvasViewer :media="currentItem" :zoom="uiStore.loupeZoom" />
       <CropOverlay />
+      <MaskOverlay />
     </div>
 
     <LoupeFilmstrip :items="libraryStore.items" :current-index="currentIndex" @select="onSelect" />

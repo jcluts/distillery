@@ -118,11 +118,18 @@ export class RemovalService extends EventEmitter implements SourceDependentEditH
   }
 
   saveData(mediaId: string, data: RemovalData | null): void {
-    mediaRepo.saveRemovals(this.db, mediaId, normalizeData(data))
+    const normalized = normalizeData(data)
+    console.log(
+      `[RemovalService] saveData media=${mediaId} operations=${normalized?.operations.length ?? 'null'} ids=${normalized?.operations.map((o) => o.id).join(',') ?? 'none'}`
+    )
+    mediaRepo.saveRemovals(this.db, mediaId, normalized)
   }
 
   async process(mediaId: string, operationId: string): Promise<string> {
     const data = this.getData(mediaId)
+    console.log(
+      `[RemovalService] process media=${mediaId} operation=${operationId} found=${data?.operations.length ?? 'null'} ids=${data?.operations.map((o) => o.id).join(',') ?? 'none'}`
+    )
     const operation = data?.operations.find((entry) => entry.id === operationId)
     if (!operation) {
       throw new Error(`Removal operation not found: media=${mediaId} operation=${operationId}`)

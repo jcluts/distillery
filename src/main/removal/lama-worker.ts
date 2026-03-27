@@ -19,7 +19,8 @@ async function initSession(modelPath: string): Promise<void> {
   }
 
   await disposeOnnxSession(session)
-  session = await createOnnxSession(modelPath)
+  // Force CPU: LaMa's FFC layers use rotational MatMul ops that DML cannot execute.
+  session = await createOnnxSession(modelPath, { preference: 'cpu' })
   currentModelPath = modelPath
 }
 

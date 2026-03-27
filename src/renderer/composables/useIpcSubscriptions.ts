@@ -1,10 +1,11 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 
-import type { EngineStatus, ImportScanProgress } from '@/types'
+import type { EngineStatus, ImportScanProgress, RemovalProgressEvent, RemovalResultEvent } from '@/types'
 import { useCollectionStore } from '@/stores/collection'
 import { useEngineStore } from '@/stores/engine'
 import { useImportFolderStore } from '@/stores/import-folder'
 import { useLibraryStore } from '@/stores/library'
+import { useRemovalStore } from '@/stores/removal'
 import { useUIStore } from '@/stores/ui'
 
 export function useIpcSubscriptions(): void {
@@ -12,6 +13,7 @@ export function useIpcSubscriptions(): void {
   const engineStore = useEngineStore()
   const importFolderStore = useImportFolderStore()
   const libraryStore = useLibraryStore()
+  const removalStore = useRemovalStore()
   const uiStore = useUIStore()
   const unsubs: Array<() => void> = []
 
@@ -53,6 +55,18 @@ export function useIpcSubscriptions(): void {
         const progress = payload as ImportScanProgress
         if (!progress?.folder_id) return
         importFolderStore.setScanProgress(progress)
+      })
+    )
+
+    unsubs.push(
+      window.api.on('removal:progress', (payload: unknown) => {
+        removalStore.handleProgress(payload as RemovalProgressEvent)
+      })
+    )
+
+    unsubs.push(
+      window.api.on('removal:result', (payload: unknown) => {
+        void removalStore.handleResult(payload as RemovalResultEvent)
       })
     )
   })

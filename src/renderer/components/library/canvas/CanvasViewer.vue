@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'v
 
 import { draw } from '@/lib/canvas-draw'
 import type { ZoomLevel } from '@/stores/ui'
+import { useRemovalStore } from '@/stores/removal'
 import { useTransformStore } from '@/stores/transform'
 import type { MediaRecord } from '@/types'
 
@@ -16,6 +17,7 @@ const props = withDefaults(
   }
 )
 
+const removalStore = useRemovalStore()
 const transformStore = useTransformStore()
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -40,8 +42,13 @@ const isCropTarget = computed(
   () => transformStore.cropMode && transformStore.cropMediaId === props.media?.id
 )
 
+const isPaintTarget = computed(
+  () => removalStore.paintMode && removalStore.paintMediaId === props.media?.id
+)
+
 const cursor = computed(() => {
   if (isCropTarget.value) return 'crosshair'
+  if (isPaintTarget.value) return 'default'
   if (!isPannable.value) return 'default'
   return dragging.value ? 'grabbing' : 'grab'
 })
@@ -85,7 +92,7 @@ function redraw(): void {
 
   panOffset.x = result.clampedPanOffset.x
   panOffset.y = result.clampedPanOffset.y
-  isPannable.value = !isCropTarget.value && result.pannable
+  isPannable.value = !isCropTarget.value && !isPaintTarget.value && result.pannable
 
   // Report image rect to transform store for crop overlay positioning
   if (isCropTarget.value && result.imageRect) {
@@ -99,6 +106,20 @@ function redraw(): void {
     })
   } else {
     transformStore.setCropOverlay(null)
+  }
+
+  // Report image rect to removal store for mask overlay positioning
+  if (removalStore.paintMode && result.imageRect) {
+    removalStore.setMaskOverlay({
+      containerWidth: rect.width,
+      containerHeight: rect.height,
+      imageX: result.imageRect.x,
+      imageY: result.imageRect.y,
+      imageWidth: result.imageRect.w,
+      imageHeight: result.imageRect.h
+    })
+  } else if (!removalStore.paintMode) {
+    removalStore.setMaskOverlay(null)
   }
 }
 
@@ -121,7 +142,7 @@ function resizeCanvas(): void {
 }
 
 function onMouseDown(event: MouseEvent): void {
-  if (isCropTarget.value || !isPannable.value) return
+  if (isCropTarget.value || isPaintTarget.value || !isPannable.value) return
 
   isDragging = true
   dragging.value = true
@@ -144,9 +165,9 @@ function onMouseUp(): void {
   dragging.value = false
 }
 
-// Reset pan when zoom, transforms, crop mode, or image changes
+// Reset pan when zoom, transforms, crop mode, paint mode, or image changes
 watch(
-  [() => props.zoom, imageUrl, transforms, isCropTarget],
+  [() => props.zoom, imageUrl, transforms, isCropTarget, isPaintTarget],
   () => {
     resetPan()
     redraw()
@@ -209,6 +230,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
   transformStore.setCropOverlay(null)
+  removalStore.setMaskOverlay(null)
 })
 </script>
 
