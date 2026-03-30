@@ -11,6 +11,9 @@
 		},
 		{
 			"path": "../distillery-react"
+		},
+		{
+			"path": "../primevue"
 		}
 	],
 	"settings": {}

@@ -1,26 +1,14 @@
 @import "tailwindcss";
+@import "tailwindcss-primeui";
 
 @theme {
   --font-sans: 'Inter Variable', sans-serif;
 }
 
-/* Semantic utility classes mapped to PrimeVue design tokens */
-.text-muted { color: var(--p-text-muted-color); }
-.text-default { color: var(--p-text-color); }
-.text-inverted { color: var(--p-surface-0); }
-.text-error { color: var(--p-red-400); }
-.text-warning { color: var(--p-yellow-400); }
-.bg-default { background-color: var(--p-surface-950); }
-.bg-elevated { background-color: var(--p-surface-900); }
-.bg-muted { background-color: var(--p-surface-800); }
-.border-default { border-color: var(--p-surface-700); }
-.border-muted { border-color: var(--p-surface-600); }
-.hover\:bg-elevated:hover { background-color: var(--p-surface-900); }
-.hover\:border-default:hover { border-color: var(--p-surface-700); }
-.hover\:text-default:hover { color: var(--p-text-color); }
-.hover\:border-primary:hover { border-color: var(--p-primary-color); }
-.ring-primary { --tw-ring-color: var(--p-primary-color); }
-.ring-offset-default { --tw-ring-offset-color: var(--p-surface-950); }
+html {
+    font-size: 14px;
+}
+
 
 button {
   cursor: pointer;
