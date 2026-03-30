@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import type {
+  ImageAdjustments,
   ImageTransforms,
   MediaRecord,
   MediaUpdate,
@@ -12,8 +13,28 @@ interface TransformsRow {
   transforms_json: string | null
 }
 
+interface AdjustmentsRow {
+  adjustments_json: string | null
+}
+
 interface RemovalsRow {
   removals_json: string | null
+}
+
+function isDefaultAdjustments(adjustments: ImageAdjustments): boolean {
+  return (
+    adjustments.exposure === 0 &&
+    adjustments.brightness === 1 &&
+    adjustments.contrast === 1 &&
+    adjustments.highlights === 0 &&
+    adjustments.shadows === 0 &&
+    adjustments.saturation === 1 &&
+    adjustments.vibrance === 0 &&
+    adjustments.temperature === 0 &&
+    adjustments.tint === 0 &&
+    adjustments.hue === 0 &&
+    adjustments.clarity === 0
+  )
 }
 
 /**
@@ -228,6 +249,43 @@ export function saveTransforms(
   db.prepare(
     "UPDATE media SET transforms_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
   ).run(transforms ? JSON.stringify(transforms) : null, mediaId)
+}
+
+/**
+ * Fetch persisted adjustments for a media item.
+ */
+export function getAdjustments(
+  db: Database.Database,
+  mediaId: string
+): ImageAdjustments | null {
+  const row = db
+    .prepare('SELECT adjustments_json FROM media WHERE id = ?')
+    .get(mediaId) as AdjustmentsRow | undefined
+
+  if (!row?.adjustments_json) {
+    return null
+  }
+
+  try {
+    return JSON.parse(row.adjustments_json) as ImageAdjustments
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Persist adjustments for a media item.
+ */
+export function saveAdjustments(
+  db: Database.Database,
+  mediaId: string,
+  adjustments: ImageAdjustments | null
+): void {
+  const normalized = adjustments && isDefaultAdjustments(adjustments) ? null : adjustments
+
+  db.prepare(
+    "UPDATE media SET adjustments_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+  ).run(normalized ? JSON.stringify(normalized) : null, mediaId)
 }
 
 /**

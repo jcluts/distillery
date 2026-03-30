@@ -24,6 +24,20 @@ export interface ImageTransforms {
   aspect_ratio: string | null
 }
 
+export interface ImageAdjustments {
+  exposure: number
+  brightness: number
+  contrast: number
+  highlights: number
+  shadows: number
+  saturation: number
+  vibrance: number
+  temperature: number
+  tint: number
+  hue: number
+  clarity: number
+}
+
 export interface MediaRecord {
   id: string
   file_path: string

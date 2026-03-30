@@ -1,0 +1,198 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, watch } from 'vue'
+
+import PaneLayout from '@/components/panes/PaneLayout.vue'
+import PaneSection from '@/components/panes/PaneSection.vue'
+import AdjustmentSlider from '@/components/panes/adjustments/AdjustmentSlider.vue'
+import {
+  ADJUSTMENT_SLIDER_GROUPS,
+  DEFAULT_IMAGE_ADJUSTMENTS,
+  hasAdjustments
+} from '@/lib/adjustment-constants'
+import { useAdjustmentStore } from '@/stores/adjustment'
+import { useLibraryStore } from '@/stores/library'
+
+const libraryStore = useLibraryStore()
+const adjustmentStore = useAdjustmentStore()
+
+const selectedIds = computed(() => [...libraryStore.selectedIds])
+
+const activeItem = computed(() => {
+  if (selectedIds.value.length > 1) {
+    return null
+  }
+
+  const candidateId = libraryStore.focusedId ?? selectedIds.value[0] ?? null
+  if (!candidateId) {
+    return null
+  }
+
+  return libraryStore.items.find((item) => item.id === candidateId) ?? null
+})
+
+const currentAdjustments = computed(() => {
+  return activeItem.value
+    ? adjustmentStore.getResolvedFor(activeItem.value.id)
+    : DEFAULT_IMAGE_ADJUSTMENTS
+})
+
+const noSelection = computed(() => !activeItem.value && selectedIds.value.length === 0 && !libraryStore.focusedId)
+const multipleSelection = computed(() => selectedIds.value.length > 1)
+const notImage = computed(() => activeItem.value?.media_type === 'video')
+const canInteract = computed(() => !!activeItem.value && activeItem.value.media_type === 'image')
+const canPaste = computed(() => adjustmentStore.clipboard !== null)
+const showReset = computed(() => canInteract.value && hasAdjustments(adjustmentStore.getFor(activeItem.value!.id)))
+
+watch(
+  () => activeItem.value?.id ?? null,
+  async (mediaId, previousMediaId) => {
+    if (previousMediaId && previousMediaId !== mediaId) {
+      await adjustmentStore.flush()
+    }
+
+    if (mediaId && activeItem.value?.media_type === 'image') {
+      await adjustmentStore.load(mediaId)
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  void adjustmentStore.flush()
+})
+
+function setField(key: keyof typeof DEFAULT_IMAGE_ADJUSTMENTS, value: number): void {
+  if (!canInteract.value) return
+  adjustmentStore.setField(activeItem.value!.id, key, value)
+}
+
+function resetField(key: keyof typeof DEFAULT_IMAGE_ADJUSTMENTS): void {
+  if (!canInteract.value) return
+  setField(key, DEFAULT_IMAGE_ADJUSTMENTS[key])
+}
+
+async function resetAll(): Promise<void> {
+  if (!canInteract.value) return
+  await adjustmentStore.reset(activeItem.value!.id)
+}
+
+function copyAdjustments(): void {
+  if (!canInteract.value) return
+  adjustmentStore.copy(activeItem.value!.id)
+}
+
+async function pasteAdjustments(): Promise<void> {
+  if (!canInteract.value) return
+  await adjustmentStore.paste(activeItem.value!.id)
+}
+</script>
+
+<template>
+  <PaneLayout title="Adjustments">
+    <div
+      v-if="noSelection"
+      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
+    >
+      Select an image to adjust
+    </div>
+
+    <div
+      v-else-if="multipleSelection"
+      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
+    >
+      Select a single image to adjust
+    </div>
+
+    <div
+      v-else-if="notImage"
+      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
+    >
+      Adjustments are available for images only
+    </div>
+
+    <div v-else class="space-y-4">
+      <PaneSection title="Light">
+        <div class="space-y-3">
+          <AdjustmentSlider
+            v-for="config in ADJUSTMENT_SLIDER_GROUPS.light"
+            :key="config.key"
+            :config="config"
+            :model-value="currentAdjustments[config.key]"
+            :disabled="!canInteract"
+            @update:model-value="setField(config.key, $event)"
+            @reset="resetField(config.key)"
+          />
+        </div>
+      </PaneSection>
+
+      <PaneSection title="Color">
+        <div class="space-y-3">
+          <AdjustmentSlider
+            v-for="config in ADJUSTMENT_SLIDER_GROUPS.color"
+            :key="config.key"
+            :config="config"
+            :model-value="currentAdjustments[config.key]"
+            :disabled="!canInteract"
+            @update:model-value="setField(config.key, $event)"
+            @reset="resetField(config.key)"
+          />
+        </div>
+      </PaneSection>
+
+      <PaneSection title="Effects">
+        <div class="space-y-3">
+          <AdjustmentSlider
+            v-for="config in ADJUSTMENT_SLIDER_GROUPS.effects"
+            :key="config.key"
+            :config="config"
+            :model-value="currentAdjustments[config.key]"
+            :disabled="!canInteract"
+            @update:model-value="setField(config.key, $event)"
+            @reset="resetField(config.key)"
+          />
+        </div>
+      </PaneSection>
+
+      <PaneSection title="Actions">
+        <div class="space-y-2">
+          <div class="flex gap-2">
+            <UButton
+              icon="i-lucide-copy"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="min-w-0 flex-1 justify-center"
+              :disabled="!canInteract"
+              @click="copyAdjustments"
+            >
+              Copy
+            </UButton>
+            <UButton
+              icon="i-lucide-clipboard-paste"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="min-w-0 flex-1 justify-center"
+              :disabled="!canInteract || !canPaste"
+              @click="pasteAdjustments"
+            >
+              Paste
+            </UButton>
+          </div>
+
+          <UButton
+            icon="i-lucide-undo-2"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            class="w-full justify-center"
+            :disabled="!showReset"
+            @click="resetAll"
+          >
+            Reset All
+          </UButton>
+        </div>
+      </PaneSection>
+    </div>
+  </PaneLayout>
+</template>

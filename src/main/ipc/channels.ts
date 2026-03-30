@@ -20,6 +20,10 @@ export const IPC_CHANNELS = {
   TRANSFORMS_GET: 'transforms:get',
   TRANSFORMS_SAVE: 'transforms:save',
 
+  // Adjustments
+  ADJUSTMENTS_GET: 'adjustments:get',
+  ADJUSTMENTS_SAVE: 'adjustments:save',
+
   // Keywords
   KEYWORDS_GET_FOR_MEDIA: 'keywords:getForMedia',
   KEYWORDS_SET_FOR_MEDIA: 'keywords:setForMedia',

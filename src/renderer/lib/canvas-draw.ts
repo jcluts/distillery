@@ -6,11 +6,13 @@ export interface DrawOptions {
   width: number
   height: number
   img: HTMLImageElement | null
+  adjustedSource?: HTMLCanvasElement | OffscreenCanvas | null
   media: { file_name: string } | null
   zoom: 'fit' | 'actual'
   panOffset: { x: number; y: number }
   transforms?: ImageTransforms | null
   suppressCrop?: boolean
+  transformCanvas?: HTMLCanvasElement | OffscreenCanvas | null
 }
 
 export interface DrawResult {
@@ -30,16 +32,24 @@ function getRotatedDimensions(
   return { width, height }
 }
 
+function getReusableCanvasContext(
+  canvas: HTMLCanvasElement | OffscreenCanvas
+): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null {
+  return canvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
+}
+
 export function draw({
   ctx,
   width,
   height,
   img,
+  adjustedSource,
   media,
   zoom,
   panOffset,
   transforms,
-  suppressCrop
+  suppressCrop,
+  transformCanvas
 }: DrawOptions): DrawResult {
   ctx.clearRect(0, 0, width, height)
   ctx.fillStyle = 'rgba(0, 0, 0, 0)'
@@ -60,8 +70,9 @@ export function draw({
     }
   }
 
-  const iw = img.naturalWidth || img.width
-  const ih = img.naturalHeight || img.height
+  const source = adjustedSource ?? img
+  const iw = 'naturalWidth' in source ? source.naturalWidth || source.width : source.width
+  const ih = 'naturalHeight' in source ? source.naturalHeight || source.height : source.height
 
   if (!iw || !ih || !width || !height) {
     return {
@@ -79,24 +90,33 @@ export function draw({
     aspect_ratio: null
   }
 
-  // Apply rotation + flip via an off-screen canvas
+  const needsTransform = active.rotation !== 0 || active.flip_h || active.flip_v
+
   const rotated = getRotatedDimensions(iw, ih, active.rotation)
 
-  const transformedCanvas = document.createElement('canvas')
-  transformedCanvas.width = Math.max(1, Math.round(rotated.width))
-  transformedCanvas.height = Math.max(1, Math.round(rotated.height))
+  let drawSource: HTMLImageElement | HTMLCanvasElement | OffscreenCanvas = source
 
-  const transformedCtx = transformedCanvas.getContext('2d')
-  if (!transformedCtx) {
-    return { imageRect: null, pannable: false, clampedPanOffset: { x: 0, y: 0 } }
+  if (needsTransform) {
+    const reusableCanvas = transformCanvas ?? document.createElement('canvas')
+    reusableCanvas.width = Math.max(1, Math.round(rotated.width))
+    reusableCanvas.height = Math.max(1, Math.round(rotated.height))
+
+    const transformedCtx = getReusableCanvasContext(reusableCanvas)
+    if (!transformedCtx) {
+      return { imageRect: null, pannable: false, clampedPanOffset: { x: 0, y: 0 } }
+    }
+
+    transformedCtx.setTransform(1, 0, 0, 1, 0, 0)
+    transformedCtx.clearRect(0, 0, reusableCanvas.width, reusableCanvas.height)
+    transformedCtx.imageSmoothingEnabled = true
+    transformedCtx.imageSmoothingQuality = 'high'
+    transformedCtx.translate(rotated.width / 2, rotated.height / 2)
+    transformedCtx.rotate((active.rotation * Math.PI) / 180)
+    transformedCtx.scale(active.flip_h ? -1 : 1, active.flip_v ? -1 : 1)
+    transformedCtx.drawImage(source, -iw / 2, -ih / 2, iw, ih)
+
+    drawSource = reusableCanvas
   }
-
-  transformedCtx.imageSmoothingEnabled = true
-  transformedCtx.imageSmoothingQuality = 'high'
-  transformedCtx.translate(rotated.width / 2, rotated.height / 2)
-  transformedCtx.rotate((active.rotation * Math.PI) / 180)
-  transformedCtx.scale(active.flip_h ? -1 : 1, active.flip_v ? -1 : 1)
-  transformedCtx.drawImage(img, -iw / 2, -ih / 2, iw, ih)
 
   // Extract crop region (suppressed during crop mode so full image is shown)
   const crop = suppressCrop ? null : normalizeCrop(active.crop)
@@ -126,7 +146,7 @@ export function draw({
 
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(transformedCanvas, sx, sy, sw, sh, dx, dy, dw, dh)
+  ctx.drawImage(drawSource, sx, sy, sw, sh, dx, dy, dw, dh)
 
   return {
     imageRect: { x: dx, y: dy, w: dw, h: dh },

@@ -2,10 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 
 import { draw } from '@/lib/canvas-draw'
+import { hasAdjustments } from '@/lib/adjustment-constants'
+import { useAdjustmentStore } from '@/stores/adjustment'
 import type { ZoomLevel } from '@/stores/ui'
 import { useRemovalStore } from '@/stores/removal'
 import { useTransformStore } from '@/stores/transform'
 import type { MediaRecord } from '@/types'
+import { WebGLProcessor } from '@/webgl'
 
 const props = withDefaults(
   defineProps<{
@@ -19,10 +22,12 @@ const props = withDefaults(
 
 const removalStore = useRemovalStore()
 const transformStore = useTransformStore()
+const adjustmentStore = useAdjustmentStore()
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const imageRef = ref<HTMLImageElement | null>(null)
+const adjustedSourceRef = ref<HTMLCanvasElement | null>(null)
 const isPannable = ref(false)
 const dragging = ref(false)
 
@@ -31,11 +36,19 @@ const dragStart = { x: 0, y: 0 }
 const dragStartOffset = { x: 0, y: 0 }
 let isDragging = false
 let resizeObserver: ResizeObserver | null = null
+let transformCanvas: HTMLCanvasElement | null = null
+let webglProcessor: WebGLProcessor | null = null
+let loadedWebglImage: HTMLImageElement | null = null
+let adjustedRenderToken = 0
 
 const imageUrl = computed(() => props.media?.working_file_path ?? props.media?.file_path ?? null)
 
 const transforms = computed(() =>
   props.media ? transformStore.getTransformsFor(props.media.id) : null
+)
+
+const adjustments = computed(() =>
+  props.media ? adjustmentStore.getFor(props.media.id) : null
 )
 
 const isCropTarget = computed(
@@ -59,10 +72,54 @@ watch(
   (media) => {
     if (media?.id && media.media_type === 'image') {
       void transformStore.loadTransforms(media.id)
+      void adjustmentStore.load(media.id)
     }
   },
   { immediate: true }
 )
+
+function getTransformCanvas(): HTMLCanvasElement {
+  transformCanvas ??= document.createElement('canvas')
+  return transformCanvas
+}
+
+function ensureWebGLProcessor(): WebGLProcessor {
+  webglProcessor ??= new WebGLProcessor()
+  webglProcessor.initialize()
+  return webglProcessor
+}
+
+async function syncAdjustedSource(forceReload = false): Promise<void> {
+  const media = props.media
+  const image = imageRef.value
+  const token = ++adjustedRenderToken
+
+  if (!media || media.media_type !== 'image' || !image || !hasAdjustments(adjustments.value)) {
+    adjustedSourceRef.value = null
+    redraw()
+    return
+  }
+
+  try {
+    const processor = ensureWebGLProcessor()
+
+    if (forceReload || loadedWebglImage !== image) {
+      await processor.loadImage(image)
+      if (token !== adjustedRenderToken) return
+      loadedWebglImage = image
+    }
+
+    processor.render(adjustments.value)
+    if (token !== adjustedRenderToken) return
+
+    adjustedSourceRef.value = processor.getCanvas()
+  } catch {
+    if (token !== adjustedRenderToken) return
+    adjustedSourceRef.value = null
+  }
+
+  redraw()
+}
 
 function resetPan(): void {
   panOffset.x = 0
@@ -83,11 +140,13 @@ function redraw(): void {
     width: rect.width,
     height: rect.height,
     img: imageRef.value,
+    adjustedSource: adjustedSourceRef.value,
     media: props.media,
     zoom: props.zoom,
     panOffset,
     transforms: transforms.value,
-    suppressCrop: isCropTarget.value
+    suppressCrop: isCropTarget.value,
+    transformCanvas: getTransformCanvas()
   })
 
   panOffset.x = result.clampedPanOffset.x
@@ -179,6 +238,23 @@ watch(transforms, () => {
   redraw()
 })
 
+watch(
+  () => props.media?.id ?? null,
+  () => {
+    loadedWebglImage = null
+    void syncAdjustedSource(true)
+  }
+)
+
+watch(imageRef, () => {
+  loadedWebglImage = null
+  void syncAdjustedSource(true)
+})
+
+watch(adjustments, () => {
+  void syncAdjustedSource(false)
+})
+
 watchEffect((onCleanup) => {
   const url = imageUrl.value
   let cancelled = false
@@ -229,6 +305,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
+  webglProcessor?.dispose()
+  webglProcessor = null
+  transformCanvas = null
   transformStore.setCropOverlay(null)
   removalStore.setMaskOverlay(null)
 })

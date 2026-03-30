@@ -27,6 +27,20 @@ export interface ImageTransforms {
   aspect_ratio: string | null
 }
 
+export interface ImageAdjustments {
+  exposure: number
+  brightness: number
+  contrast: number
+  highlights: number
+  shadows: number
+  saturation: number
+  vibrance: number
+  temperature: number
+  tint: number
+  hue: number
+  clarity: number
+}
+
 export interface MediaRecord {
   id: string
   file_path: string
@@ -659,6 +673,10 @@ export interface DistilleryAPI {
   showMediaInFolder(id: string): Promise<void>
   openMediaInApp(id: string): Promise<void>
   copyMediaToClipboard(id: string): Promise<void>
+
+  // Adjustments
+  getAdjustments(mediaId: string): Promise<ImageAdjustments | null>
+  saveAdjustments(mediaId: string, adjustments: ImageAdjustments | null): Promise<void>
 
   // Transforms
   transforms: {

@@ -40,6 +40,7 @@ import { registerWindowHandlers } from './ipc/handlers/window'
 import { registerProviderHandlers } from './ipc/handlers/providers'
 import { registerUpscaleHandlers } from './ipc/handlers/upscale'
 import { registerTransformsHandlers } from './ipc/handlers/transforms'
+import { registerAdjustmentsHandlers } from './ipc/handlers/adjustments'
 import { registerRemovalHandlers } from './ipc/handlers/removal'
 import { UpscaleModelService } from './upscale/upscale-model-service'
 import { UpscaleService } from './upscale/upscale-service'
@@ -563,6 +564,7 @@ app.whenReady().then(async () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
     }
   })
+  registerAdjustmentsHandlers()
   registerRemovalHandlers(removalService, {
     onLibraryUpdated: () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)

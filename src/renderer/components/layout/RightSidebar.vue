@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import { PANEL_ICON_STRIP_WIDTH_PX, RIGHT_PANEL_WIDTH_PX } from '@/lib/layout'
 import CollectionsPane from '@/components/panes/CollectionsPane.vue'
+import AdjustmentsPane from '@/components/panes/AdjustmentsPane.vue'
 import GenerationInfoPane from '@/components/panes/GenerationInfoPane.vue'
 import MediaInfoPane from '@/components/panes/MediaInfoPane.vue'
 import RemovalPane from '@/components/panes/RemovalPane.vue'
@@ -16,6 +17,7 @@ const tabs: { id: RightPanelTab; icon: string; label: string }[] = [
   { id: 'info', icon: 'i-lucide-info', label: 'Info' },
   { id: 'collections', icon: 'i-lucide-layers-3', label: 'Collections' },
   { id: 'transform', icon: 'i-lucide-crop', label: 'Transform' },
+  { id: 'adjustments', icon: 'i-lucide-sliders-horizontal', label: 'Adjustments' },
   { id: 'removal', icon: 'i-lucide-eraser', label: 'Removals' }
 ]
 
@@ -27,6 +29,8 @@ const activePaneComponent = computed(() => {
       return CollectionsPane
     case 'transform':
       return TransformPane
+    case 'adjustments':
+      return AdjustmentsPane
     case 'removal':
       return RemovalPane
     default:

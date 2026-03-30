@@ -6,6 +6,7 @@ import type {
   CollectionUpdate,
   DistilleryAPI,
   GenerationSubmitInput,
+  ImageAdjustments,
   ImageTransforms,
   RemovalData,
   ImportFolderCreate,
@@ -33,6 +34,11 @@ const api: DistilleryAPI = {
   showMediaInFolder: (id: string) => ipcRenderer.invoke(CH.LIBRARY_SHOW_IN_FOLDER, id),
   openMediaInApp: (id: string) => ipcRenderer.invoke(CH.LIBRARY_OPEN_IN_APP, id),
   copyMediaToClipboard: (id: string) => ipcRenderer.invoke(CH.LIBRARY_COPY_TO_CLIPBOARD, id),
+
+  // Adjustments
+  getAdjustments: (mediaId: string) => ipcRenderer.invoke(CH.ADJUSTMENTS_GET, mediaId),
+  saveAdjustments: (mediaId: string, adjustments: ImageAdjustments | null) =>
+    ipcRenderer.invoke(CH.ADJUSTMENTS_SAVE, mediaId, adjustments),
 
   // Transforms
   transforms: {
