@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import Slider from 'primevue/slider'
 
 import type { AdjustmentSliderConfig } from '@/lib/adjustment-constants'
 
@@ -16,10 +17,10 @@ const emit = defineEmits<{
 
 const isModified = computed(() => props.modelValue !== props.config.default)
 
-function handleUpdate(value: number | number[] | undefined): void {
-  const nextValue = Array.isArray(value) ? value[0] : value
-  if (typeof nextValue === 'number') {
-    emit('update:modelValue', nextValue)
+function handleUpdate(value: number | number[]): void {
+  const v = Array.isArray(value) ? value[0] : value
+  if (typeof v === 'number') {
+    emit('update:modelValue', v)
   }
 }
 </script>
@@ -42,7 +43,7 @@ function handleUpdate(value: number | number[] | undefined): void {
       </button>
     </div>
 
-    <USlider
+    <Slider
       :model-value="modelValue"
       :min="config.min"
       :max="config.max"

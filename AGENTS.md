@@ -8,9 +8,9 @@ Distillery is a desktop application for local AI image generation and media mana
 
 **MVP scope:** Local image generation via FLUX.2 Klein, a performant media library with culling and browsing workflows, generation timeline/history, and import support. The architecture anticipates future features (video, API providers, non-destructive editing, upscaling, collections) without implementing them.
 
-**Context:** This is a ground-up rewrite of an existing prototype (simple-ai-client). The V1 validated the UI/UX patterns and architecture but suffers from accumulated tech debt (vanilla JS origins, no CSS framework, 328 files of organically grown code). This rewrite ports the proven design decisions onto a clean foundation with Nuxt UI for consistent component styling.
+**Context:** This is a ground-up rewrite of an existing prototype (simple-ai-client). The V1 validated the UI/UX patterns and architecture but suffers from accumulated tech debt (vanilla JS origins, no CSS framework, 328 files of organically grown code). This rewrite ports the proven design decisions onto a clean foundation with PrimeVue for consistent component styling.
 
-**React reference:** The React version of the renderer lives at `C:\Users\jason\projects\distillery-react` (git worktree of the `react-reference` branch). It and the V1 prototype serve as **wireframes** — they define the feature set, layout structure, and user flows, but the Vue renderer does not attempt to replicate their visual styling. Default Nuxt UI appearance is the target.
+**React reference:** The React version of the renderer lives at `C:\Users\jason\projects\distillery-react` (git worktree of the `react-reference` branch). It and the V1 prototype serve as **wireframes** — they define the feature set, layout structure, and user flows, but the Vue renderer does not attempt to replicate their visual styling. Default PrimeVue appearance is the target.
 
 ---
 
@@ -28,26 +28,26 @@ Distillery is a desktop application for local AI image generation and media mana
 - Never take an ad-hoc approach, slapping on band-aids to address issues rather than creating the properly architected solution. 
 - This application is a fresh start with zero users at the moment, never worry about breaking changes or backwards compatibility.
 
-### Components & Styling — Nuxt UI First
+### Components & Styling — PrimeVue First
 
-**The #1 rule: Always use a Nuxt UI component when one exists.** Do not build custom HTML+Tailwind versions of things Nuxt UI already provides. Before writing any custom markup, exhaustively check `docs/ui_components/` for a suitable component. Nuxt UI has 125+ components — the right one almost always exists.
+**The #1 rule: Always use a PrimeVue component when one exists.** Do not build custom HTML+Tailwind versions of things PrimeVue already provides. Consult the [PrimeVue documentation](https://primevue.org/) before writing custom markup.
 
 **Priority order for any UI element:**
-1. **Nuxt UI component with its built-in props/variants** — use `variant`, `color`, `size`, `icon`, `loading`, `:items`, etc. Accept the default Nuxt UI appearance.
-2. **Nuxt UI component with `:ui` prop overrides** — override specific slots only when the built-in props can't express the need. Check slot names in `node_modules/.nuxt-ui/ui/<component>.ts`.
+1. **PrimeVue component with its built-in props/variants** — use `severity`, `variant`, `size`, `icon`, `loading`, etc. Accept the default PrimeVue Aura appearance.
+2. **PrimeVue component with `pt` (pass-through) overrides** — override specific DOM elements' classes only when built-in props can't express the need.
 3. **Tailwind utilities for layout only** — flex, grid, spacing, sizing, overflow, positioning. These are fine and expected for arranging components on the page.
-4. **Custom Tailwind for visual styling** — absolute last resort. Only when no Nuxt UI component or prop can achieve the effect.
+4. **Custom Tailwind for visual styling** — absolute last resort. Only when no PrimeVue component or prop can achieve the effect.
 
 **Do not:**
 - Recreate the React/V1 styling with custom Tailwind classes. Those designs were built on shadcn/ui — a completely different component library.
-- Add decorative Tailwind classes (colors, borders, shadows, rounded corners, typography styles) to elements that a Nuxt UI component could render instead.
-- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use Nuxt UI's semantic utilities (`text-muted`, `bg-elevated`, `border-default`, `text-toned`) or component props (`color="primary"`).
+- Add decorative Tailwind classes (colors, borders, shadows, rounded corners, typography styles) to elements that a PrimeVue component could render instead.
+- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use the semantic utilities in `main.css` (`text-muted`, `bg-elevated`, `border-default`) or PrimeVue component props (`severity="secondary"`).
 
 ### UI/UX Aesthetic
-- Professional, clean, elegant — achieved through **Nuxt UI defaults**, not custom CSS.
+- Professional, clean, elegant — achieved through **PrimeVue Aura theme defaults**, not custom CSS.
 - Dark mode is the default (`class="dark"` on `<html>`).
-- The React reference and V1 screenshots define the feature set and layout structure. They do **not** define the visual styling — Nuxt UI's default appearance is the target.
-- Never copy React JSX, shadcn class lists, or V1 CSS. Understand the *behavior*, then find the Nuxt UI component that provides it.
+- The React reference and V1 screenshots define the feature set and layout structure. They do **not** define the visual styling — PrimeVue's default Aura appearance is the target.
+- Never copy React JSX, shadcn class lists, or V1 CSS. Understand the *behavior*, then find the PrimeVue component that provides it.
 
 ---
 
@@ -57,20 +57,21 @@ Distillery is a desktop application for local AI image generation and media mana
 |---|---|
 | Desktop shell | Electron 39, electron-vite 5 |
 | Renderer | Vue 3 (Composition API, `<script setup>` SFCs), TypeScript 5.9 |
-| UI library | Nuxt UI v4 (Vue/Vite mode — `@nuxt/ui/vite`, `router: false`) |
+| UI library | PrimeVue 4 (Aura theme via `@primeuix/themes`) |
+| Auto-import | unplugin-vue-components + `@primevue/auto-import-resolver` |
 | State | Pinia (setup syntax stores, no persistence middleware) |
-| CSS | Tailwind 4 (via Nuxt UI) |
+| CSS | Tailwind 4 (`@tailwindcss/vite` plugin) |
 | Database | better-sqlite3 (WAL mode, main process only) |
 | Image processing | sharp (thumbnails + ref image prep) |
 | AI engine | condenser.cpp (`cn-engine`), NDJSON-over-stdio child process |
 | Virtualization | @tanstack/vue-virtual |
-| Icons | Iconify via Nuxt UI (collection: `lucide`, prefix: `i-lucide-*`) |
+| Icons | @iconify/vue with `@iconify-json/lucide` (format: `lucide:icon-name`) |
 | Font | Inter Variable (`@fontsource-variable/inter`) |
 
-**Nuxt UI config** (in `electron.vite.config.ts`):
-- `router: false` — no vue-router; navigation is modal-driven
-- `colorMode: true` — dark mode via `class="dark"` on `<html>`
-- Colors: `primary: 'cyan'`, `neutral: 'neutral'`
+**PrimeVue config** (in `src/renderer/main.ts`):
+- Theme: Aura preset with `darkModeSelector: '.dark'`, `cssLayer: false`
+- Prefix: `p` — all PrimeVue CSS classes prefixed with `p-`
+- No vue-router; navigation is modal-driven via the UI store
 
 **Template syntax:** SFC templates **only** — no JSX, no render functions.
 
@@ -130,9 +131,9 @@ src/
 │   └── index.d.ts                  # Window type augmentation
 │
 └── renderer/
-    ├── main.ts                     # Vue app entry (createApp, Pinia, Nuxt UI plugin)
-    ├── App.vue                     # Root: UApp wrapper + IPC subscription bootstrap
-    ├── assets/main.css             # Tailwind 4 + Nuxt UI imports, Inter font
+    ├── main.ts                     # Vue app entry (createApp, Pinia, PrimeVue plugin)
+    ├── App.vue                     # Root: IPC subscription bootstrap
+    ├── assets/main.css             # Tailwind 4, Inter font, PrimeVue token utilities
     ├── types/index.ts              # Renderer type surface + DistilleryAPI interface
     ├── lib/
     │   ├── constants.ts            # Resolution presets, aspect ratios, defaults
@@ -192,14 +193,14 @@ Key tables: `media`, `generations`, `generation_inputs`, `work_queue`, `base_mod
 
 No vue-router. Navigation is modal-driven via the UI store:
 - `activeModals: string[]` tracks open modals by ID (`'settings'`, `'models'`, `'generation-detail'`)
-- Use Nuxt UI's `UModal` with `v-model:open` bound to a computed getter/setter that reads from/writes to the store
+- Use PrimeVue's `Dialog` component with `:visible` bound to a computed getter/setter that reads from/writes to the store
 
 ### Three-Panel Layout
 
 ```
 AppLayout (flex h-screen w-screen flex-col)
 ├── TitleBar (drag region, window controls)
-└── UMain (flex min-h-0 flex-1 overflow-hidden)
+└── main (flex min-h-0 flex-1 overflow-hidden)
     ├── LeftSidebar (aside)
     │   ├── Icon rail (w-12): Generate | Timeline | Import
     │   └── Pane content (360px default)
@@ -212,7 +213,7 @@ AppLayout (flex h-screen w-screen flex-col)
         └── Icon rail (w-12, pinned right)
 ```
 
-The layout uses **plain HTML flex containers** — no UDashboardGroup/UDashboardSidebar/UDashboardPanel. Sidebar pane switching is driven by the UI store.
+The layout uses **plain HTML flex containers**. Sidebar pane switching is driven by the UI store.
 
 ### Keyboard Shortcuts (Lightroom-style)
 
@@ -328,8 +329,6 @@ Stores are ephemeral (no persistence middleware). State syncs to the main proces
 | Document | Location |
 |---|---|
 | **Vue porting guide** | `docs/PORTING_GUIDE.md` |
-| Nuxt UI component docs | `docs/ui_components/` |
-| Nuxt UI skill | `.agents/skills/nuxt-ui/SKILL.md` |
 | React reference codebase | `C:\Users\jason\projects\distillery-react` |
 | Product spec | `docs/SPEC.md` |
 | Model manager spec | `docs/MODEL_MANAGER_SPEC.md` |

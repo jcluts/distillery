@@ -4,7 +4,7 @@
 
 Non-destructive image adjustments: brightness, contrast, exposure, highlights, shadows, saturation, vibrance, temperature, tint, hue, clarity. Adjustments are stored in the database and previewed in real-time via WebGL.
 
-This feature ports the proven adjustment pipeline from the V1 prototype onto the Vue/Nuxt UI foundation. The V1 implementation validated the shader math and adjustment processing order; this spec defines a cleaner architecture that eliminates V1's dead code, class-based singletons, and tangled concerns.
+This feature ports the proven adjustment pipeline from the V1 prototype onto the Vue/PrimeVue foundation. The V1 implementation validated the shader math and adjustment processing order; this spec defines a cleaner architecture that eliminates V1's dead code, class-based singletons, and tangled concerns.
 
 ### Scope
 
@@ -26,7 +26,7 @@ This feature ports the proven adjustment pipeline from the V1 prototype onto the
 ┌─────────────────────────────── Renderer ──────────────────────────────┐
 │                                                                       │
 │  AdjustmentsPane.vue                                                  │
-│    ├── Grouped USlider controls (Light / Color / Effects)             │
+│    ├── Grouped Slider controls (Light / Color / Effects)              │
 │    ├── Reset / Copy / Paste actions                                   │
 │    └── Writes to adjustmentStore                                      │
 │                                                                       │
@@ -388,7 +388,7 @@ New right sidebar tab. Add `'adjustments'` to the right panel tab options in `us
 
 ### Icon
 
-`i-lucide-sliders-horizontal` — matches the Lightroom convention for adjustment panels.
+`lucide:sliders-horizontal` — matches the Lightroom convention for adjustment panels.
 
 ### Component Structure
 
@@ -410,14 +410,14 @@ AdjustmentsPane.vue
 │   ├── PaneSection (title="Effects")
 │   │   └── AdjustmentSlider (Clarity)
 │   └── PaneSection (title="Actions")
-│       ├── UButton (Reset All)
-│       ├── UButton (Copy)
-│       └── UButton (Paste) — disabled when clipboard empty
+│       ├── Button (Reset All)
+│       ├── Button (Copy)
+│       └── Button (Paste) — disabled when clipboard empty
 ```
 
 ### AdjustmentSlider Component
 
-A reusable sub-component wrapping `USlider` with label and value display:
+A reusable sub-component wrapping PrimeVue's `Slider` with label and value display:
 
 ```vue
 <!-- AdjustmentSlider.vue -->
@@ -449,7 +449,7 @@ const isModified = computed(() => props.modelValue !== props.config.default)
         {{ config.format(modelValue) }}
       </span>
     </div>
-    <USlider
+    <Slider
       :model-value="modelValue"
       :min="config.min"
       :max="config.max"

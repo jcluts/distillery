@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
+import Slider from 'primevue/slider'
 
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
@@ -110,37 +113,37 @@ function isOperationBusy(opId: string): boolean {
       <!-- Tool toggle -->
       <PaneSection title="Mode">
         <div class="flex gap-1">
-          <UButton
-            size="xs"
-            :variant="removalStore.tool === 'paint' ? 'soft' : 'outline'"
-            :color="removalStore.tool === 'paint' ? 'primary' : 'neutral'"
+          <Button
+            size="small"
+            :outlined="removalStore.tool !== 'paint'"
+            :severity="removalStore.tool === 'paint' ? undefined : 'secondary'"
             class="justify-center"
             @click="removalStore.setTool('paint')"
           >
             Paint
-          </UButton>
-          <UButton
-            size="xs"
-            :variant="removalStore.tool === 'erase' ? 'soft' : 'outline'"
-            :color="removalStore.tool === 'erase' ? 'primary' : 'neutral'"
+          </Button>
+          <Button
+            size="small"
+            :outlined="removalStore.tool !== 'erase'"
+            :severity="removalStore.tool === 'erase' ? undefined : 'secondary'"
             class="justify-center"
             @click="removalStore.setTool('erase')"
           >
             Erase
-          </UButton>
+          </Button>
         </div>
       </PaneSection>
 
       <!-- Brush Size -->
       <PaneSection title="Brush Size">
         <div class="flex items-center gap-3">
-          <USlider
+          <Slider
             :model-value="removalStore.brushSizeNormalized * 100"
             :min="0.4"
             :max="25"
             :step="0.1"
             class="flex-1"
-            @update:model-value="(v: number | undefined) => v != null && removalStore.setBrushSizeNormalized(v / 100)"
+            @update:model-value="(v: number | number[]) => { const n = Array.isArray(v) ? v[0] : v; if (n != null) removalStore.setBrushSizeNormalized(n / 100) }"
           />
           <span class="w-8 shrink-0 text-right text-xs text-muted">{{ brushSizePercent }}%</span>
         </div>
@@ -149,13 +152,13 @@ function isOperationBusy(opId: string): boolean {
       <!-- Feather -->
       <PaneSection title="Feather">
         <div class="flex items-center gap-3">
-          <USlider
+          <Slider
             :model-value="removalStore.featherRadiusNormalized * 100"
             :min="0"
             :max="20"
             :step="0.1"
             class="flex-1"
-            @update:model-value="(v: number | undefined) => v != null && removalStore.setFeatherRadiusNormalized(v / 100)"
+            @update:model-value="(v: number | number[]) => { const n = Array.isArray(v) ? v[0] : v; if (n != null) removalStore.setFeatherRadiusNormalized(n / 100) }"
           />
           <span class="w-8 shrink-0 text-right text-xs text-muted">{{ featherPercent }}%</span>
         </div>
@@ -163,62 +166,61 @@ function isOperationBusy(opId: string): boolean {
 
       <!-- Undo / Clear -->
       <div class="flex gap-2">
-        <UButton
-          icon="i-lucide-undo-2"
-          color="neutral"
-          variant="outline"
-          size="sm"
+        <Button
+          outlined
+          severity="secondary"
+          size="small"
           class="flex-1 justify-center"
           :disabled="!isPaintTarget || !canUndo"
           @click="removalStore.undoStroke()"
         >
+          <Icon icon="lucide:undo-2" class="size-4" />
           Undo
-        </UButton>
-        <UButton
-          icon="i-lucide-trash-2"
-          color="neutral"
-          variant="outline"
-          size="sm"
+        </Button>
+        <Button
+          outlined
+          severity="secondary"
+          size="small"
           class="flex-1 justify-center"
           :disabled="!isPaintTarget || !hasDraft"
           @click="removalStore.clearDraftStrokes()"
         >
+          <Icon icon="lucide:trash-2" class="size-4" />
           Clear
-        </UButton>
+        </Button>
       </div>
 
       <!-- Paint Mask / Apply + Cancel -->
       <div>
         <div v-if="!isPaintTarget">
-          <UButton
-            icon="i-lucide-brush"
-            color="neutral"
-            variant="outline"
+          <Button
+            outlined
+            severity="secondary"
             class="w-full justify-center"
             @click="removalStore.enterPaintMode(focusedItem!.id)"
           >
+            <Icon icon="lucide:brush" class="size-4" />
             Paint Mask
-          </UButton>
+          </Button>
         </div>
         <div v-else class="flex gap-2">
-          <UButton
-            icon="i-lucide-check"
-            color="primary"
+          <Button
             class="flex-1 justify-center"
             :disabled="!hasDraft"
             @click="removalStore.applyDraft()"
           >
+            <Icon icon="lucide:check" class="size-4" />
             Apply
-          </UButton>
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="outline"
+          </Button>
+          <Button
+            outlined
+            severity="secondary"
             class="flex-1 justify-center"
             @click="removalStore.cancelPaintMode()"
           >
+            <Icon icon="lucide:x" class="size-4" />
             Cancel
-          </UButton>
+          </Button>
         </div>
       </div>
 
@@ -227,7 +229,7 @@ function isOperationBusy(opId: string): boolean {
         v-if="mediaProgress && mediaProgress.phase !== 'complete' && mediaProgress.phase !== 'error'"
         class="flex items-center gap-2 rounded-md border border-default bg-elevated px-3 py-2 text-xs text-muted"
       >
-        <UIcon name="i-lucide-loader-2" class="size-3.5 animate-spin" />
+        <Icon icon="lucide:loader-2" class="size-3.5 animate-spin" />
         <span>{{ mediaProgress.message ?? `Phase: ${mediaProgress.phase}` }}</span>
       </div>
 
@@ -256,51 +258,54 @@ function isOperationBusy(opId: string): boolean {
             </div>
 
             <div class="flex shrink-0 items-center gap-1">
-              <UButton
-                :icon="operation.enabled ? 'i-lucide-eye' : 'i-lucide-eye-off'"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                square
+              <Button
+                text
+                plain
+                severity="secondary"
+                size="small"
                 :aria-label="operation.enabled ? 'Hide removal' : 'Show removal'"
                 @click="removalStore.toggleOperation(focusedItem!.id, operation.id, !operation.enabled)"
-              />
+              >
+                <Icon :icon="operation.enabled ? 'lucide:eye' : 'lucide:eye-off'" class="size-4" />
+              </Button>
 
-              <UButton
+              <Button
                 v-if="staleIdSet.has(operation.id)"
-                icon="i-lucide-refresh-ccw"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                square
+                text
+                plain
+                severity="secondary"
+                size="small"
                 :disabled="isOperationBusy(operation.id)"
                 :class="{ 'animate-spin': isOperationBusy(operation.id) }"
                 aria-label="Refresh removal"
                 @click="removalStore.refreshOperation(focusedItem!.id, operation.id)"
-              />
+              >
+                <Icon icon="lucide:refresh-ccw" class="size-4" />
+              </Button>
 
-              <UButton
-                icon="i-lucide-trash-2"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                square
+              <Button
+                text
+                plain
+                severity="secondary"
+                size="small"
                 aria-label="Delete removal"
                 @click="removalStore.deleteOperation(focusedItem!.id, operation.id)"
-              />
+              >
+                <Icon icon="lucide:trash-2" class="size-4" />
+              </Button>
             </div>
           </div>
         </div>
 
-        <UButton
+        <Button
           v-if="staleEnabledCount > 0"
-          color="neutral"
-          variant="outline"
+          outlined
+          severity="secondary"
           class="mt-2 w-full justify-center"
           @click="removalStore.refreshAllStale(focusedItem!.id)"
         >
           Refresh All ({{ staleEnabledCount }})
-        </UButton>
+        </Button>
       </PaneSection>
     </div>
   </PaneLayout>

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Icon } from '@iconify/vue'
+import Tag from 'primevue/tag'
+import InputText from 'primevue/inputtext'
 
 const props = defineProps<{
   keywords: string[]
@@ -40,12 +43,10 @@ function handleBlur(): void {
 <template>
   <div class="space-y-2">
     <div v-if="keywords.length > 0" class="flex flex-wrap gap-1">
-      <UBadge
+      <Tag
         v-for="kw in keywords"
         :key="kw"
-        color="neutral"
-        variant="subtle"
-        size="sm"
+        severity="secondary"
       >
         {{ kw }}
         <button
@@ -55,14 +56,15 @@ function handleBlur(): void {
           :aria-label="`Remove keyword ${kw}`"
           @click="emit('remove', kw)"
         >
-          <UIcon name="i-lucide-x" class="size-3" />
+          <Icon icon="lucide:x" class="size-3" />
         </button>
-      </UBadge>
+      </Tag>
     </div>
-    <UInput
+    <InputText
       v-model="inputValue"
       placeholder="Add keyword…"
-      size="xs"
+      size="small"
+      class="w-full"
       @keydown="handleKeyDown"
       @blur="handleBlur"
     />

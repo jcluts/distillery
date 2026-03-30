@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
 
 import MediaThumbnail from '@/components/library/MediaThumbnail.vue'
 import { useFilmstripSelection } from '@/composables/useFilmstripSelection'
@@ -72,17 +74,18 @@ function selectRelative(offset: -1 | 1): void {
 
 <template>
   <div class="flex shrink-0 items-center gap-2 px-2" :style="{ height: `${FILMSTRIP_HEIGHT}px` }">
-    <UButton
-      type="button"
-      variant="ghost"
-      size="md"
+    <Button
+      text
+      plain
+      severity="secondary"
+      size="small"
       class="h-9 w-9 shrink-0"
       :disabled="currentIndex <= 0"
       aria-label="Previous"
       @click="selectRelative(-1)"
     >
-      <UIcon name="i-lucide-chevron-left" class="size-4" />
-    </UButton>
+      <Icon icon="lucide:chevron-left" class="size-4" />
+    </Button>
 
     <div ref="scrollRef" class="h-full w-full overflow-x-auto overflow-y-hidden px-3">
       <div
@@ -117,16 +120,17 @@ function selectRelative(offset: -1 | 1): void {
       </div>
     </div>
 
-    <UButton
-      type="button"
-      variant="ghost"
-      size="md"
+    <Button
+      text
+      plain
+      severity="secondary"
+      size="small"
       class="h-9 w-9 shrink-0"
       :disabled="currentIndex < 0 || currentIndex >= items.length - 1"
       aria-label="Next"
       @click="selectRelative(1)"
     >
-      <UIcon name="i-lucide-chevron-right" class="size-4" />
-    </UButton>
+      <Icon icon="lucide:chevron-right" class="size-4" />
+    </Button>
   </div>
 </template>

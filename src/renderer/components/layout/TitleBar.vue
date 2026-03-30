@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
 
 const isMaximized = ref(false)
 
@@ -40,7 +42,8 @@ onBeforeUnmount(() => {
 
 <template>
   <header
-    class="flex h-10 shrink-0 items-center bg-elevated px-3"
+    class="flex h-10 shrink-0 items-center px-3"
+    style="background: var(--p-surface-900)"
     :style="dragStyle"
     @dblclick="handleToggleMaximize"
   >
@@ -49,33 +52,39 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="flex items-center" :style="noDragStyle" @dblclick.stop>
-      <UButton
-        icon="i-lucide-minus"
-        color="neutral"
-        variant="ghost"
-        square
+      <Button
+        text
+        plain
+        severity="secondary"
+        size="small"
         aria-label="Minimize"
         @click="handleMinimize"
-      />
+      >
+        <Icon icon="lucide:minus" class="size-4" />
+      </Button>
 
-      <UButton
-        :icon="isMaximized ? 'i-lucide-copy' : 'i-lucide-square'"
-        color="neutral"
-        variant="ghost"
-        square
+      <Button
+        text
+        plain
+        severity="secondary"
+        size="small"
         :aria-label="isMaximized ? 'Restore window' : 'Maximize window'"
         @click="handleToggleMaximize"
-      />
+      >
+        <Icon :icon="isMaximized ? 'lucide:copy' : 'lucide:square'" class="size-4" />
+      </Button>
 
-      <UButton
-        icon="i-lucide-x"
-        color="neutral"
-        variant="ghost"
-        square
+      <Button
+        text
+        plain
+        severity="secondary"
+        size="small"
         aria-label="Close"
-        class="hover:bg-error hover:text-white"
+        class="hover:!bg-red-600 hover:!text-white"
         @click="handleClose"
-      />
+      >
+        <Icon icon="lucide:x" class="size-4" />
+      </Button>
     </div>
   </header>
 </template>

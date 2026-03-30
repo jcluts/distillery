@@ -1,25 +1,26 @@
 @import "tailwindcss";
-@import "@nuxt/ui";
 
 @theme {
   --font-sans: 'Inter Variable', sans-serif;
 }
 
-.dark {
-  --ui-text-dimmed: var(--ui-color-neutral-600);
-  --ui-text-muted: var(--ui-color-neutral-500);
-  --ui-text-toned: var(--ui-color-neutral-400);
-  --ui-text: var(--ui-color-neutral-300);
-  --ui-text-highlighted: white;
-  --ui-text-inverted: var(--ui-color-neutral-900);
-
-  --ui-bg: var(--ui-color-neutral-950);
-  --ui-bg-muted: var(--ui-color-neutral-800);
-  --ui-bg-elevated: var(--ui-color-neutral-900);
-  --ui-bg-accented: var(--ui-color-neutral-700);
-  --ui-bg-inverted: white;
-}
-
+/* Semantic utility classes mapped to PrimeVue design tokens */
+.text-muted { color: var(--p-text-muted-color); }
+.text-default { color: var(--p-text-color); }
+.text-inverted { color: var(--p-surface-0); }
+.text-error { color: var(--p-red-400); }
+.text-warning { color: var(--p-yellow-400); }
+.bg-default { background-color: var(--p-surface-950); }
+.bg-elevated { background-color: var(--p-surface-900); }
+.bg-muted { background-color: var(--p-surface-800); }
+.border-default { border-color: var(--p-surface-700); }
+.border-muted { border-color: var(--p-surface-600); }
+.hover\:bg-elevated:hover { background-color: var(--p-surface-900); }
+.hover\:border-default:hover { border-color: var(--p-surface-700); }
+.hover\:text-default:hover { color: var(--p-text-color); }
+.hover\:border-primary:hover { border-color: var(--p-primary-color); }
+.ring-primary { --tw-ring-color: var(--p-primary-color); }
+.ring-offset-default { --tw-ring-offset-color: var(--p-surface-950); }
 
 button {
   cursor: pointer;

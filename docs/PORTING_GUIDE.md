@@ -6,9 +6,9 @@ General-purpose context for porting functionality from the React reference codeb
 
 ## Background
 
-Distillery is an Electron desktop app for local AI image generation and media management. The renderer is being rewritten from React / shadcn/ui to **Vue 3 / Nuxt UI / Pinia**. The main process, preload bridge, database, engine, and all backend services are unchanged — only `src/renderer/` is rebuilt.
+Distillery is an Electron desktop app for local AI image generation and media management. The renderer is being rewritten from React / shadcn/ui to **Vue 3 / PrimeVue / Pinia**. The main process, preload bridge, database, engine, and all backend services are unchanged — only `src/renderer/` is rebuilt.
 
-The React version and V1 prototype are **wireframes** — they define *what* functionality exists and roughly *how* it's laid out, but not the pixel-level styling. The goal is a clean, idiomatic Nuxt UI implementation. We are content with default Nuxt UI appearance. Do not try to replicate the exact look of the React or V1 versions.
+The React version and V1 prototype are **wireframes** — they define *what* functionality exists and roughly *how* it's laid out, but not the pixel-level styling. The goal is a clean, idiomatic PrimeVue implementation. We are content with default PrimeVue Aura appearance. Do not try to replicate the exact look of the React or V1 versions.
 
 ---
 
@@ -19,12 +19,10 @@ When porting a feature, consult these in order:
 | Source | Location | What it provides |
 |---|---|---|
 | React reference codebase | `C:\Users\jason\projects\distillery-react` | **Wireframe reference** for component behavior, store logic, IPC calls, and layout structure. Defines *what* to build, not how it should look. |
-| V1 screenshots | `agent_docs/distillery_v1_screenshots/` | Rough visual reference for layout intent. Do not pixel-match — Nuxt UI defaults take priority. |
+| V1 screenshots | `agent_docs/distillery_v1_screenshots/` | Rough visual reference for layout intent. Do not pixel-match — PrimeVue defaults take priority. |
 | V1 source (Distillery prototype) | `C:\Users\jason\simple-ai-client` | Legacy codebase. Use only if the React reference is unclear on a behavioral detail. |
-| Nuxt UI component docs | `docs/ui_components/` | **Full documentation for every Nuxt UI component** — props, slots, variants, examples. Consult this exhaustively before resorting to custom Tailwind. |
-| Nuxt UI skill | `.agents/skills/nuxt-ui/SKILL.md` | Summarized component library reference with composables, theming, and layout guidance. Load via the skill system. |
-| Nuxt UI generated theme files | `node_modules/.nuxt-ui/ui/<component>.ts` | Slot names, variants, and default classes for any Nuxt UI component. Inspect these when using the `:ui` prop. |
-| AGENTS.md | Project root | Architecture overview, process boundary, engine protocol, generation pipeline. **Note:** The renderer sections still describe the React version. Ignore those sections; this document is the renderer guide. |
+| PrimeVue documentation | [primevue.org](https://primevue.org/) | **Full documentation for every PrimeVue component** — props, events, slots, styling. Consult this before resorting to custom Tailwind. |
+| AGENTS.md | Project root | Architecture overview, process boundary, engine protocol, generation pipeline, PrimeVue conventions. |
 | DistilleryAPI interface | `src/renderer/types/index.ts` | The complete IPC surface. Every `window.api.*` call and event subscription is defined here. |
 | IPC channel constants | `src/main/ipc/channels.ts` | All IPC channel name strings. |
 
@@ -35,18 +33,20 @@ When porting a feature, consult these in order:
 | Layer | Technology |
 |---|---|
 | Framework | Vue 3 (Composition API, `<script setup>` SFCs) |
-| UI library | Nuxt UI v4 (Vue/Vite mode — `@nuxt/ui/vite`, `router: false`) |
-| State | Pinia |
-| CSS | Tailwind 4 (via Nuxt UI) |
+| UI library | PrimeVue 4 (Aura theme via `@primeuix/themes`) |
+| Auto-import | unplugin-vue-components + `@primevue/auto-import-resolver` |
+| State | Pinia (setup syntax stores, no persistence middleware) |
+| CSS | Tailwind 4 (`@tailwindcss/vite` plugin) |
 | Virtualization | `@tanstack/vue-virtual` |
-| Icons | Iconify via Nuxt UI (collection: `lucide`, prefix: `i-lucide-*`) |
+| Icons | `@iconify/vue` with `@iconify-json/lucide` (format: `lucide:icon-name`) |
 | Font | Inter Variable (`@fontsource-variable/inter`) |
 | Template syntax | SFC templates **only** — no JSX, no render functions |
 
-**Nuxt UI config** (in `electron.vite.config.ts`):
-- `router: false` — no vue-router; navigation is modal-driven
-- `colorMode: true` — dark mode via `class="dark"` on `<html>`
-- Colors: `primary: 'cyan'`, `neutral: 'neutral'`
+**PrimeVue config** (in `src/renderer/main.ts`):
+- Theme: Aura preset with `darkModeSelector: '.dark'`, `cssLayer: false`
+- Prefix: `p` — all PrimeVue CSS classes prefixed with `p-`
+- Tooltip directive registered globally as `v-tooltip`
+- No vue-router; navigation is modal-driven via the UI store
 
 **Path aliases:** `@` / `@renderer` → `src/renderer/`
 
@@ -57,16 +57,16 @@ When porting a feature, consult these in order:
 ### App Shell
 
 ```
-App.vue                             # UApp wrapper + IPC subscription bootstrap
+App.vue                             # IPC subscription bootstrap
 └── AppLayout.vue                   # flex h-screen w-screen flex-col
     ├── TitleBar                    # Custom Electron title bar (drag region + window controls)
-    └── UMain                       # flex min-h-0 flex-1 overflow-hidden
+    └── main                        # flex min-h-0 flex-1 overflow-hidden
         ├── LeftSidebar (aside)     # Icon rail (w-12) + pane content area
         ├── MainContent (section)   # GridView | LoupeView + LibraryStatusBar
         └── RightSidebar (aside)    # Pane content area + icon rail (w-12, pinned right)
 ```
 
-The layout uses **plain HTML flex containers** — no UDashboardGroup/UDashboardSidebar/UDashboardPanel. These were tried and rejected because their `fixed inset-0` / `min-h-svh` defaults fight the Electron frameless window layout.
+The layout uses **plain HTML flex containers**. Sidebar pane switching is driven by the UI store.
 
 ### Pane System
 
@@ -115,21 +115,21 @@ No router. Modals are tracked by `activeModals: string[]` in the UI store (`open
 <script setup lang="ts">
 const uiStore = useUIStore()
 
-const open = computed({
+const visible = computed({
   get: () => uiStore.activeModals.includes('my-modal'),
   set: (val: boolean) => { if (!val) uiStore.closeModal('my-modal') }
 })
 </script>
 
 <template>
-  <UModal v-model:open="open" title="My Modal">
-    <template #body>...</template>
+  <Dialog v-model:visible="visible" header="My Modal" modal :closable="true">
+    <template #default>...</template>
     <template #footer>...</template>
-  </UModal>
+  </Dialog>
 </template>
 ```
 
-This pattern keeps modal open/close logic in the store (so any component can trigger it) while giving `UModal` a reactive two-way binding. All modals mount inside `<UApp>` in `App.vue` — never inside a pane or sidebar.
+This pattern keeps modal open/close logic in the store (so any component can trigger it) while giving PrimeVue's `Dialog` a reactive two-way binding. All modals mount in `App.vue` — never inside a pane or sidebar.
 
 ---
 
@@ -189,48 +189,54 @@ export function useSomething(arg: MaybeRef<string>) {
 }
 ```
 
-### shadcn/ui → Nuxt UI Component Mapping
+### shadcn/ui → PrimeVue Component Mapping
 
-| shadcn/ui (React) | Nuxt UI (Vue) | Notes |
+| shadcn/ui (React) | PrimeVue (Vue) | Notes |
 |---|---|---|
-| `<Button>` | `<UButton>` | Use `icon` prop for icon-only buttons |
-| `<Input>` | `<UInput>` | |
-| `<Textarea>` | `<UTextarea>` | |
-| `<Select>` | `<USelect>` or `<USelectMenu>` | |
-| `<Slider>` | `<USlider>` | |
-| `<Switch>` | `<USwitch>` | |
-| `<Checkbox>` | `<UCheckbox>` | |
-| `<Dialog>` / `<AlertDialog>` | `<UModal>` | Use `v-model:open`, `title`, `description` props + `#footer` slot |
-| `<Tooltip>` | `<UTooltip>` | Use `text` prop — wraps the trigger element in default slot |
-| `<ContextMenu>` | `<UContextMenu>` | |
-| `<DropdownMenu>` | `<UDropdownMenu>` | Pass flat or nested arrays to `:items` |
-| `<Tabs>` | `<UTabs>` | |
-| `<Badge>` | `<UBadge>` | Use `color`, `variant`, `size` props |
-| `<Separator>` | `<USeparator>` | |
-| `<ToggleGroup>` | Row of `<UButton>` | No direct equivalent — use buttons with conditional `color`/`variant` |
+| `<Button>` | `<Button>` | Use `icon` prop for icon-only; `severity` for color; `text`+`plain` for ghost; `outlined` for outline |
+| `<Input>` | `<InputText>` | |
+| `<Textarea>` | `<Textarea>` | |
+| `<Select>` | `<Select>` | Use `optionLabel`, `optionValue`, `:options` props |
+| `<Slider>` | `<Slider>` | Emits `number \| number[]` — handle both types |
+| `<Switch>` | `<ToggleSwitch>` | |
+| `<Checkbox>` | `<Checkbox>` | |
+| `<Dialog>` / `<AlertDialog>` | `<Dialog>` | Use `v-model:visible`, `header`, `modal` props + `#footer` slot |
+| `<Tooltip>` | `v-tooltip` directive | Registered globally — use `v-tooltip="'text'"` on any element |
+| `<ContextMenu>` | `<ContextMenu>` | |
+| `<DropdownMenu>` | `<Menu>` / `<TieredMenu>` | Use `:model` with MenuModel API |
+| `<Tabs>` | `<Tabs>` + `<TabList>` + `<Tab>` + `<TabPanels>` + `<TabPanel>` | |
+| `<Badge>` | `<Tag>` | Use `severity`, `value` props |
+| `<Separator>` | `<Divider>` | |
+| `<ToggleGroup>` | Row of `<Button>` | Use buttons with conditional `severity`/`outlined` |
 | `<SectionLabel>` | `<PaneSection>` | Custom React component replaced by our `PaneSection.vue` |
 | `<InfoTable>` | `<dl>` grid | Use `grid grid-cols-[auto_1fr]` with `<dt>`/`<dd>` pairs |
-| `<ScrollArea>` | `overflow-auto` (Tailwind) | Nuxt UI has no direct equivalent; use native overflow |
+| `<ScrollArea>` | `overflow-auto` (Tailwind) | Use native overflow |
 | `<ResizablePanelGroup>` | No direct equivalent | Use CSS flex + a simple drag handle if needed |
-| `cn()` utility | Not needed | Use Tailwind classes directly; Nuxt UI `:class` merging handles conflicts |
+| `cn()` utility | Not needed | Use Tailwind classes directly |
 
-For any component not listed, check `docs/ui_components/` (full component docs) or the Nuxt UI skill (`.agents/skills/nuxt-ui/SKILL.md`). Always look for a built-in Nuxt UI component before building custom markup.
+For any component not listed, check the [PrimeVue documentation](https://primevue.org/). Always look for a built-in PrimeVue component before building custom markup.
 
 ### Icons
 
-React used `lucide-react` with JSX components (`<Star />`). Vue uses Nuxt UI's Iconify integration:
+React used `lucide-react` with JSX components (`<Star />`). Vue uses `@iconify/vue`:
 
 ```vue
 <!-- React -->
 <Star className="size-4" />
 
 <!-- Vue -->
-<UIcon name="i-lucide-star" class="size-4" />
+<Icon icon="lucide:star" class="size-4" />
 ```
 
-Icon names follow the `i-{collection}-{name}` convention. Browse at [icones.js.org](https://icones.js.org). The `lucide` collection is pre-loaded in `main.ts`.
+Icon names follow the `{collection}:{name}` convention. The `lucide` collection is available via `@iconify-json/lucide`.
 
-For buttons with icons: `<UButton icon="i-lucide-star" />` — no separate `<UIcon>` needed.
+For buttons with icons, use PrimeVue's `icon` slot or pass a PrimeVue-compatible icon class. For icon-only buttons, wrapping an `<Icon>` component inside `<Button>` is the standard pattern:
+
+```vue
+<Button text plain severity="secondary" @click="handler">
+  <Icon icon="lucide:folder-open" class="size-4" />
+</Button>
+```
 
 ---
 
@@ -245,26 +251,26 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 - Never leave legacy or compatibility shims. Zero users, zero backwards-compatibility concerns.
 - No ad-hoc band-aids. If something is broken, fix the architecture.
 
-### Components & Styling — Nuxt UI First
+### Components & Styling — PrimeVue First
 
-**The #1 rule: Always use a Nuxt UI component when one exists.** Do not build custom HTML+Tailwind versions of things Nuxt UI already provides. Before writing any custom markup, exhaustively check `docs/ui_components/` for a suitable component. Nuxt UI has 125+ components — the right one almost always exists.
+**The #1 rule: Always use a PrimeVue component when one exists.** Do not build custom HTML+Tailwind versions of things PrimeVue already provides. Consult the [PrimeVue documentation](https://primevue.org/) before writing custom markup.
 
 **Priority order for any UI element:**
-1. **Nuxt UI component with its built-in props/variants** — use `variant`, `color`, `size`, `icon`, `loading`, `:items`, etc. Accept the default Nuxt UI appearance.
-2. **Nuxt UI component with `:ui` prop overrides** — override specific slots only when the built-in props can't express the need. Check slot names in `node_modules/.nuxt-ui/ui/<component>.ts`.
+1. **PrimeVue component with its built-in props/variants** — use `severity`, `variant`, `size`, `icon`, `loading`, etc. Accept the default PrimeVue Aura appearance.
+2. **PrimeVue component with `pt` (pass-through) overrides** — override specific DOM elements' classes only when built-in props can't express the need.
 3. **Tailwind utilities for layout only** — flex, grid, spacing, sizing, overflow, positioning. These are fine and expected for arranging components on the page.
-4. **Custom Tailwind for visual styling** — absolute last resort. Only when no Nuxt UI component or prop can achieve the effect.
+4. **Custom Tailwind for visual styling** — absolute last resort. Only when no PrimeVue component or prop can achieve the effect.
 
 **Do not:**
 - Recreate the React/V1 styling with custom Tailwind classes. Those designs were built on shadcn/ui — a completely different component library. Trying to replicate them defeats the purpose of this rewrite.
-- Add decorative Tailwind classes (colors, borders, shadows, rounded corners, typography styles) to elements that a Nuxt UI component could render instead.
-- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use Nuxt UI's semantic utilities (`text-muted`, `bg-elevated`, `border-default`, `text-toned`) or component props (`color="primary"`).
+- Add decorative Tailwind classes (colors, borders, shadows, rounded corners, typography styles) to elements that a PrimeVue component could render instead.
+- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use the semantic utilities in `main.css` (`text-muted`, `bg-elevated`, `border-default`) or PrimeVue component props (`severity="secondary"`).
 
 ### UI/UX
-- Professional, clean, elegant — but achieved through **Nuxt UI defaults**, not custom CSS.
+- Professional, clean, elegant — but achieved through **PrimeVue Aura theme defaults**, not custom CSS.
 - Dark mode is the default (`class="dark"` on `<html>`).
-- The React and V1 versions are **wireframes**: they define the feature set, layout structure, and user flows. They do **not** define the visual styling — Nuxt UI's default appearance is the target.
-- Never copy React JSX, shadcn class lists, or V1 CSS. Understand the *behavior*, then find the Nuxt UI component that provides it.
+- The React and V1 versions are **wireframes**: they define the feature set, layout structure, and user flows. They do **not** define the visual styling — PrimeVue's default Aura appearance is the target.
+- Never copy React JSX, shadcn class lists, or V1 CSS. Understand the *behavior*, then find the PrimeVue component that provides it.
 
 ### TypeScript
 - All components use `<script setup lang="ts">`.
@@ -288,58 +294,57 @@ When a pane has sub-components (e.g. StarRating, KeywordEditor inside MediaInfoP
 
 ---
 
-## Nuxt UI Quick Reference
+## PrimeVue Quick Reference
 
-The project has a **nuxt-ui skill** installed at `.agents/skills/nuxt-ui/`. Load it for full component/composable/theming documentation. Key points:
+### Component Customization (`pt` pass-through)
 
-### Component Customization (`:ui` prop)
-
-The `:ui` prop overrides a component's **slots** — it wins over everything:
+The `pt` prop overrides CSS classes on a component's internal DOM elements:
 
 ```vue
-<UButton :ui="{ base: 'rounded-none' }" />
-<UModal :ui="{ overlay: 'bg-black/80', content: 'max-w-2xl' }" />
+<Button pt:root="rounded-none" />
+<Dialog :pt="{ mask: { class: 'bg-black/80' }, root: { class: 'max-w-2xl' } }" />
 ```
 
-Find slot names by reading: `node_modules/.nuxt-ui/ui/<component>.ts`
+Consult the [PrimeVue pass-through docs](https://primevue.org/passthrough/) for available element names per component.
 
-### Useful Composables
+### Toasts
+
+PrimeVue uses the `Toast` component + `useToast` composable:
 
 ```ts
-// Toast notifications
+import { useToast } from 'primevue/usetoast'
+
 const toast = useToast()
-toast.add({ title: 'Saved', color: 'success', icon: 'i-lucide-check' })
-
-// Keyboard shortcuts (use for Lightroom-style hotkeys)
-defineShortcuts({
-  meta_k: () => focusPrompt(),
-  escape: () => closeModal()
-})
+toast.add({ severity: 'success', summary: 'Saved', life: 3000 })
 ```
 
-### Form Validation
-
-Nuxt UI forms use Standard Schema (Zod, Valibot, etc.):
-
-```vue
-<UForm :schema="schema" :state="state" @submit="onSubmit">
-  <UFormField name="email" label="Email">
-    <UInput v-model="state.email" />
-  </UFormField>
-</UForm>
-```
+Requires `<Toast />` mounted in the app root.
 
 ### Overlays
 
 ```vue
-<UModal v-model:open="isOpen" title="Settings">
-  <template #body>...</template>
+<Dialog v-model:visible="isVisible" header="Settings" modal>
+  <template #default>...</template>
   <template #footer>...</template>
-</UModal>
+</Dialog>
 
-<UDropdownMenu :items="menuItems">
-  <UButton icon="i-lucide-ellipsis-vertical" variant="ghost" />
-</UDropdownMenu>
+<Menu ref="menuRef" :model="menuItems" :popup="true" />
+<Button @click="menuRef.toggle($event)">
+  <Icon icon="lucide:ellipsis-vertical" class="size-4" />
+</Button>
+```
+
+### Form Inputs
+
+PrimeVue form inputs use `v-model` directly:
+
+```vue
+<InputText v-model="name" placeholder="Enter name" />
+<Textarea v-model="description" rows="3" />
+<Select v-model="selected" :options="options" optionLabel="name" optionValue="id" />
+<ToggleSwitch v-model="enabled" />
+<Checkbox v-model="checked" binary />
+<Slider v-model="value" :min="0" :max="100" />
 ```
 
 ---
@@ -358,7 +363,7 @@ When picking up a new feature to port:
    - Use `PaneSection` for every labeled section within that pane.
    - Map React sub-components (e.g. `StarRating`, `KeywordEditor`) to Vue SFCs in a subfolder.
    - Convert React callback props to Vue `defineEmits` — keep the parent in control of IPC/store logic.
-   - Exhaustively search `docs/ui_components/` for Nuxt UI components that match each UI element. Use their built-in props and variants. Accept the default Nuxt UI appearance — do not try to pixel-match the React version's styling.
+   - Check [PrimeVue documentation](https://primevue.org/) for components that match each UI element. Use their built-in props and variants. Accept the default PrimeVue Aura appearance — do not try to pixel-match the React version's styling.
 7. **Wire IPC subscriptions** in `useIpcSubscriptions.ts` if the feature receives push events from the main process.
 8. **Run `npx vue-tsc --noEmit -p tsconfig.web.json`** to typecheck before considering the work done.
 
@@ -400,44 +405,48 @@ const emit = defineEmits<{ change: [rating: number] }>()
 
 This keeps IPC calls centralized in the pane and makes sub-components reusable.
 
-### Status/Toggle Buttons (React ToggleGroup → Vue UButton row)
+### Status/Toggle Buttons (React ToggleGroup → Vue Button row)
 
-React's `<ToggleGroup>` has no direct Nuxt UI equivalent. Use a row of `<UButton>` with conditional `color` and `variant` props to express the active state:
+React's `<ToggleGroup>` has no direct PrimeVue equivalent. Use a row of `<Button>` with conditional styling to express the active state:
 
 ```vue
-<UButton
-  icon="i-lucide-circle-check"
-  :color="isActive ? 'primary' : 'neutral'"
-  :variant="isActive ? 'subtle' : 'ghost'"
-  size="sm"
-/>
+<Button
+  :severity="isActive ? undefined : 'secondary'"
+  :outlined="!isActive"
+  :text="!isActive"
+  size="small"
+  @click="toggle"
+>
+  <Icon icon="lucide:circle-check" class="size-4" />
+</Button>
 ```
 
 ### Action Button Rows
 
-Icon-only action buttons use `<UTooltip>` wrapping `<UButton>`:
+Icon-only action buttons use `v-tooltip` on `<Button>`:
 
 ```vue
 <div class="flex flex-wrap gap-1">
-  <UTooltip text="Show in folder">
-    <UButton icon="i-lucide-folder-open" color="neutral" variant="outline" size="sm" @click="..." />
-  </UTooltip>
+  <Button v-tooltip="'Show in folder'" text plain severity="secondary" size="small" @click="...">
+    <Icon icon="lucide:folder-open" class="size-4" />
+  </Button>
 </div>
 ```
 
 ### Confirmation Dialogs
 
-Use `UModal` with `title`, `description`, and a `#footer` slot containing Cancel + action buttons:
+Use `Dialog` with `header` prop, content in the default slot, and action buttons in `#footer`:
 
 ```vue
-<UModal v-model:open="dialogOpen" title="Delete image?" description="This cannot be undone.">
+<Dialog v-model:visible="dialogVisible" header="Delete image?" modal>
+  <p>This cannot be undone.</p>
   <template #footer>
     <div class="flex justify-end gap-2">
-      <UButton label="Cancel" color="neutral" variant="outline" @click="dialogOpen = false" />
-      <UButton label="Delete" color="error" @click="executeDelete" />
+      <Button label="Cancel" severity="secondary" outlined @click="dialogVisible = false" />
+      <Button label="Delete" severity="danger" @click="executeDelete" />
     </div>
   </template>
-</UModal>
+</Dialog>
 ```
 
 ### Info Tables
@@ -464,19 +473,16 @@ Props: `selected`, `draggable`, `dragOver`. Emits: `select`. Content goes in the
   :selected="item.id === activeId"
   @select="setActive(item.id)"
 >
-  <UIcon name="i-lucide-layers-3" class="size-4 shrink-0" />
+  <Icon icon="lucide:layers-3" class="size-4 shrink-0" />
   <span class="min-w-0 flex-1 truncate">{{ item.name }}</span>
-  <UButton
-    icon="i-lucide-settings"
-    color="neutral"
-    variant="ghost"
-    size="xs"
+  <Button
+    text plain severity="secondary" size="small"
     class="opacity-0 group-hover/item:opacity-100"
     @click.stop="onEdit(item.id)"
-  />
-  <UBadge color="neutral" variant="subtle" size="sm">
-    {{ item.count }}
-  </UBadge>
+  >
+    <Icon icon="lucide:settings" class="size-4" />
+  </Button>
+  <Tag severity="secondary" :value="String(item.count)" />
 </SelectableItem>
 ```
 
@@ -518,19 +524,19 @@ This is the Pinia equivalent of the React pattern where `buildQuery()` reads `us
 For modals that handle both creating and editing an entity (collections, import folders, etc.), follow the `CollectionModal.vue` pattern:
 
 1. Read `editingId` from the entity's store to determine create vs. edit mode.
-2. Use a `watch` on the `open` computed to reset form state when the modal opens/closes.
+2. Use a `watch` on the `visible` computed to reset form state when the modal opens/closes.
 3. Keep Save/Delete handlers in the modal — they call store actions directly.
 4. Always call `closeModal` + clear `editingId` on close.
 
 ```vue
-const open = computed({
+const visible = computed({
   get: () => uiStore.activeModals.includes('entity'),
   set: (val) => { if (!val) handleClose() }
 })
 
 const isEditing = computed(() => !!entityStore.editingId)
 
-watch(open, (isOpen) => {
+watch(visible, (isOpen) => {
   if (isOpen && editingEntity.value) {
     // Pre-fill form for edit
   } else {

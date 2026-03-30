@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
+import Divider from 'primevue/divider'
 
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
@@ -101,11 +105,11 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
         >
           Drag files here, or click to browse
         </div>
-        <UButton
+        <Button
           label="Choose files"
-          color="neutral"
-          variant="subtle"
-          block
+          severity="secondary"
+          outlined
+          class="w-full"
           @click="onChooseFiles"
         />
         <p v-if="importedCount > 0" class="text-xs text-muted">
@@ -113,20 +117,20 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
         </p>
       </PaneSection>
 
-      <USeparator />
+      <Divider />
 
       <!-- Folder Import -->
       <PaneSection title="Folder Import">
-        <UButton
+        <Button
           label="Import Folder..."
-          color="neutral"
-          variant="subtle"
-          block
+          severity="secondary"
+          outlined
+          class="w-full"
           @click="openImportFolderModal()"
         />
       </PaneSection>
 
-      <USeparator />
+      <Divider />
 
       <!-- Saved Sources -->
       <PaneSection :title="`Saved Sources (${folders.length})`">
@@ -142,14 +146,12 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
-                  <UIcon name="i-lucide-folder" class="size-3.5 shrink-0 text-muted" />
+                  <Icon icon="lucide:folder" class="size-3.5 shrink-0 text-muted" />
                   <span class="truncate text-sm font-medium">{{ folder.name }}</span>
-                  <UBadge
+                  <Tag
                     v-if="folder.auto_import"
-                    label="Auto"
-                    color="neutral"
-                    variant="subtle"
-                    size="xs"
+                    value="Auto"
+                    severity="secondary"
                   />
                 </div>
                 <p class="mt-1 truncate text-xs text-muted" :title="folder.path">
@@ -161,29 +163,35 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
               </div>
 
               <div class="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                <UButton
-                  icon="i-lucide-refresh-cw"
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
+                <Button
+                  text
+                  plain
+                  severity="secondary"
+                  size="small"
                   :class="{ 'animate-spin': isFolderScanning(scanProgress.get(folder.id)) }"
                   :disabled="isFolderScanning(scanProgress.get(folder.id))"
                   @click="importFolderStore.scanFolder(folder.id)"
-                />
-                <UButton
-                  icon="i-lucide-pencil"
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
+                >
+                  <Icon icon="lucide:refresh-cw" class="size-4" />
+                </Button>
+                <Button
+                  text
+                  plain
+                  severity="secondary"
+                  size="small"
                   @click="openImportFolderModal(folder.id)"
-                />
-                <UButton
-                  icon="i-lucide-trash-2"
-                  size="xs"
-                  color="error"
-                  variant="ghost"
+                >
+                  <Icon icon="lucide:pencil" class="size-4" />
+                </Button>
+                <Button
+                  text
+                  plain
+                  severity="danger"
+                  size="small"
                   @click="importFolderStore.deleteFolder(folder.id)"
-                />
+                >
+                  <Icon icon="lucide:trash-2" class="size-4" />
+                </Button>
               </div>
             </div>
           </div>

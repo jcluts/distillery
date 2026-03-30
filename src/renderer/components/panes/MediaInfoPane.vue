@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
 
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
@@ -236,36 +239,39 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
       <!-- Status -->
       <PaneSection title="Status">
         <div class="flex items-center gap-1">
-          <UTooltip text="Selected">
-            <UButton
-              icon="i-lucide-circle-check"
-              :color="currentStatus === 'selected' ? 'primary' : 'neutral'"
-              :variant="currentStatus === 'selected' ? 'subtle' : 'ghost'"
-              size="sm"
-              aria-label="Selected"
-              @click="handleStatusChange('selected')"
-            />
-          </UTooltip>
-          <UTooltip text="Rejected">
-            <UButton
-              icon="i-lucide-circle-x"
-              :color="currentStatus === 'rejected' ? 'error' : 'neutral'"
-              :variant="currentStatus === 'rejected' ? 'subtle' : 'ghost'"
-              size="sm"
-              aria-label="Rejected"
-              @click="handleStatusChange('rejected')"
-            />
-          </UTooltip>
-          <UTooltip text="Clear">
-            <UButton
-              icon="i-lucide-circle-minus"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              aria-label="Clear status"
-              @click="handleStatusChange('unmarked')"
-            />
-          </UTooltip>
+          <Button
+            v-tooltip="'Selected'"
+            text
+            plain
+            :severity="currentStatus === 'selected' ? undefined : 'secondary'"
+            size="small"
+            aria-label="Selected"
+            @click="handleStatusChange('selected')"
+          >
+            <Icon icon="lucide:circle-check" class="size-4" />
+          </Button>
+          <Button
+            v-tooltip="'Rejected'"
+            text
+            plain
+            :severity="currentStatus === 'rejected' ? 'danger' : 'secondary'"
+            size="small"
+            aria-label="Rejected"
+            @click="handleStatusChange('rejected')"
+          >
+            <Icon icon="lucide:circle-x" class="size-4" />
+          </Button>
+          <Button
+            v-tooltip="'Clear'"
+            text
+            plain
+            severity="secondary"
+            size="small"
+            aria-label="Clear status"
+            @click="handleStatusChange('unmarked')"
+          >
+            <Icon icon="lucide:circle-minus" class="size-4" />
+          </Button>
         </div>
       </PaneSection>
 
@@ -282,42 +288,44 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
       <!-- Actions -->
       <PaneSection v-if="hasSelection" title="Actions">
         <div class="flex flex-wrap gap-1">
-          <UTooltip v-if="!isMulti" text="Show in folder">
-            <UButton
-              icon="i-lucide-folder-open"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              @click="handleShowInFolder"
-            />
-          </UTooltip>
-          <UTooltip text="Open in default app">
-            <UButton
-              icon="i-lucide-external-link"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              @click="handleOpenInApp"
-            />
-          </UTooltip>
-          <UTooltip v-if="!isMulti" text="Copy to clipboard">
-            <UButton
-              icon="i-lucide-clipboard-copy"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              @click="handleCopyToClipboard"
-            />
-          </UTooltip>
-          <UTooltip :text="isMulti ? `Delete ${deleteCount} items` : 'Delete item'">
-            <UButton
-              icon="i-lucide-trash-2"
-              color="error"
-              variant="outline"
-              size="sm"
-              @click="handleDelete"
-            />
-          </UTooltip>
+          <Button
+            v-if="!isMulti"
+            v-tooltip="'Show in folder'"
+            outlined
+            severity="secondary"
+            size="small"
+            @click="handleShowInFolder"
+          >
+            <Icon icon="lucide:folder-open" class="size-4" />
+          </Button>
+          <Button
+            v-tooltip="'Open in default app'"
+            outlined
+            severity="secondary"
+            size="small"
+            @click="handleOpenInApp"
+          >
+            <Icon icon="lucide:external-link" class="size-4" />
+          </Button>
+          <Button
+            v-if="!isMulti"
+            v-tooltip="'Copy to clipboard'"
+            outlined
+            severity="secondary"
+            size="small"
+            @click="handleCopyToClipboard"
+          >
+            <Icon icon="lucide:clipboard-copy" class="size-4" />
+          </Button>
+          <Button
+            v-tooltip="isMulti ? `Delete ${deleteCount} items` : 'Delete item'"
+            outlined
+            severity="danger"
+            size="small"
+            @click="handleDelete"
+          >
+            <Icon icon="lucide:trash-2" class="size-4" />
+          </Button>
         </div>
       </PaneSection>
 
@@ -335,26 +343,31 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
     </div>
 
     <!-- Delete confirmation modal -->
-    <UModal
-      v-model:open="deleteDialogOpen"
-      :title="isMulti ? `Delete ${deleteCount} images?` : 'Delete image?'"
-      :description="
-        isMulti
-          ? `This will permanently delete ${deleteCount} files from disk. This action cannot be undone.`
-          : 'This will permanently delete the file from disk. This action cannot be undone.'
-      "
+    <Dialog
+      v-model:visible="deleteDialogOpen"
+      :header="isMulti ? `Delete ${deleteCount} images?` : 'Delete image?'"
+      modal
+      :closable="true"
+      :style="{ width: '24rem' }"
     >
+      <p class="text-sm">
+        {{
+          isMulti
+            ? `This will permanently delete ${deleteCount} files from disk. This action cannot be undone.`
+            : 'This will permanently delete the file from disk. This action cannot be undone.'
+        }}
+      </p>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton
+          <Button
             label="Cancel"
-            color="neutral"
-            variant="outline"
+            outlined
+            severity="secondary"
             @click="deleteDialogOpen = false"
           />
-          <UButton label="Delete" color="error" @click="executeDelete" />
+          <Button label="Delete" severity="danger" @click="executeDelete" />
         </div>
       </template>
-    </UModal>
+    </Dialog>
   </PaneLayout>
 </template>

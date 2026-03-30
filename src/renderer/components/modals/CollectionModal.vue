@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
+import Checkbox from 'primevue/checkbox'
 
 import { useCollectionStore } from '@/stores/collection'
 import { useLibraryStore } from '@/stores/library'
@@ -130,83 +135,88 @@ async function handleDelete(): Promise<void> {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    :title="isEditing ? 'Edit Collection' : 'New Collection'"
-    :description="
-      isEditing ? 'Update collection details.' : 'Create a collection to organize selected media.'
-    "
+  <Dialog
+    v-model:visible="open"
+    :header="isEditing ? 'Edit Collection' : 'New Collection'"
+    modal
+    :closable="true"
+    :style="{ width: '28rem' }"
   >
-    <template #body>
-      <div class="space-y-4">
-        <!-- Name -->
-        <UFormField label="Name">
-          <UInput
-            v-model="name"
-            placeholder="Collection name"
-            :maxlength="100"
-            autofocus
-            @keydown.enter="handleSave"
-          />
-        </UFormField>
+    <p class="mb-4 text-sm text-muted">
+      {{ isEditing ? 'Update collection details.' : 'Create a collection to organize selected media.' }}
+    </p>
 
-        <!-- Color swatches -->
-        <UFormField label="Color">
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="swatch in COLORS"
-              :key="swatch"
-              type="button"
-              class="size-6 rounded-full border transition-transform hover:scale-110"
-              :class="
-                swatch === color
-                  ? 'ring-2 ring-primary ring-offset-2 ring-offset-default'
-                  : 'border-default'
-              "
-              :style="{ backgroundColor: swatch }"
-              :aria-label="`Select color ${swatch}`"
-              @click="color = swatch"
-            />
-          </div>
-        </UFormField>
-
-        <!-- Optional: add selected media -->
-        <UCheckbox
-          v-if="showAddSelected"
-          v-model="addSelectedMedia"
-          :label="`Add ${selectedCount} selected items`"
+    <div class="space-y-4">
+      <!-- Name -->
+      <div>
+        <label class="mb-1 block text-sm font-medium">Name</label>
+        <InputText
+          v-model="name"
+          placeholder="Collection name"
+          :maxlength="100"
+          autofocus
+          class="w-full"
+          @keydown.enter="handleSave"
         />
-
-        <!-- Error -->
-        <p v-if="error" class="text-sm text-error">{{ error }}</p>
       </div>
-    </template>
+
+      <!-- Color swatches -->
+      <div>
+        <label class="mb-1 block text-sm font-medium">Color</label>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="swatch in COLORS"
+            :key="swatch"
+            type="button"
+            class="size-6 rounded-full border transition-transform hover:scale-110"
+            :class="
+              swatch === color
+                ? 'ring-2 ring-primary ring-offset-2 ring-offset-default'
+                : 'border-default'
+            "
+            :style="{ backgroundColor: swatch }"
+            :aria-label="`Select color ${swatch}`"
+            @click="color = swatch"
+          />
+        </div>
+      </div>
+
+      <!-- Optional: add selected media -->
+      <div v-if="showAddSelected" class="flex items-center gap-2">
+        <Checkbox v-model="addSelectedMedia" :binary="true" input-id="add-selected" />
+        <label for="add-selected" class="text-sm">Add {{ selectedCount }} selected items</label>
+      </div>
+
+      <!-- Error -->
+      <p v-if="error" class="text-sm text-error">{{ error }}</p>
+    </div>
 
     <template #footer>
       <div class="flex w-full items-center gap-2">
-        <UButton
+        <Button
           v-if="isEditing"
-          icon="i-lucide-trash-2"
-          label="Delete"
-          color="error"
-          variant="soft"
+          severity="danger"
+          text
           :disabled="saving"
           class="mr-auto"
           @click="handleDelete"
-        />
-        <UButton
+        >
+          <Icon icon="lucide:trash-2" class="size-4" />
+          Delete
+        </Button>
+        <Button
           label="Cancel"
-          color="neutral"
-          variant="outline"
+          severity="secondary"
+          outlined
           :disabled="saving"
           @click="handleClose"
         />
-        <UButton
+        <Button
           :label="saving ? 'Saving…' : 'Save'"
           :disabled="!canSave"
           @click="handleSave"
         />
       </div>
     </template>
-  </UModal>
+  </Dialog>
 </template>

@@ -5,7 +5,6 @@
     "src/renderer/**/*",
     "src/renderer/**/*.vue",
     "src/preload/*.d.ts",
-    "auto-imports.d.ts",
     "components.d.ts"
   ],
   "compilerOptions": {
@@ -17,12 +16,6 @@
       ],
       "@/*": [
         "src/renderer/*"
-      ],
-      "#build/ui": [
-        "./node_modules/.nuxt-ui/ui"
-      ],
-      "#build/ui/*": [
-        "./node_modules/.nuxt-ui/ui/*"
       ]
     }
   }

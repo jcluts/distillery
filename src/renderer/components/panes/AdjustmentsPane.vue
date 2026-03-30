@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
 
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
@@ -156,41 +158,41 @@ async function pasteAdjustments(): Promise<void> {
       <PaneSection title="Actions">
         <div class="space-y-2">
           <div class="flex gap-2">
-            <UButton
-              icon="i-lucide-copy"
-              color="neutral"
-              variant="outline"
-              size="sm"
+            <Button
+              outlined
+              severity="secondary"
+              size="small"
               class="min-w-0 flex-1 justify-center"
               :disabled="!canInteract"
               @click="copyAdjustments"
             >
+              <Icon icon="lucide:copy" class="size-4" />
               Copy
-            </UButton>
-            <UButton
-              icon="i-lucide-clipboard-paste"
-              color="neutral"
-              variant="outline"
-              size="sm"
+            </Button>
+            <Button
+              outlined
+              severity="secondary"
+              size="small"
               class="min-w-0 flex-1 justify-center"
               :disabled="!canInteract || !canPaste"
               @click="pasteAdjustments"
             >
+              <Icon icon="lucide:clipboard-paste" class="size-4" />
               Paste
-            </UButton>
+            </Button>
           </div>
 
-          <UButton
-            icon="i-lucide-undo-2"
-            color="neutral"
-            variant="outline"
-            size="sm"
+          <Button
+            outlined
+            severity="secondary"
+            size="small"
             class="w-full justify-center"
             :disabled="!showReset"
             @click="resetAll"
           >
+            <Icon icon="lucide:undo-2" class="size-4" />
             Reset All
-          </UButton>
+          </Button>
         </div>
       </PaneSection>
     </div>

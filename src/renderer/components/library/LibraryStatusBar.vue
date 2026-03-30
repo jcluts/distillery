@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { TabsItem } from '@nuxt/ui'
+import { Icon } from '@iconify/vue'
+import Select from 'primevue/select'
+import Slider from 'primevue/slider'
+import SelectButton from 'primevue/selectbutton'
 
 import { THUMBNAIL_SIZE_MAX, THUMBNAIL_SIZE_MIN } from '@/lib/constants'
 import { useLibraryStore } from '@/stores/library'
@@ -50,14 +53,14 @@ const SORT_OPTIONS: SortOption[] = [
   }
 ]
 
-const viewModeItems: TabsItem[] = [
-  { value: 'grid', icon: 'i-lucide-grid-2x2' },
-  { value: 'loupe', icon: 'i-lucide-image' }
+const viewModeOptions = [
+  { icon: 'lucide:grid-2x2', value: 'grid' },
+  { icon: 'lucide:image', value: 'loupe' }
 ]
 
-const zoomItems: TabsItem[] = [
-  { value: 'fit', label: 'Fit' },
-  { value: 'actual', label: '1:1' }
+const zoomOptions = [
+  { label: 'Fit', value: 'fit' },
+  { label: '1:1', value: 'actual' }
 ]
 
 const imageCount = computed(() => libraryStore.total || libraryStore.items.length)
@@ -86,7 +89,7 @@ const selectionSuffix = computed(() => {
 
 const viewModeModel = computed({
   get: () => uiStore.viewMode,
-  set: (value: string | number) => {
+  set: (value: string) => {
     if (value === 'grid' || value === 'loupe') {
       uiStore.setViewMode(value as ViewMode)
     }
@@ -95,7 +98,7 @@ const viewModeModel = computed({
 
 const zoomModel = computed({
   get: () => uiStore.loupeZoom,
-  set: (value: string | number) => {
+  set: (value: string) => {
     if (value === 'fit' || value === 'actual') {
       uiStore.setLoupeZoom(value as ZoomLevel)
     }
@@ -104,9 +107,7 @@ const zoomModel = computed({
 
 const sortModel = computed({
   get: () => `${libraryStore.sortField}:${libraryStore.sortDirection}`,
-  set: (value: string | number) => {
-    if (typeof value !== 'string') return
-
+  set: (value: string) => {
     const nextOption = SORT_OPTIONS.find((option) => option.value === value)
     if (!nextOption) return
 
@@ -116,60 +117,62 @@ const sortModel = computed({
   }
 })
 
-function handleThumbnailSizeUpdate(value: number | number[] | undefined): void {
-  const nextValue = Array.isArray(value) ? value[0] : value
-  if (typeof nextValue === 'number') {
-    uiStore.setThumbnailSize(nextValue)
+function handleThumbnailSizeUpdate(value: number | number[]): void {
+  const v = Array.isArray(value) ? value[0] : value
+  if (typeof v === 'number') {
+    uiStore.setThumbnailSize(v)
   }
 }
 </script>
 
 <template>
-  <div class="flex shrink-0 items-center gap-3 px-3 py-2 bg-default text-xs">
-    <span class="tabular-nums text-muted">{{ counterLabel }}{{ selectionSuffix }}</span>
+  <div class="flex shrink-0 items-center gap-3 px-3 py-2 text-xs" style="background: var(--p-surface-950)">
+    <span class="tabular-nums" style="color: var(--p-text-muted-color)">{{ counterLabel }}{{ selectionSuffix }}</span>
 
     <div class="flex-1" />
 
     <div class="flex items-center gap-2">
-      <USelect
+      <Select
         v-model="sortModel"
-        :items="SORT_OPTIONS"
-        color="neutral"
-        variant="subtle"
-        :highlight="false"
-        size="xs"
+        :options="SORT_OPTIONS"
+        option-label="label"
+        option-value="value"
+        size="small"
         class="w-32"
-        trailing-icon="i-lucide-arrow-up-down"
       />
 
       <div v-if="uiStore.viewMode === 'grid'" class="flex w-28 items-center gap-1.5">
-        <UIcon name="i-lucide-image" class="size-3 text-muted" />
-        <USlider
+        <Icon icon="lucide:image" class="size-3" style="color: var(--p-text-muted-color)" />
+        <Slider
           :model-value="uiStore.thumbnailSize"
           :min="THUMBNAIL_SIZE_MIN"
           :max="THUMBNAIL_SIZE_MAX"
           :step="10"
+          class="flex-1"
           @update:model-value="handleThumbnailSizeUpdate"
         />
-        <UIcon name="i-lucide-image" class="size-4 text-muted" />
+        <Icon icon="lucide:image" class="size-4" style="color: var(--p-text-muted-color)" />
       </div>
 
-      <UTabs
+      <SelectButton
         v-else
         v-model="zoomModel"
-        :content="false"
-        :items="zoomItems"
-        variant="pill"
-        size="xs"
+        :options="zoomOptions"
+        option-label="label"
+        option-value="value"
+        size="small"
       />
 
-      <UTabs
+      <SelectButton
         v-model="viewModeModel"
-        :content="false"
-        :items="viewModeItems"
-        variant="pill"
-        size="xs"
-      />
+        :options="viewModeOptions"
+        option-value="value"
+        size="small"
+      >
+        <template #option="slotProps">
+          <Icon :icon="slotProps.option.icon" class="size-4" />
+        </template>
+      </SelectButton>
     </div>
   </div>
 </template>

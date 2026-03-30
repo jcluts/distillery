@@ -8,9 +8,7 @@ useIpcSubscriptions()
 </script>
 
 <template>
-  <UApp>
-    <AppLayout />
-    <CollectionModal />
-    <ImportFolderModal />
-  </UApp>
+  <AppLayout />
+  <CollectionModal />
+  <ImportFolderModal />
 </template>

@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
+import RadioButton from 'primevue/radiobutton'
+import ToggleSwitch from 'primevue/toggleswitch'
+import Divider from 'primevue/divider'
 
 import { useCollectionStore } from '@/stores/collection'
 import { useImportFolderStore } from '@/stores/import-folder'
@@ -193,132 +201,148 @@ async function handleDelete(): Promise<void> {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    :title="isEditing ? 'Edit Import Source' : 'Import Folder'"
-    :description="
-      isEditing
-        ? 'Update saved source settings.'
-        : 'Choose a folder and import mode, then start importing images.'
-    "
+  <Dialog
+    v-model:visible="open"
+    :header="isEditing ? 'Edit Import Source' : 'Import Folder'"
+    modal
+    :closable="true"
+    :style="{ width: '32rem' }"
   >
-    <template #body>
-      <div class="space-y-4">
-        <!-- Folder path -->
-        <UFormField label="Folder path">
-          <div class="flex items-center gap-2">
-            <UInput
-              :model-value="folderPath"
-              readonly
-              class="flex-1"
-              placeholder="Select a folder..."
+    <p class="mb-4 text-sm text-muted">
+      {{
+        isEditing
+          ? 'Update saved source settings.'
+          : 'Choose a folder and import mode, then start importing images.'
+      }}
+    </p>
+
+    <div class="space-y-4">
+      <!-- Folder path -->
+      <div>
+        <label class="mb-1 block text-sm font-medium">Folder path</label>
+        <div class="flex items-center gap-2">
+          <InputText
+            :model-value="folderPath"
+            readonly
+            class="flex-1"
+            placeholder="Select a folder..."
+          />
+          <Button
+            severity="secondary"
+            outlined
+            :disabled="saving || isEditing"
+            @click="browseFolder"
+          >
+            <Icon icon="lucide:folder-open" class="size-4" />
+          </Button>
+        </div>
+      </div>
+
+      <!-- Name -->
+      <div>
+        <label class="mb-1 block text-sm font-medium">Name</label>
+        <InputText
+          v-model="name"
+          placeholder="Folder name"
+          :maxlength="120"
+          :disabled="saving"
+          class="w-full"
+        />
+      </div>
+
+      <!-- Import mode -->
+      <div>
+        <label class="mb-1 block text-sm font-medium">Import mode</label>
+        <div class="flex flex-col gap-2">
+          <div v-for="item in IMPORT_MODE_ITEMS" :key="item.value" class="flex items-center gap-2">
+            <RadioButton
+              v-model="importMode"
+              :input-id="'mode-' + item.value"
+              :value="item.value"
             />
-            <UButton
-              icon="i-lucide-folder-open"
-              color="neutral"
-              variant="subtle"
-              :disabled="saving || isEditing"
-              @click="browseFolder"
-            />
+            <label :for="'mode-' + item.value" class="text-sm">{{ item.label }}</label>
           </div>
-        </UFormField>
+        </div>
+        <p v-if="importMode === 'move'" class="mt-1 text-xs text-warning">
+          Move mode removes originals from the source folder.
+        </p>
+      </div>
 
-        <!-- Name -->
-        <UFormField label="Name">
-          <UInput
-            v-model="name"
-            placeholder="Folder name"
-            :maxlength="120"
-            :disabled="saving"
-          />
-        </UFormField>
+      <Divider />
 
-        <!-- Import mode -->
-        <UFormField label="Import mode">
-          <URadioGroup
-            v-model="importMode"
-            :items="IMPORT_MODE_ITEMS"
-          />
-          <p v-if="importMode === 'move'" class="mt-1 text-xs text-warning">
-            Move mode removes originals from the source folder.
-          </p>
-        </UFormField>
+      <!-- Target collection -->
+      <div>
+        <label class="mb-1 block text-sm font-medium">Add to collection</label>
+        <Select
+          v-model="targetCollectionId"
+          :options="collectionItems"
+          option-label="label"
+          option-value="value"
+          class="w-full"
+        />
+      </div>
 
-        <USeparator />
+      <!-- Keywords -->
+      <div>
+        <label class="mb-1 block text-sm font-medium">Default keywords</label>
+        <InputText
+          v-model="defaultKeywords"
+          placeholder="portrait, lighting, concept"
+          :disabled="saving"
+          class="w-full"
+        />
+      </div>
 
-        <!-- Target collection -->
-        <UFormField label="Add to collection">
-          <USelect
-            v-model="targetCollectionId"
-            :items="collectionItems"
-            class="w-full"
-          />
-        </UFormField>
+      <Divider />
 
-        <!-- Keywords -->
-        <UFormField label="Default keywords">
-          <UInput
-            v-model="defaultKeywords"
-            placeholder="portrait, lighting, concept"
-            :disabled="saving"
-          />
-        </UFormField>
-
-        <USeparator />
-
-        <!-- Switches -->
-        <div class="space-y-3">
-          <USwitch
-            v-model="persist"
-            label="Remember this folder"
-            :disabled="saving"
-          />
-
-          <USwitch
-            v-model="recursive"
-            label="Include subfolders"
-            :disabled="saving"
-          />
-
-          <USwitch
-            v-if="persist"
-            v-model="autoImport"
-            label="Auto-scan on launch"
-            :disabled="saving"
-            class="ml-4 border-l pl-3"
-          />
+      <!-- Switches -->
+      <div class="space-y-3">
+        <div class="flex items-center gap-2">
+          <ToggleSwitch v-model="persist" :disabled="saving" />
+          <label class="text-sm">Remember this folder</label>
         </div>
 
-        <!-- Error -->
-        <p v-if="error" class="text-sm text-error">{{ error }}</p>
+        <div class="flex items-center gap-2">
+          <ToggleSwitch v-model="recursive" :disabled="saving" />
+          <label class="text-sm">Include subfolders</label>
+        </div>
+
+        <div v-if="persist" class="ml-4 flex items-center gap-2 border-l pl-3">
+          <ToggleSwitch v-model="autoImport" :disabled="saving" />
+          <label class="text-sm">Auto-scan on launch</label>
+        </div>
       </div>
-    </template>
+
+      <!-- Error -->
+      <p v-if="error" class="text-sm text-error">{{ error }}</p>
+    </div>
 
     <template #footer>
       <div class="flex w-full items-center gap-2">
-        <UButton
+        <Button
           v-if="isEditing"
-          icon="i-lucide-trash-2"
-          label="Delete"
-          color="error"
-          variant="soft"
+          severity="danger"
+          text
           :disabled="saving"
           class="mr-auto"
           @click="handleDelete"
-        />
-        <UButton
+        >
+          <Icon icon="lucide:trash-2" class="size-4" />
+          Delete
+        </Button>
+        <Button
           label="Cancel"
-          color="neutral"
-          variant="outline"
+          severity="secondary"
+          outlined
           :disabled="saving"
           @click="handleClose"
         />
-        <UButton
+        <Button
           :label="saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Start Import'"
           :disabled="!canSave"
           @click="handleSave"
         />
       </div>
     </template>
-  </UModal>
+  </Dialog>
 </template>

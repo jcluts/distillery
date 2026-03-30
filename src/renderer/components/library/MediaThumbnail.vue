@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Icon } from '@iconify/vue'
 
 import { formatDuration } from '@/lib/media'
 import type { MediaRecord } from '@/types'
@@ -64,7 +65,7 @@ const ringClass = computed(() => {
     @click="$emit('click', $event)"
     @dblclick="$emit('dblclick')"
   >
-    <div class="relative h-full w-full overflow-hidden rounded-lg bg-muted">
+    <div class="relative h-full w-full overflow-hidden rounded-lg" style="background: var(--p-surface-800)">
       <img
         v-if="media.thumb_path"
         :src="media.thumb_path"
@@ -74,17 +75,18 @@ const ringClass = computed(() => {
         draggable="false"
       />
 
-      <div v-else class="absolute inset-0 flex items-center justify-center text-xs text-muted">
+      <div v-else class="absolute inset-0 flex items-center justify-center text-xs" style="color: var(--p-text-muted-color)">
         {{ index + 1 }}
       </div>
 
       <div
         v-if="media.status"
-        class="absolute flex items-center justify-center rounded-full bg-primary text-inverted shadow-sm"
+        class="absolute flex items-center justify-center rounded-full shadow-sm"
+        style="background: var(--p-primary-color); color: var(--p-primary-contrast-color)"
         :class="[overlayClasses.statusPosition, overlayClasses.statusBadgeSize]"
       >
-        <UIcon
-          :name="media.status === 'selected' ? 'i-lucide-check' : 'i-lucide-x'"
+        <Icon
+          :icon="media.status === 'selected' ? 'lucide:check' : 'lucide:x'"
           :class="overlayClasses.statusIconSize"
         />
       </div>
@@ -94,18 +96,18 @@ const ringClass = computed(() => {
         class="absolute flex items-center gap-px drop-shadow-sm"
         :class="overlayClasses.ratingPosition"
       >
-        <UIcon
+        <Icon
           v-for="starIndex in starCount"
           :key="starIndex"
-          name="i-lucide-star"
-          class="fill-primary text-primary"
+          icon="lucide:star"
+          style="fill: var(--p-primary-color); color: var(--p-primary-color)"
           :class="overlayClasses.ratingStarSize"
         />
       </div>
 
       <template v-if="isVideo">
         <div class="absolute bottom-1.5 left-1.5 rounded-full bg-black/65 p-1 text-white shadow-sm">
-          <UIcon name="i-lucide-play" class="size-3" />
+          <Icon icon="lucide:play" class="size-3" />
         </div>
 
         <div

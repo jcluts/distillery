@@ -1,7 +1,9 @@
 import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import ui from '@nuxt/ui/vite'
 import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
+import Components from 'unplugin-vue-components/vite'
+import { PrimeVueResolver } from '@primevue/auto-import-resolver'
 
 export default defineConfig({
   main: {
@@ -24,15 +26,9 @@ export default defineConfig({
     },
     plugins: [
       vue(),
-      ui({
-        colorMode: true,
-        router: false,
-        ui: {
-          colors: {
-            primary: 'cyan',
-            neutral: 'neutral'
-          }
-        }
+      tailwindcss(),
+      Components({
+        resolvers: [PrimeVueResolver()]
       })
     ]
   }

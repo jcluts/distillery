@@ -9,13 +9,13 @@ useKeyboardShortcuts()
 </script>
 
 <template>
-  <div class="flex h-screen w-screen flex-col overflow-hidden bg-default">
+  <div class="flex h-screen w-screen flex-col overflow-hidden" style="background: var(--p-surface-950)">
     <TitleBar />
 
-    <UMain :ui="{ base: 'flex min-h-0 flex-1 overflow-hidden' }">
+    <main class="flex min-h-0 flex-1 overflow-hidden">
       <LeftSidebar />
       <MainContent />
       <RightSidebar />
-    </UMain>
+    </main>
   </div>
 </template>

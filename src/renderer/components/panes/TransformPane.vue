@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
 
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
@@ -99,42 +101,42 @@ const GUIDE_OPTIONS: { value: 'thirds' | 'grid' | 'golden'; label: string }[] = 
       <!-- Rotate & Flip -->
       <PaneSection title="Rotate & Flip">
         <div class="flex flex-wrap gap-2">
-          <UButton
-            icon="i-lucide-rotate-ccw"
-            color="neutral"
-            variant="outline"
-            square
+          <Button
+            outlined
+            severity="secondary"
             :disabled="isCropTarget"
             aria-label="Rotate counterclockwise"
             @click="transformStore.rotate(focusedItem!.id, 'ccw')"
-          />
-          <UButton
-            icon="i-lucide-rotate-cw"
-            color="neutral"
-            variant="outline"
-            square
+          >
+            <Icon icon="lucide:rotate-ccw" class="size-4" />
+          </Button>
+          <Button
+            outlined
+            severity="secondary"
             :disabled="isCropTarget"
             aria-label="Rotate clockwise"
             @click="transformStore.rotate(focusedItem!.id, 'cw')"
-          />
-          <UButton
-            icon="i-lucide-flip-horizontal-2"
-            color="neutral"
-            variant="outline"
-            square
+          >
+            <Icon icon="lucide:rotate-cw" class="size-4" />
+          </Button>
+          <Button
+            outlined
+            severity="secondary"
             :disabled="isCropTarget"
             aria-label="Flip horizontally"
             @click="transformStore.flipH(focusedItem!.id)"
-          />
-          <UButton
-            icon="i-lucide-flip-vertical-2"
-            color="neutral"
-            variant="outline"
-            square
+          >
+            <Icon icon="lucide:flip-horizontal-2" class="size-4" />
+          </Button>
+          <Button
+            outlined
+            severity="secondary"
             :disabled="isCropTarget"
             aria-label="Flip vertically"
             @click="transformStore.flipV(focusedItem!.id)"
-          />
+          >
+            <Icon icon="lucide:flip-vertical-2" class="size-4" />
+          </Button>
         </div>
       </PaneSection>
 
@@ -143,85 +145,84 @@ const GUIDE_OPTIONS: { value: 'thirds' | 'grid' | 'golden'; label: string }[] = 
         <!-- Aspect Ratio -->
         <PaneSection title="Aspect Ratio">
           <div class="grid grid-cols-4 gap-1">
-            <UButton
+            <Button
               v-for="option in ASPECT_RATIO_OPTIONS"
               :key="option.value"
-              size="xs"
-              :variant="(transformStore.cropAspectRatio ?? 'free') === option.value ? 'soft' : 'outline'"
-              :color="(transformStore.cropAspectRatio ?? 'free') === option.value ? 'primary' : 'neutral'"
+              size="small"
+              :outlined="(transformStore.cropAspectRatio ?? 'free') !== option.value"
+              :severity="(transformStore.cropAspectRatio ?? 'free') === option.value ? undefined : 'secondary'"
               :disabled="!isCropTarget"
               class="justify-center"
               @click="transformStore.setCropAspectRatio(option.value)"
             >
               <AspectIcon v-if="option.value !== 'free'" :ratio="option.value" />
               {{ option.label }}
-            </UButton>
+            </Button>
           </div>
         </PaneSection>
 
         <!-- Guides -->
         <PaneSection title="Guides">
           <div class="grid grid-cols-3 gap-1">
-            <UButton
+            <Button
               v-for="option in GUIDE_OPTIONS"
               :key="option.value"
-              size="xs"
-              :variant="transformStore.cropGuide === option.value ? 'soft' : 'outline'"
-              :color="transformStore.cropGuide === option.value ? 'primary' : 'neutral'"
+              size="small"
+              :outlined="transformStore.cropGuide !== option.value"
+              :severity="transformStore.cropGuide === option.value ? undefined : 'secondary'"
               class="justify-center"
               @click="transformStore.setCropGuide(option.value)"
             >
               {{ option.label }}
-            </UButton>
+            </Button>
           </div>
         </PaneSection>
 
         <!-- Crop / Apply+Cancel buttons -->
         <div>
           <div v-if="!isCropTarget">
-            <UButton
-              icon="i-lucide-crop"
-              color="neutral"
-              variant="outline"
+            <Button
+              outlined
+              severity="secondary"
               class="w-full justify-center"
               @click="transformStore.enterCropMode()"
             >
+              <Icon icon="lucide:crop" class="size-4" />
               Crop
-            </UButton>
+            </Button>
           </div>
           <div v-else class="flex gap-2">
-            <UButton
-              icon="i-lucide-check"
-              color="primary"
+            <Button
               class="flex-1 justify-center"
               @click="transformStore.applyCrop()"
             >
+              <Icon icon="lucide:check" class="size-4" />
               Apply
-            </UButton>
-            <UButton
-              icon="i-lucide-x"
-              color="neutral"
-              variant="outline"
+            </Button>
+            <Button
+              outlined
+              severity="secondary"
               class="flex-1 justify-center"
               @click="transformStore.cancelCrop()"
             >
+              <Icon icon="lucide:x" class="size-4" />
               Cancel
-            </UButton>
+            </Button>
           </div>
         </div>
       </div>
 
       <!-- Reset -->
       <PaneSection v-if="hasTransforms" title="Reset">
-        <UButton
-          icon="i-lucide-undo-2"
-          color="neutral"
-          variant="outline"
+        <Button
+          outlined
+          severity="secondary"
           class="w-full justify-center"
           @click="transformStore.resetAll(focusedItem!.id)"
         >
+          <Icon icon="lucide:undo-2" class="size-4" />
           Reset All
-        </UButton>
+        </Button>
       </PaneSection>
     </div>
   </PaneLayout>

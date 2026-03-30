@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Icon } from '@iconify/vue'
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
+import Divider from 'primevue/divider'
 
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import SelectableItem from '@/components/shared/SelectableItem.vue'
@@ -139,17 +143,16 @@ function openEditModal(collectionId: string): void {
         :selected="collection.id === collectionStore.activeCollectionId"
         @select="collectionStore.setActiveCollection(collection.id)"
       >
-        <UIcon name="i-lucide-star" class="size-4 shrink-0 text-muted" />
+        <Icon icon="lucide:star" class="size-4 shrink-0 text-muted" />
         <span class="min-w-0 flex-1 truncate">{{ collection.name }}</span>
-        <UBadge color="neutral" variant="subtle" size="sm">
+        <Tag severity="secondary">
           {{ collection.media_count }}
-        </UBadge>
+        </Tag>
       </SelectableItem>
 
       <!-- Separator between special and manual collections -->
-      <USeparator
+      <Divider
         v-if="collectionStore.specialCollections.length > 0 && collectionStore.manualCollections.length > 0"
-        class="my-2"
       />
 
       <!-- Manual collections (user-created, draggable) -->
@@ -168,27 +171,28 @@ function openEditModal(collectionId: string): void {
         @dragleave="onDragLeave"
         @drop="onDrop($event, collection)"
       >
-        <UIcon
-          name="i-lucide-layers-3"
+        <Icon
+          icon="lucide:layers-3"
           class="size-4 shrink-0"
           :style="{ color: collection.color }"
         />
         <span class="min-w-0 flex-1 truncate">{{ collection.name }}</span>
 
-        <UTooltip text="Edit collection">
-          <UButton
-            icon="i-lucide-settings"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            class="opacity-0 group-hover/item:opacity-100"
-            @click.stop="openEditModal(collection.id)"
-          />
-        </UTooltip>
+        <Button
+          v-tooltip="'Edit collection'"
+          text
+          plain
+          severity="secondary"
+          size="small"
+          class="opacity-0 group-hover/item:opacity-100"
+          @click.stop="openEditModal(collection.id)"
+        >
+          <Icon icon="lucide:settings" class="size-4" />
+        </Button>
 
-        <UBadge color="neutral" variant="subtle" size="sm">
+        <Tag severity="secondary">
           {{ collection.media_count }}
-        </UBadge>
+        </Tag>
       </SelectableItem>
     </div>
   </PaneLayout>

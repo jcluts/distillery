@@ -86,7 +86,7 @@ src/renderer/
 
 ### 5.2 `LoupeFilmstrip.vue`
 
-**Layout:** Fixed-height (120px) horizontal strip with prev/next `UButton` icons flanking a virtualized scroll container.
+**Layout:** Fixed-height (120px) horizontal strip with prev/next `Button` icons flanking a virtualized scroll container.
 
 **Constants (define in `lib/constants.ts`):**
 ```ts
@@ -130,8 +130,8 @@ defineEmits<{
 - Apply selection ring styling: `ring-2 ring-primary` for focused, `ring-2` for selected (non-focused).
 
 **Navigation buttons:**
-- Left: `UButton` with `i-lucide-chevron-left` icon, `variant="ghost"`, `size="md"`, disabled when `currentIndex <= 0`.
-- Right: `UButton` with `i-lucide-chevron-right` icon, same styling, disabled when at last item.
+- Left: `Button` with `lucide:chevron-left` icon, `text plain`, `size="small"`, disabled when `currentIndex <= 0`.
+- Right: `Button` with `lucide:chevron-right` icon, same styling, disabled when at last item.
 - Clicking emits `select` with the adjacent item's id.
 
 ---
@@ -433,17 +433,17 @@ export type ZoomLevel = 'fit' | 'actual'
 
 ---
 
-## 12. Nuxt UI Components Used
+## 12. PrimeVue Components Used
 
 | Component | Usage |
 |---|---|
-| `UTabs` | Status bar view mode toggle (icon-only, `content: false`), zoom toggle (label, `content: false`) |
-| `UButton` | Filmstrip prev/next navigation |
-| `USlider` | Status bar thumbnail size slider (grid mode, already exists) |
-| `UIcon` | Rating stars, status badges inside filmstrip thumbnails (via existing `MediaThumbnail.vue`) |
-| `UTooltip` | *(Optional)* Tooltip on filmstrip items showing file name on hover |
+| `Tabs` / `TabList` / `Tab` | Status bar view mode toggle, zoom toggle |
+| `Button` | Filmstrip prev/next navigation |
+| `Slider` | Status bar thumbnail size slider (grid mode, already exists) |
+| `Icon` (`@iconify/vue`) | Rating stars, status badges inside filmstrip thumbnails (via existing `MediaThumbnail.vue`) |
+| `v-tooltip` directive | *(Optional)* Tooltip on filmstrip items showing file name on hover |
 
-The canvas viewer and the filmstrip layout are custom — no Nuxt UI component maps to these use cases. Tailwind handles all layout and spacing.
+The canvas viewer and the filmstrip layout are custom — no PrimeVue component maps to these use cases. Tailwind handles all layout and spacing.
 
 ---
 
