@@ -8,6 +8,7 @@ import GenerationInfoPane from '@/components/panes/GenerationInfoPane.vue'
 import MediaInfoPane from '@/components/panes/MediaInfoPane.vue'
 import RemovalPane from '@/components/panes/RemovalPane.vue'
 import TransformPane from '@/components/panes/TransformPane.vue'
+import UpscalePane from '@/components/panes/UpscalePane.vue'
 import SidebarIconRail, { type SidebarTab } from '@/components/layout/SidebarIconRail.vue'
 import { useUIStore, type RightPanelTab } from '@/stores/ui'
 
@@ -19,7 +20,8 @@ const tabs: SidebarTab[] = [
   { id: 'collections', icon: 'lucide:layers-3', label: 'Collections' },
   { id: 'transform', icon: 'lucide:crop', label: 'Transform' },
   { id: 'adjustments', icon: 'lucide:sliders-horizontal', label: 'Adjustments' },
-  { id: 'removal', icon: 'lucide:eraser', label: 'Removals' }
+  { id: 'removal', icon: 'lucide:eraser', label: 'Removals' },
+  { id: 'upscale', icon: 'lucide:maximize-2', label: 'Upscale' }
 ]
 
 const activePaneComponent = computed(() => {
@@ -34,6 +36,8 @@ const activePaneComponent = computed(() => {
       return AdjustmentsPane
     case 'removal':
       return RemovalPane
+    case 'upscale':
+      return UpscalePane
     default:
       return MediaInfoPane
   }

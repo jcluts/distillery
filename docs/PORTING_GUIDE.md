@@ -72,17 +72,24 @@ The layout uses **plain HTML flex containers**. Sidebar pane switching is driven
 
 Sidebar content switches based on the active tab in the UI store. Each sidebar uses a computed `activePaneComponent` that resolves to a concrete pane component (GenerationPane, TimelinePane, etc.).
 
-Panes use two structural components:
+Panes use five structural primitives (all in `components/panes/`). These enforce consistent spacing, typography, and layout across every pane — individual panes should never hard-code spacing or header styles.
 
-- **`PaneLayout`** — Wraps an entire pane. Provides the pane title header and a scrollable body area. Every pane's root element should be `<PaneLayout title="...">`.
-- **`PaneSection`** — Wraps a labeled section *within* a pane (e.g. "Rating", "File Info", "Actions"). Provides a consistent uppercase section header and vertical spacing. Use this instead of hand-writing `<div class="space-y-1.5"><p class="text-xs ...">` blocks.
+| Component | Purpose | Props |
+|---|---|---|
+| **`PaneLayout`** | Outermost wrapper. Provides the pane title header (`h-10`, uppercase, semibold) and a scrollable body area. Every pane's root element must be `<PaneLayout title="...">`. | `title: string` |
+| **`PaneBody`** | Vertical rhythm container for the pane's main content. Wraps a slot in `space-y-8` to enforce consistent spacing between top-level sections. Always the direct child of `PaneLayout` (when content is shown). | *(none — slot only)* |
+| **`PaneSection`** | A major labeled group within a pane (e.g. "Brush", "File Info", "Actions"). Renders an uppercase section header (`text-xs font-medium tracking-wider uppercase`) with `space-y-1.5` between header and content. | `title: string` |
+| **`PaneField`** | A labeled control *within* a `PaneSection`. Lighter visual weight than a section header — uses `text-xs text-muted` for the label with `space-y-1` between label and content. Use when a section groups multiple related controls (e.g. brush size, feather, mode). | `label: string` |
+| **`PaneGate`** | Empty/invalid state message. Centered, muted text shown when the pane can't display its content (no selection, wrong media type, wrong view mode). Use with `v-if`/`v-else-if` chains before the `PaneBody`. | `message: string` |
 
-Typical pane structure:
+**Visual hierarchy:** `PaneLayout` title > `PaneSection` title > `PaneField` label
+
+Typical pane structure (simple — no gates):
 
 ```vue
 <template>
   <PaneLayout title="Media Info">
-    <div class="space-y-5">
+    <PaneBody>
       <PaneSection title="Rating">
         <StarRating ... />
       </PaneSection>
@@ -90,14 +97,51 @@ Typical pane structure:
       <PaneSection v-if="showDetails" title="File Info">
         <!-- content -->
       </PaneSection>
-    </div>
+    </PaneBody>
   </PaneLayout>
 </template>
 ```
 
+Typical pane structure (with gates and fields):
+
+```vue
+<template>
+  <PaneLayout title="Removals">
+    <PaneGate v-if="noSelection" message="Select an image to remove objects" />
+    <PaneGate v-else-if="notImage" message="Removals are available for images only" />
+    <PaneGate v-else-if="notLoupe" message="Open an image in loupe view to use removals" />
+
+    <PaneBody v-else>
+      <PaneSection title="Brush">
+        <div class="space-y-3">
+          <PaneField label="Mode">
+            <!-- toggle buttons -->
+          </PaneField>
+          <PaneField label="Size">
+            <!-- slider + value -->
+          </PaneField>
+        </div>
+      </PaneSection>
+
+      <PaneSection title="Operations">
+        <!-- list content -->
+      </PaneSection>
+    </PaneBody>
+  </PaneLayout>
+</template>
+```
+
+**When to use each component:**
+- `PaneBody` — Always. Never use a raw `<div class="space-y-*">` as PaneLayout's direct child.
+- `PaneSection` — For every visually distinct group that deserves a bold header. Aim for 2–4 sections per pane.
+- `PaneField` — When a section contains multiple labeled controls. Wrap content in `<div class="space-y-3">` to space fields within a section. Don't use PaneField for a section with only one control.
+- `PaneGate` — When the pane requires a specific context to be useful (image selected, loupe view active, etc.). Place gates *before* PaneBody in a `v-if`/`v-else-if`/`v-else` chain.
+
 **Reference implementations:**
-- `MediaInfoPane.vue` — The definitive pattern for pane structure, store usage, IPC calls, and sub-component organization.
-- `CollectionsPane.vue` — Example of a list-selection pane using `SelectableItem`, drag-and-drop, and cross-store reactivity.
+- `MediaInfoPane.vue` — Definitive pattern for pane structure, store usage, IPC calls, and sub-component organization.
+- `RemovalPane.vue` — Best example of gates + PaneField grouping within sections.
+- `TransformPane.vue` — Example of combining PaneSection and PaneField for tool-specific controls.
+- `CollectionsPane.vue` — List-selection pane using `SelectableItem`, drag-and-drop, and cross-store reactivity.
 
 ### IPC Pattern
 
@@ -281,7 +325,7 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 ### File Organization
 - Pane components: `src/renderer/components/panes/PaneName.vue`
 - Pane sub-components: `src/renderer/components/panes/{pane-name}/SubComponent.vue`
-- Shared pane primitives: `src/renderer/components/panes/PaneLayout.vue`, `PaneSection.vue`
+- Shared pane primitives: `src/renderer/components/panes/PaneLayout.vue`, `PaneBody.vue`, `PaneSection.vue`, `PaneField.vue`, `PaneGate.vue`
 - Shared reusable components: `src/renderer/components/shared/ComponentName.vue`
 - Modal components: `src/renderer/components/modals/ModalName.vue`
 - Other components: `src/renderer/components/{feature}/ComponentName.vue`
@@ -360,7 +404,9 @@ When picking up a new feature to port:
 5. **Check if a Pinia store exists** for this feature. If not, create one following the setup syntax pattern of the existing stores. If the store exists but is missing methods the React version relies on, add them.
 6. **Build the Vue component(s)**:
    - Use `PaneLayout` as the root wrapper for any sidebar pane.
-   - Use `PaneSection` for every labeled section within that pane.
+   - Use `PaneBody` as the direct child of `PaneLayout` for the main content area. Use `PaneGate` for empty/invalid states before the `PaneBody`.
+   - Use `PaneSection` for every major labeled group within the pane. Aim for 2–4 sections.
+   - Use `PaneField` for individual labeled controls within a section that groups multiple related controls.
    - Map React sub-components (e.g. `StarRating`, `KeywordEditor`) to Vue SFCs in a subfolder.
    - Convert React callback props to Vue `defineEmits` — keep the parent in control of IPC/store logic.
    - Check [PrimeVue documentation](https://primevue.org/) for components that match each UI element. Use their built-in props and variants. Accept the default PrimeVue Aura appearance — do not try to pixel-match the React version's styling.
@@ -379,14 +425,23 @@ Every sidebar pane follows the same skeleton:
 
 ```
 PaneLayout (title header + scrollable body)
-└── div.space-y-5 (vertical rhythm between sections)
+├── PaneGate v-if="..." (zero or more — shown when pane can't display content)
+└── PaneBody v-else (vertical rhythm between sections — space-y-8)
     ├── PaneSection title="Section A"
     │   └── content...
     ├── PaneSection title="Section B" (can have v-if for conditional sections)
-    │   └── content...
+    │   └── div.space-y-3 (when section has multiple fields)
+    │       ├── PaneField label="Control 1"
+    │       │   └── control...
+    │       └── PaneField label="Control 2"
+    │           └── control...
     └── PaneSection title="Section C"
         └── content...
 ```
+
+**Do not** use raw `<div class="space-y-*">` as PaneLayout's direct child — always use `PaneBody`. This ensures section spacing is controlled in one place.
+
+**Do not** create a separate PaneSection for every individual control. Group related controls (e.g. brush mode, size, feather) under one PaneSection and use PaneField for individual labels within it.
 
 ### Sub-component Communication
 

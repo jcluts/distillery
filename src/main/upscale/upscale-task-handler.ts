@@ -55,7 +55,6 @@ export class UpscaleTaskHandler implements WorkTaskHandler {
 
       // 4. Run the configured backend
       this.upscaleService.emitProgress({ mediaId, phase: 'upscaling' })
-      this.upscaleService.emitProgress({ mediaId, phase: 'saving' })
 
       const result = await this.executionService.execute({
         media,
@@ -75,7 +74,8 @@ export class UpscaleTaskHandler implements WorkTaskHandler {
         }
       })
 
-      // 5. Get file size
+      // 5. Save output
+      this.upscaleService.emitProgress({ mediaId, phase: 'saving' })
       const fsModule = await import('fs')
       const stat = await fsModule.promises.stat(outputAbsPath)
 

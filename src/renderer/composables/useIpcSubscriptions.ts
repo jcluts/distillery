@@ -1,11 +1,19 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 
-import type { EngineStatus, ImportScanProgress, RemovalProgressEvent, RemovalResultEvent } from '@/types'
+import type {
+  EngineStatus,
+  ImportScanProgress,
+  RemovalProgressEvent,
+  RemovalResultEvent,
+  UpscaleProgressEvent,
+  UpscaleResultEvent
+} from '@/types'
 import { useCollectionStore } from '@/stores/collection'
 import { useEngineStore } from '@/stores/engine'
 import { useImportFolderStore } from '@/stores/import-folder'
 import { useLibraryStore } from '@/stores/library'
 import { useRemovalStore } from '@/stores/removal'
+import { useUpscaleStore } from '@/stores/upscale'
 import { useUIStore } from '@/stores/ui'
 
 export function useIpcSubscriptions(): void {
@@ -14,6 +22,7 @@ export function useIpcSubscriptions(): void {
   const importFolderStore = useImportFolderStore()
   const libraryStore = useLibraryStore()
   const removalStore = useRemovalStore()
+  const upscaleStore = useUpscaleStore()
   const uiStore = useUIStore()
   const unsubs: Array<() => void> = []
 
@@ -67,6 +76,19 @@ export function useIpcSubscriptions(): void {
     unsubs.push(
       window.api.on('removal:result', (payload: unknown) => {
         void removalStore.handleResult(payload as RemovalResultEvent)
+      })
+    )
+
+    unsubs.push(
+      window.api.on('upscale:progress', (payload: unknown) => {
+        upscaleStore.handleProgress(payload as UpscaleProgressEvent)
+      })
+    )
+
+    unsubs.push(
+      window.api.on('upscale:result', (payload: unknown) => {
+        upscaleStore.handleResult(payload as UpscaleResultEvent)
+        void libraryStore.loadMedia()
       })
     )
   })
