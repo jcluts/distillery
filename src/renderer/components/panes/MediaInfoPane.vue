@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 
+import PaneBody from '@/components/panes/PaneBody.vue'
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
 import StarRating from '@/components/panes/media-info/StarRating.vue'
@@ -225,7 +226,7 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
 
 <template>
   <PaneLayout title="Media Info">
-    <div class="space-y-5">
+    <PaneBody>
       <!-- Multi-selection indicator -->
       <p v-if="isMulti" class="text-sm font-medium text-muted">
         {{ libraryStore.selectedIds.size }} items selected
@@ -340,7 +341,7 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
         />
         <p v-else class="text-xs text-muted">No selection</p>
       </PaneSection>
-    </div>
+    </PaneBody>
 
     <!-- Delete confirmation modal -->
     <Dialog

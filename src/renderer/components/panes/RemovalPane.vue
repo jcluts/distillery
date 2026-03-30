@@ -4,6 +4,9 @@ import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import Slider from 'primevue/slider'
 
+import PaneBody from '@/components/panes/PaneBody.vue'
+import PaneField from '@/components/panes/PaneField.vue'
+import PaneGate from '@/components/panes/PaneGate.vue'
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
 import { useLibraryStore } from '@/stores/library'
@@ -93,102 +96,91 @@ function isOperationBusy(opId: string): boolean {
 
 <template>
   <PaneLayout title="Removals">
-    <!-- Gate: no selection -->
-    <div v-if="noSelection" class="flex items-center justify-center px-4 py-8 text-sm text-muted">
-      Select an image to remove objects
-    </div>
+    <PaneGate v-if="noSelection" message="Select an image to remove objects" />
+    <PaneGate v-else-if="notImage" message="Removals are available for images only" />
+    <PaneGate v-else-if="notLoupe" message="Open an image in loupe view to use removals" />
 
-    <!-- Gate: not an image -->
-    <div v-else-if="notImage" class="flex items-center justify-center px-4 py-8 text-sm text-muted">
-      Removals are available for images only
-    </div>
+    <PaneBody v-else>
+      <!-- Brush controls -->
+      <PaneSection title="Brush">
+        <div class="space-y-3">
+          <PaneField label="Mode">
+            <div class="flex gap-1">
+              <Button
+                size="small"
+                :outlined="removalStore.tool !== 'paint'"
+                :severity="removalStore.tool === 'paint' ? undefined : 'secondary'"
+                class="justify-center"
+                @click="removalStore.setTool('paint')"
+              >
+                Paint
+              </Button>
+              <Button
+                size="small"
+                :outlined="removalStore.tool !== 'erase'"
+                :severity="removalStore.tool === 'erase' ? undefined : 'secondary'"
+                class="justify-center"
+                @click="removalStore.setTool('erase')"
+              >
+                Erase
+              </Button>
+            </div>
+          </PaneField>
 
-    <!-- Gate: not in loupe view -->
-    <div v-else-if="notLoupe" class="flex items-center justify-center px-4 py-8 text-sm text-muted">
-      Open an image in loupe view to use removals
-    </div>
+          <PaneField label="Size">
+            <div class="flex items-center gap-3">
+              <Slider
+                :model-value="removalStore.brushSizeNormalized * 100"
+                :min="0.4"
+                :max="25"
+                :step="0.1"
+                class="flex-1"
+                @update:model-value="(v: number | number[]) => { const n = Array.isArray(v) ? v[0] : v; if (n != null) removalStore.setBrushSizeNormalized(n / 100) }"
+              />
+              <span class="w-8 shrink-0 text-right text-xs text-muted">{{ brushSizePercent }}%</span>
+            </div>
+          </PaneField>
 
-    <!-- Main content -->
-    <div v-else class="space-y-4">
-      <!-- Tool toggle -->
-      <PaneSection title="Mode">
-        <div class="flex gap-1">
-          <Button
-            size="small"
-            :outlined="removalStore.tool !== 'paint'"
-            :severity="removalStore.tool === 'paint' ? undefined : 'secondary'"
-            class="justify-center"
-            @click="removalStore.setTool('paint')"
-          >
-            Paint
-          </Button>
-          <Button
-            size="small"
-            :outlined="removalStore.tool !== 'erase'"
-            :severity="removalStore.tool === 'erase' ? undefined : 'secondary'"
-            class="justify-center"
-            @click="removalStore.setTool('erase')"
-          >
-            Erase
-          </Button>
+          <PaneField label="Feather">
+            <div class="flex items-center gap-3">
+              <Slider
+                :model-value="removalStore.featherRadiusNormalized * 100"
+                :min="0"
+                :max="20"
+                :step="0.1"
+                class="flex-1"
+                @update:model-value="(v: number | number[]) => { const n = Array.isArray(v) ? v[0] : v; if (n != null) removalStore.setFeatherRadiusNormalized(n / 100) }"
+              />
+              <span class="w-8 shrink-0 text-right text-xs text-muted">{{ featherPercent }}%</span>
+            </div>
+          </PaneField>
+
+          <div class="flex gap-2">
+            <Button
+              outlined
+              severity="secondary"
+              size="small"
+              class="flex-1 justify-center"
+              :disabled="!isPaintTarget || !canUndo"
+              @click="removalStore.undoStroke()"
+            >
+              <Icon icon="lucide:undo-2" class="size-4" />
+              Undo
+            </Button>
+            <Button
+              outlined
+              severity="secondary"
+              size="small"
+              class="flex-1 justify-center"
+              :disabled="!isPaintTarget || !hasDraft"
+              @click="removalStore.clearDraftStrokes()"
+            >
+              <Icon icon="lucide:trash-2" class="size-4" />
+              Clear
+            </Button>
+          </div>
         </div>
       </PaneSection>
-
-      <!-- Brush Size -->
-      <PaneSection title="Brush Size">
-        <div class="flex items-center gap-3">
-          <Slider
-            :model-value="removalStore.brushSizeNormalized * 100"
-            :min="0.4"
-            :max="25"
-            :step="0.1"
-            class="flex-1"
-            @update:model-value="(v: number | number[]) => { const n = Array.isArray(v) ? v[0] : v; if (n != null) removalStore.setBrushSizeNormalized(n / 100) }"
-          />
-          <span class="w-8 shrink-0 text-right text-xs text-muted">{{ brushSizePercent }}%</span>
-        </div>
-      </PaneSection>
-
-      <!-- Feather -->
-      <PaneSection title="Feather">
-        <div class="flex items-center gap-3">
-          <Slider
-            :model-value="removalStore.featherRadiusNormalized * 100"
-            :min="0"
-            :max="20"
-            :step="0.1"
-            class="flex-1"
-            @update:model-value="(v: number | number[]) => { const n = Array.isArray(v) ? v[0] : v; if (n != null) removalStore.setFeatherRadiusNormalized(n / 100) }"
-          />
-          <span class="w-8 shrink-0 text-right text-xs text-muted">{{ featherPercent }}%</span>
-        </div>
-      </PaneSection>
-
-      <!-- Undo / Clear -->
-      <div class="flex gap-2">
-        <Button
-          outlined
-          severity="secondary"
-          size="small"
-          class="flex-1 justify-center"
-          :disabled="!isPaintTarget || !canUndo"
-          @click="removalStore.undoStroke()"
-        >
-          <Icon icon="lucide:undo-2" class="size-4" />
-          Undo
-        </Button>
-        <Button
-          outlined
-          severity="secondary"
-          size="small"
-          class="flex-1 justify-center"
-          :disabled="!isPaintTarget || !hasDraft"
-          @click="removalStore.clearDraftStrokes()"
-        >
-          <Icon icon="lucide:trash-2" class="size-4" />
-          Clear
-        </Button>
-      </div>
 
       <!-- Paint Mask / Apply + Cancel -->
       <div>
@@ -307,6 +299,6 @@ function isOperationBusy(opId: string): boolean {
           Refresh All ({{ staleEnabledCount }})
         </Button>
       </PaneSection>
-    </div>
+    </PaneBody>
   </PaneLayout>
 </template>

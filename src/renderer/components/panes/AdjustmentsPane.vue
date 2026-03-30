@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 
+import PaneBody from '@/components/panes/PaneBody.vue'
+import PaneGate from '@/components/panes/PaneGate.vue'
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
 import AdjustmentSlider from '@/components/panes/adjustments/AdjustmentSlider.vue'
@@ -94,35 +96,12 @@ async function pasteAdjustments(): Promise<void> {
 
 <template>
   <PaneLayout title="Adjustments">
-    <div
-      v-if="noSelection"
-      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
-    >
-      Select an image to adjust
-    </div>
+    <PaneGate v-if="noSelection" message="Select an image to adjust" />
+    <PaneGate v-else-if="multipleSelection" message="Select a single image to adjust" />
+    <PaneGate v-else-if="notImage" message="Adjustments are available for images only" />
+    <PaneGate v-else-if="notLoupe" message="Open an image in loupe view to adjust" />
 
-    <div
-      v-else-if="multipleSelection"
-      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
-    >
-      Select a single image to adjust
-    </div>
-
-    <div
-      v-else-if="notImage"
-      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
-    >
-      Adjustments are available for images only
-    </div>
-
-    <div
-      v-else-if="notLoupe"
-      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
-    >
-      Open an image in loupe view to adjust
-    </div>
-
-    <div v-else class="space-y-4">
+    <PaneBody v-else>
       <PaneSection title="Light">
         <div class="space-y-3">
           <AdjustmentSlider
@@ -205,6 +184,6 @@ async function pasteAdjustments(): Promise<void> {
           </Button>
         </div>
       </PaneSection>
-    </div>
+    </PaneBody>
   </PaneLayout>
 </template>

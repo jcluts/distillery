@@ -5,6 +5,7 @@ import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import Divider from 'primevue/divider'
 
+import PaneBody from '@/components/panes/PaneBody.vue'
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
 import { useImportFolderStore } from '@/stores/import-folder'
@@ -90,7 +91,7 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
 
 <template>
   <PaneLayout title="Import">
-    <div class="space-y-5">
+    <PaneBody>
       <!-- Quick Import -->
       <PaneSection title="Quick Import">
         <div
@@ -197,6 +198,6 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
           </div>
         </div>
       </PaneSection>
-    </div>
+    </PaneBody>
   </PaneLayout>
 </template>

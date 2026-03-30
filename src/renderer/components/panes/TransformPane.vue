@@ -3,6 +3,9 @@ import { computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 
+import PaneBody from '@/components/panes/PaneBody.vue'
+import PaneField from '@/components/panes/PaneField.vue'
+import PaneGate from '@/components/panes/PaneGate.vue'
 import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
 import AspectIcon from '@/components/panes/transform/AspectIcon.vue'
@@ -72,32 +75,11 @@ const GUIDE_OPTIONS: { value: 'thirds' | 'grid' | 'golden'; label: string }[] = 
 
 <template>
   <PaneLayout title="Transform">
-    <!-- Gate: no selection -->
-    <div
-      v-if="noSelection"
-      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
-    >
-      Select an image to transform
-    </div>
+    <PaneGate v-if="noSelection" message="Select an image to transform" />
+    <PaneGate v-else-if="notImage" message="Transforms are available for images only" />
+    <PaneGate v-else-if="notLoupe" message="Open an image in the loupe view to access transforms" />
 
-    <!-- Gate: not an image -->
-    <div
-      v-else-if="notImage"
-      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
-    >
-      Transforms are available for images only
-    </div>
-
-    <!-- Gate: not in loupe view -->
-    <div
-      v-else-if="notLoupe"
-      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
-    >
-      Open an image in the loupe view to access transforms
-    </div>
-
-    <!-- Main content -->
-    <div v-else class="space-y-4">
+    <PaneBody v-else>
       <!-- Rotate & Flip -->
       <PaneSection title="Rotate & Flip">
         <div class="flex flex-wrap gap-2">
@@ -140,77 +122,76 @@ const GUIDE_OPTIONS: { value: 'thirds' | 'grid' | 'golden'; label: string }[] = 
         </div>
       </PaneSection>
 
-      <!-- Crop section -->
-      <div class="space-y-3">
-        <!-- Aspect Ratio -->
-        <PaneSection title="Aspect Ratio">
-          <div class="grid grid-cols-4 gap-1">
-            <Button
-              v-for="option in ASPECT_RATIO_OPTIONS"
-              :key="option.value"
-              size="small"
-              :outlined="(transformStore.cropAspectRatio ?? 'free') !== option.value"
-              :severity="(transformStore.cropAspectRatio ?? 'free') === option.value ? undefined : 'secondary'"
-              :disabled="!isCropTarget"
-              class="justify-center"
-              @click="transformStore.setCropAspectRatio(option.value)"
-            >
-              <AspectIcon v-if="option.value !== 'free'" :ratio="option.value" />
-              {{ option.label }}
-            </Button>
-          </div>
-        </PaneSection>
+      <!-- Crop -->
+      <PaneSection title="Crop">
+        <div class="space-y-3">
+          <PaneField label="Aspect Ratio">
+            <div class="grid grid-cols-4 gap-1">
+              <Button
+                v-for="option in ASPECT_RATIO_OPTIONS"
+                :key="option.value"
+                size="small"
+                :outlined="(transformStore.cropAspectRatio ?? 'free') !== option.value"
+                :severity="(transformStore.cropAspectRatio ?? 'free') === option.value ? undefined : 'secondary'"
+                :disabled="!isCropTarget"
+                class="justify-center"
+                @click="transformStore.setCropAspectRatio(option.value)"
+              >
+                <AspectIcon v-if="option.value !== 'free'" :ratio="option.value" />
+                {{ option.label }}
+              </Button>
+            </div>
+          </PaneField>
 
-        <!-- Guides -->
-        <PaneSection title="Guides">
-          <div class="grid grid-cols-3 gap-1">
-            <Button
-              v-for="option in GUIDE_OPTIONS"
-              :key="option.value"
-              size="small"
-              :outlined="transformStore.cropGuide !== option.value"
-              :severity="transformStore.cropGuide === option.value ? undefined : 'secondary'"
-              class="justify-center"
-              @click="transformStore.setCropGuide(option.value)"
-            >
-              {{ option.label }}
-            </Button>
-          </div>
-        </PaneSection>
+          <PaneField label="Guides">
+            <div class="grid grid-cols-3 gap-1">
+              <Button
+                v-for="option in GUIDE_OPTIONS"
+                :key="option.value"
+                size="small"
+                :outlined="transformStore.cropGuide !== option.value"
+                :severity="transformStore.cropGuide === option.value ? undefined : 'secondary'"
+                class="justify-center"
+                @click="transformStore.setCropGuide(option.value)"
+              >
+                {{ option.label }}
+              </Button>
+            </div>
+          </PaneField>
 
-        <!-- Crop / Apply+Cancel buttons -->
-        <div>
-          <div v-if="!isCropTarget">
-            <Button
-              outlined
-              severity="secondary"
-              class="w-full justify-center"
-              @click="transformStore.enterCropMode()"
-            >
-              <Icon icon="lucide:crop" class="size-4" />
-              Crop
-            </Button>
-          </div>
-          <div v-else class="flex gap-2">
-            <Button
-              class="flex-1 justify-center"
-              @click="transformStore.applyCrop()"
-            >
-              <Icon icon="lucide:check" class="size-4" />
-              Apply
-            </Button>
-            <Button
-              outlined
-              severity="secondary"
-              class="flex-1 justify-center"
-              @click="transformStore.cancelCrop()"
-            >
-              <Icon icon="lucide:x" class="size-4" />
-              Cancel
-            </Button>
+          <div>
+            <div v-if="!isCropTarget">
+              <Button
+                outlined
+                severity="secondary"
+                class="w-full justify-center"
+                @click="transformStore.enterCropMode()"
+              >
+                <Icon icon="lucide:crop" class="size-4" />
+                Crop
+              </Button>
+            </div>
+            <div v-else class="flex gap-2">
+              <Button
+                class="flex-1 justify-center"
+                @click="transformStore.applyCrop()"
+              >
+                <Icon icon="lucide:check" class="size-4" />
+                Apply
+              </Button>
+              <Button
+                outlined
+                severity="secondary"
+                class="flex-1 justify-center"
+                @click="transformStore.cancelCrop()"
+              >
+                <Icon icon="lucide:x" class="size-4" />
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </PaneSection>
 
       <!-- Reset -->
       <PaneSection v-if="hasTransforms" title="Reset">
@@ -224,6 +205,6 @@ const GUIDE_OPTIONS: { value: 'thirds' | 'grid' | 'golden'; label: string }[] = 
           Reset All
         </Button>
       </PaneSection>
-    </div>
+    </PaneBody>
   </PaneLayout>
 </template>
