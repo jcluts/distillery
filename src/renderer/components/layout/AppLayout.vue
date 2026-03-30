@@ -9,7 +9,7 @@ useKeyboardShortcuts()
 </script>
 
 <template>
-  <div class="flex h-screen w-screen flex-col overflow-hidden" style="background: var(--p-surface-950)">
+  <div class="flex h-screen w-screen flex-col overflow-hidden bg-surface-950">
     <TitleBar />
 
     <main class="flex min-h-0 flex-1 overflow-hidden">

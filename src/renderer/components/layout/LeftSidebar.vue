@@ -33,12 +33,11 @@ const activePaneComponent = computed(() => {
 <template>
   <aside
     id="left-sidebar"
-    class="flex h-full shrink-0 transition-[width] duration-150 ease-linear"
-    style="background: var(--p-surface-950)"
+    class="flex h-full shrink-0 transition-[width] duration-150 ease-linear bg-surface-950"
     :style="{ width: `${collapsed ? PANEL_ICON_STRIP_WIDTH_PX : LEFT_PANEL_WIDTH_PX}px` }"
   >
     <div class="flex h-full w-full overflow-hidden">
-      <div class="flex w-12 shrink-0 flex-col items-center gap-1 pt-2" style="background: var(--p-surface-900)">
+      <div class="flex w-12 shrink-0 flex-col items-center gap-1 pt-2 bg-surface-900">
         <Button
           v-for="tab in tabs"
           :key="tab.id"

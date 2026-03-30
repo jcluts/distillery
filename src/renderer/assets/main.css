@@ -2,11 +2,13 @@
 @import "tailwindcss-primeui";
 
 @theme {
-  --font-sans: 'Inter Variable', sans-serif;
+  --font-sans: 'Geist Variable', sans-serif;
+  --font-mono: 'Geist Mono Variable', monospace;
 }
 
 html {
     font-size: 14px;
+    color: var(--p-text-color);
 }
 
 

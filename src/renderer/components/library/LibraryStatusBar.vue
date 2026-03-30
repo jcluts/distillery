@@ -126,8 +126,8 @@ function handleThumbnailSizeUpdate(value: number | number[]): void {
 </script>
 
 <template>
-  <div class="flex shrink-0 items-center gap-3 px-3 py-2 text-xs" style="background: var(--p-surface-950)">
-    <span class="tabular-nums" style="color: var(--p-text-muted-color)">{{ counterLabel }}{{ selectionSuffix }}</span>
+  <div class="flex shrink-0 items-center gap-3 px-3 py-2 text-xs bg-surface-950">
+    <span class="tabular-nums text-muted-color">{{ counterLabel }}{{ selectionSuffix }}</span>
 
     <div class="flex-1" />
 
@@ -142,7 +142,7 @@ function handleThumbnailSizeUpdate(value: number | number[]): void {
       />
 
       <div v-if="uiStore.viewMode === 'grid'" class="flex w-28 items-center gap-1.5">
-        <Icon icon="lucide:image" class="size-3" style="color: var(--p-text-muted-color)" />
+        <Icon icon="lucide:image" class="size-3 text-muted-color" />
         <Slider
           :model-value="uiStore.thumbnailSize"
           :min="THUMBNAIL_SIZE_MIN"
@@ -151,7 +151,7 @@ function handleThumbnailSizeUpdate(value: number | number[]): void {
           class="flex-1"
           @update:model-value="handleThumbnailSizeUpdate"
         />
-        <Icon icon="lucide:image" class="size-4" style="color: var(--p-text-muted-color)" />
+        <Icon icon="lucide:image" class="size-4 text-muted-color" />
       </div>
 
       <SelectButton

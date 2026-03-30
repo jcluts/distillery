@@ -27,7 +27,7 @@ function handleSearch(event: Event): void {
 </script>
 
 <template>
-  <div class="flex items-center gap-10 px-3 h-10" style="background: var(--p-surface-950)">
+  <div class="flex items-center gap-10 px-3 h-10 bg-surface-950">
     <!-- Rating filter -->
     <div class="flex items-center gap-0.5">
       <Button

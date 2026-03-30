@@ -65,7 +65,7 @@ const ringClass = computed(() => {
     @click="$emit('click', $event)"
     @dblclick="$emit('dblclick')"
   >
-    <div class="relative h-full w-full overflow-hidden rounded-lg" style="background: var(--p-surface-800)">
+    <div class="relative h-full w-full overflow-hidden rounded-lg bg-surface-800">
       <img
         v-if="media.thumb_path"
         :src="media.thumb_path"
@@ -75,14 +75,13 @@ const ringClass = computed(() => {
         draggable="false"
       />
 
-      <div v-else class="absolute inset-0 flex items-center justify-center text-xs" style="color: var(--p-text-muted-color)">
+      <div v-else class="absolute inset-0 flex items-center justify-center text-xs text-muted-color">
         {{ index + 1 }}
       </div>
 
       <div
         v-if="media.status"
-        class="absolute flex items-center justify-center rounded-full shadow-sm"
-        style="background: var(--p-primary-color); color: var(--p-primary-contrast-color)"
+        class="absolute flex items-center justify-center rounded-full shadow-sm bg-primary text-primary-contrast"
         :class="[overlayClasses.statusPosition, overlayClasses.statusBadgeSize]"
       >
         <Icon
@@ -100,7 +99,7 @@ const ringClass = computed(() => {
           v-for="starIndex in starCount"
           :key="starIndex"
           icon="lucide:star"
-          style="fill: var(--p-primary-color); color: var(--p-primary-color)"
+          class="fill-primary text-primary"
           :class="overlayClasses.ratingStarSize"
         />
       </div>

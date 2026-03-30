@@ -66,7 +66,7 @@ Distillery is a desktop application for local AI image generation and media mana
 | AI engine | condenser.cpp (`cn-engine`), NDJSON-over-stdio child process |
 | Virtualization | @tanstack/vue-virtual |
 | Icons | @iconify/vue with `@iconify-json/lucide` (format: `lucide:icon-name`) |
-| Font | Inter Variable (`@fontsource-variable/inter`) |
+| Font | Geist Variable (`@fontsource-variable/geist`, `@fontsource-variable/geist-mono`) |
 
 **PrimeVue config** (in `src/renderer/main.ts`):
 - Theme: Aura preset with `darkModeSelector: '.dark'`, `cssLayer: false`
@@ -133,7 +133,7 @@ src/
 └── renderer/
     ├── main.ts                     # Vue app entry (createApp, Pinia, PrimeVue plugin)
     ├── App.vue                     # Root: IPC subscription bootstrap
-    ├── assets/main.css             # Tailwind 4, Inter font, PrimeVue token utilities
+    ├── assets/main.css             # Tailwind 4, Geist font, PrimeVue token utilities
     ├── types/index.ts              # Renderer type surface + DistilleryAPI interface
     ├── lib/
     │   ├── constants.ts            # Resolution presets, aspect ratios, defaults
