@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Icon } from '@iconify/vue'
-import Button from 'primevue/button'
 
 import { PANEL_ICON_STRIP_WIDTH_PX, RIGHT_PANEL_WIDTH_PX } from '@/lib/layout'
 import CollectionsPane from '@/components/panes/CollectionsPane.vue'
@@ -10,12 +8,13 @@ import GenerationInfoPane from '@/components/panes/GenerationInfoPane.vue'
 import MediaInfoPane from '@/components/panes/MediaInfoPane.vue'
 import RemovalPane from '@/components/panes/RemovalPane.vue'
 import TransformPane from '@/components/panes/TransformPane.vue'
+import SidebarIconRail, { type SidebarTab } from '@/components/layout/SidebarIconRail.vue'
 import { useUIStore, type RightPanelTab } from '@/stores/ui'
 
 const uiStore = useUIStore()
 const collapsed = computed(() => !uiStore.rightPanelOpen)
 
-const tabs: { id: RightPanelTab; icon: string; label: string }[] = [
+const tabs: SidebarTab[] = [
   { id: 'info', icon: 'lucide:info', label: 'Info' },
   { id: 'collections', icon: 'lucide:layers-3', label: 'Collections' },
   { id: 'transform', icon: 'lucide:crop', label: 'Transform' },
@@ -49,17 +48,13 @@ const activePaneComponent = computed(() => {
         <component :is="activePaneComponent" />
       </div>
 
-      <div class="ms-auto flex w-12 shrink-0 flex-col items-center gap-1 pt-2 bg-surface-900">
-        <Button v-for="tab in tabs" :key="tab.id"
-          text
-          plain
-          :severity="uiStore.rightPanelTab === tab.id && !collapsed ? undefined : 'secondary'"
-          size="small"
-          :aria-label="tab.label"
-          @click="uiStore.toggleRightPanel(tab.id)">
-          <Icon :icon="tab.icon" class="size-5" />
-        </Button>
-      </div>
+      <SidebarIconRail
+        class="ms-auto"
+        :tabs="tabs"
+        :active-tab="uiStore.rightPanelTab"
+        :active="!collapsed"
+        @select="(id) => uiStore.toggleRightPanel(id as RightPanelTab)"
+      />
     </div>
   </aside>
 </template>

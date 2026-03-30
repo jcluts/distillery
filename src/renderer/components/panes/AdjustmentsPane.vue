@@ -13,8 +13,10 @@ import {
 } from '@/lib/adjustment-constants'
 import { useAdjustmentStore } from '@/stores/adjustment'
 import { useLibraryStore } from '@/stores/library'
+import { useUIStore } from '@/stores/ui'
 
 const libraryStore = useLibraryStore()
+const uiStore = useUIStore()
 const adjustmentStore = useAdjustmentStore()
 
 const selectedIds = computed(() => [...libraryStore.selectedIds])
@@ -41,7 +43,8 @@ const currentAdjustments = computed(() => {
 const noSelection = computed(() => !activeItem.value && selectedIds.value.length === 0 && !libraryStore.focusedId)
 const multipleSelection = computed(() => selectedIds.value.length > 1)
 const notImage = computed(() => activeItem.value?.media_type === 'video')
-const canInteract = computed(() => !!activeItem.value && activeItem.value.media_type === 'image')
+const notLoupe = computed(() => uiStore.viewMode !== 'loupe')
+const canInteract = computed(() => !!activeItem.value && activeItem.value.media_type === 'image' && !notLoupe.value)
 const canPaste = computed(() => adjustmentStore.clipboard !== null)
 const showReset = computed(() => canInteract.value && hasAdjustments(adjustmentStore.getFor(activeItem.value!.id)))
 
@@ -110,6 +113,13 @@ async function pasteAdjustments(): Promise<void> {
       class="flex items-center justify-center px-4 py-8 text-sm text-muted"
     >
       Adjustments are available for images only
+    </div>
+
+    <div
+      v-else-if="notLoupe"
+      class="flex items-center justify-center px-4 py-8 text-sm text-muted"
+    >
+      Open an image in loupe view to adjust
     </div>
 
     <div v-else class="space-y-4">
