@@ -18,6 +18,8 @@ import { useGenerationStore } from '@/stores/generation'
 import { useImportFolderStore } from '@/stores/import-folder'
 import { useLibraryStore } from '@/stores/library'
 import { useModelStore } from '@/stores/model'
+import { useModelBrowsingStore } from '@/stores/model-browsing'
+import { useProviderStore } from '@/stores/provider'
 import { useQueueStore } from '@/stores/queue'
 import { useRemovalStore } from '@/stores/removal'
 import { useUpscaleStore } from '@/stores/upscale'
@@ -30,6 +32,8 @@ export function useIpcSubscriptions(): void {
   const importFolderStore = useImportFolderStore()
   const libraryStore = useLibraryStore()
   const modelStore = useModelStore()
+  const modelBrowsingStore = useModelBrowsingStore()
+  const providerStore = useProviderStore()
   const queueStore = useQueueStore()
   const removalStore = useRemovalStore()
   const upscaleStore = useUpscaleStore()
@@ -44,6 +48,8 @@ export function useIpcSubscriptions(): void {
       engineStore.loadStatus(),
       queueStore.loadQueue(),
       generationStore.loadTimeline(),
+      modelStore.hydrate(),
+      providerStore.loadProviders().then(() => modelBrowsingStore.loadAllUserModels()),
       window.api.getSettings().then((settings) => uiStore.applySettings(settings))
     ])
 

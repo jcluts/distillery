@@ -3,11 +3,11 @@ import { computed, onBeforeUnmount, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 
-import PaneBody from '@/components/panes/PaneBody.vue'
-import PaneGate from '@/components/panes/PaneGate.vue'
-import PaneLayout from '@/components/panes/PaneLayout.vue'
-import PaneSection from '@/components/panes/PaneSection.vue'
-import AdjustmentSlider from '@/components/panes/adjustments/AdjustmentSlider.vue'
+import PaneBody from '@/components/panes/primitives/PaneBody.vue'
+import PaneGate from '@/components/panes/primitives/PaneGate.vue'
+import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
+import PaneSection from '@/components/panes/primitives/PaneSection.vue'
+import AdjustmentSlider from '@/components/panes/primitives/AdjustmentSlider.vue'
 import {
   ADJUSTMENT_SLIDER_GROUPS,
   DEFAULT_IMAGE_ADJUSTMENTS,

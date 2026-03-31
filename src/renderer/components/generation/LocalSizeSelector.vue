@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import Button from 'primevue/button'
 
-import PaneSection from '@/components/panes/PaneSection.vue'
+import PaneSection from '@/components/panes/primitives/PaneSection.vue'
 
 // ---------------------------------------------------------------------------
 // Constants

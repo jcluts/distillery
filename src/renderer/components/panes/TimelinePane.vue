@@ -2,9 +2,9 @@
 import { ref, watch } from 'vue'
 import Tag from 'primevue/tag'
 
-import PaneBody from '@/components/panes/PaneBody.vue'
-import PaneGate from '@/components/panes/PaneGate.vue'
-import PaneLayout from '@/components/panes/PaneLayout.vue'
+import PaneBody from '@/components/panes/primitives/PaneBody.vue'
+import PaneGate from '@/components/panes/primitives/PaneGate.vue'
+import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
 import { useGenerationStore } from '@/stores/generation'
 import { useUIStore } from '@/stores/ui'
 import { formatRelative } from '@/lib/format'

@@ -5,8 +5,8 @@ import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import Divider from 'primevue/divider'
 
-import PaneLayout from '@/components/panes/PaneLayout.vue'
-import SelectableItem from '@/components/shared/SelectableItem.vue'
+import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
+import ListItem from '@/components/panes/primitives/ListItem.vue'
 import { useCollectionStore } from '@/stores/collection'
 import { useUIStore } from '@/stores/ui'
 import type { CollectionRecord } from '@/types'
@@ -137,18 +137,21 @@ function openEditModal(collectionId: string): void {
   <PaneLayout title="Collections">
     <div class="space-y-1">
       <!-- Special collections (All, Generated, Imported) -->
-      <SelectableItem
+      <ListItem
         v-for="collection in collectionStore.specialCollections"
         :key="collection.id"
+        selectable
         :selected="collection.id === collectionStore.activeCollectionId"
         @select="collectionStore.setActiveCollection(collection.id)"
       >
-        <Icon icon="lucide:star" class="size-4 shrink-0 text-muted" />
-        <span class="min-w-0 flex-1 truncate">{{ collection.name }}</span>
-        <Tag severity="secondary">
-          {{ collection.media_count }}
-        </Tag>
-      </SelectableItem>
+        <template #icon>
+          <Icon icon="lucide:star" class="size-4 text-muted" />
+        </template>
+        <span class="truncate">{{ collection.name }}</span>
+        <template #badge>
+          <Tag severity="secondary">{{ collection.media_count }}</Tag>
+        </template>
+      </ListItem>
 
       <!-- Separator between special and manual collections -->
       <Divider
@@ -156,9 +159,10 @@ function openEditModal(collectionId: string): void {
       />
 
       <!-- Manual collections (user-created, draggable) -->
-      <SelectableItem
+      <ListItem
         v-for="collection in collectionStore.manualCollections"
         :key="collection.id"
+        selectable
         :selected="collection.id === collectionStore.activeCollectionId"
         :draggable="true"
         :drag-over="
@@ -171,29 +175,30 @@ function openEditModal(collectionId: string): void {
         @dragleave="onDragLeave"
         @drop="onDrop($event, collection)"
       >
-        <Icon
-          icon="lucide:layers-3"
-          class="size-4 shrink-0"
-          :style="{ color: collection.color }"
-        />
-        <span class="min-w-0 flex-1 truncate">{{ collection.name }}</span>
-
-        <Button
-          v-tooltip="'Edit collection'"
-          text
-          plain
-          severity="secondary"
-          size="small"
-          class="opacity-0 group-hover/item:opacity-100"
-          @click.stop="openEditModal(collection.id)"
-        >
-          <Icon icon="lucide:settings" class="size-4" />
-        </Button>
-
-        <Tag severity="secondary">
-          {{ collection.media_count }}
-        </Tag>
-      </SelectableItem>
+        <template #icon>
+          <Icon
+            icon="lucide:layers-3"
+            class="size-4"
+            :style="{ color: collection.color }"
+          />
+        </template>
+        <span class="truncate">{{ collection.name }}</span>
+        <template #actions>
+          <Button
+            v-tooltip="'Edit collection'"
+            text
+            plain
+            severity="secondary"
+            size="small"
+            @click.stop="openEditModal(collection.id)"
+          >
+            <Icon icon="lucide:settings" class="size-4" />
+          </Button>
+        </template>
+        <template #badge>
+          <Tag severity="secondary">{{ collection.media_count }}</Tag>
+        </template>
+      </ListItem>
     </div>
   </PaneLayout>
 </template>

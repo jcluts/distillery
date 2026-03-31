@@ -5,9 +5,10 @@ import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import Divider from 'primevue/divider'
 
-import PaneBody from '@/components/panes/PaneBody.vue'
-import PaneLayout from '@/components/panes/PaneLayout.vue'
-import PaneSection from '@/components/panes/PaneSection.vue'
+import PaneBody from '@/components/panes/primitives/PaneBody.vue'
+import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
+import PaneSection from '@/components/panes/primitives/PaneSection.vue'
+import ListItem from '@/components/panes/primitives/ListItem.vue'
 import { useImportFolderStore } from '@/stores/import-folder'
 import { useUIStore } from '@/stores/ui'
 import { formatRelative } from '@/lib/format'
@@ -125,58 +126,53 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
       <!-- Saved Sources -->
       <PaneSection :title="`Saved Sources (${folders.length})`">
         <p v-if="folders.length === 0" class="text-xs text-muted">No saved sources yet.</p>
-        <div v-else class="space-y-2">
-          <div v-for="folder in folders" :key="folder.id" class="group rounded-md border p-2.5">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <Icon icon="lucide:folder" class="size-3.5 shrink-0 text-muted" />
-                  <span class="truncate text-sm font-medium">{{ folder.name }}</span>
-                  <Tag v-if="folder.auto_import" value="Auto" severity="secondary" />
-                </div>
-                <p class="mt-1 truncate text-xs text-muted" :title="folder.path">
-                  {{ folder.path }}
-                </p>
-                <p class="mt-1 text-xs text-muted">
-                  {{ folderDetail(folder, scanProgress.get(folder.id)) }}
-                </p>
-              </div>
-
-              <div
-                class="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-              >
-                <Button
-                  text
-                  plain
-                  severity="secondary"
-                  size="small"
-                  :class="{ 'animate-spin': isFolderScanning(scanProgress.get(folder.id)) }"
-                  :disabled="isFolderScanning(scanProgress.get(folder.id))"
-                  @click="importFolderStore.scanFolder(folder.id)"
-                >
-                  <Icon icon="lucide:refresh-cw" class="size-4" />
-                </Button>
-                <Button
-                  text
-                  plain
-                  severity="secondary"
-                  size="small"
-                  @click="openImportFolderModal(folder.id)"
-                >
-                  <Icon icon="lucide:pencil" class="size-4" />
-                </Button>
-                <Button
-                  text
-                  plain
-                  severity="danger"
-                  size="small"
-                  @click="importFolderStore.deleteFolder(folder.id)"
-                >
-                  <Icon icon="lucide:trash-2" class="size-4" />
-                </Button>
-              </div>
+        <div v-else class="space-y-1.5">
+          <ListItem v-for="folder in folders" :key="folder.id">
+            <template #icon>
+              <Icon icon="lucide:folder" class="size-4 text-muted" />
+            </template>
+            <div class="flex items-center gap-2">
+              <span class="truncate font-medium">{{ folder.name }}</span>
+              <Tag v-if="folder.auto_import" value="Auto" severity="secondary" />
             </div>
-          </div>
+            <p class="mt-0.5 truncate text-xs text-muted" :title="folder.path">
+              {{ folder.path }}
+            </p>
+            <p class="mt-0.5 text-xs text-muted">
+              {{ folderDetail(folder, scanProgress.get(folder.id)) }}
+            </p>
+            <template #actions>
+              <Button
+                text
+                plain
+                severity="secondary"
+                size="small"
+                :class="{ 'animate-spin': isFolderScanning(scanProgress.get(folder.id)) }"
+                :disabled="isFolderScanning(scanProgress.get(folder.id))"
+                @click.stop="importFolderStore.scanFolder(folder.id)"
+              >
+                <Icon icon="lucide:refresh-cw" class="size-4" />
+              </Button>
+              <Button
+                text
+                plain
+                severity="secondary"
+                size="small"
+                @click.stop="openImportFolderModal(folder.id)"
+              >
+                <Icon icon="lucide:pencil" class="size-4" />
+              </Button>
+              <Button
+                text
+                plain
+                severity="danger"
+                size="small"
+                @click.stop="importFolderStore.deleteFolder(folder.id)"
+              >
+                <Icon icon="lucide:trash-2" class="size-4" />
+              </Button>
+            </template>
+          </ListItem>
         </div>
       </PaneSection>
     </PaneBody>

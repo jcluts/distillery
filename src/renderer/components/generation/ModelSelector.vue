@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import Select from 'primevue/select'
 
-import PaneSection from '@/components/panes/PaneSection.vue'
+import PaneSection from '@/components/panes/primitives/PaneSection.vue'
 import { useModelStore } from '@/stores/model'
 import { useProviderStore } from '@/stores/provider'
 import { useModelBrowsingStore } from '@/stores/model-browsing'

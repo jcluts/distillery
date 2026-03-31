@@ -4,11 +4,12 @@ import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
 
-import PaneBody from '@/components/panes/PaneBody.vue'
-import PaneGate from '@/components/panes/PaneGate.vue'
-import PaneLayout from '@/components/panes/PaneLayout.vue'
-import PaneSection from '@/components/panes/PaneSection.vue'
+import PaneBody from '@/components/panes/primitives/PaneBody.vue'
+import PaneGate from '@/components/panes/primitives/PaneGate.vue'
+import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
+import PaneSection from '@/components/panes/primitives/PaneSection.vue'
 import UpscaleStatus from '@/components/upscale/UpscaleStatus.vue'
+import ListItem from '@/components/panes/primitives/ListItem.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useUpscaleStore } from '@/stores/upscale'
 import type { UpscaleVariant } from '@/types'
@@ -146,70 +147,69 @@ function variantDescription(v: UpscaleVariant): string {
       >
         <div class="space-y-1.5">
           <!-- Original entry -->
-          <div
-            class="flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors"
-            :class="
-              upscaleStore.activeVariantId === null
-                ? 'border-primary/40 bg-primary/10'
-                : 'border-default hover:bg-elevated'
-            "
-            @click="() => { if (focusedItem) void upscaleStore.setActive(focusedItem.id, null) }"
+          <ListItem
+            selectable
+            :selected="upscaleStore.activeVariantId === null"
+            @select="() => { if (focusedItem) void upscaleStore.setActive(focusedItem.id, null) }"
           >
-            <div class="flex items-center gap-1.5">
+            <template #icon>
               <Icon
                 v-if="upscaleStore.activeVariantId === null"
                 icon="lucide:check"
-                class="size-3.5 text-primary shrink-0"
+                class="size-4 text-primary"
               />
-              <span class="font-medium">Original</span>
-            </div>
-            <span
-              v-if="focusedItem.width && focusedItem.height"
-              class="text-xs text-muted"
-            >
-              {{ formatDimensions(focusedItem.width, focusedItem.height) }}
-            </span>
-          </div>
+              <span v-else class="size-4" />
+            </template>
+            <span class="font-medium">Original</span>
+            <template #badge>
+              <span
+                v-if="focusedItem.width && focusedItem.height"
+                class="text-xs text-muted"
+              >
+                {{ formatDimensions(focusedItem.width, focusedItem.height) }}
+              </span>
+            </template>
+          </ListItem>
 
           <!-- Variant entries -->
-          <div
+          <ListItem
             v-for="v in upscaleStore.variants"
             :key="v.id"
-            class="flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors"
-            :class="
-              v.id === upscaleStore.activeVariantId
-                ? 'border-primary/40 bg-primary/10'
-                : 'border-default hover:bg-elevated'
-            "
-            @click="() => { if (focusedItem) void upscaleStore.setActive(focusedItem.id, v.id) }"
+            selectable
+            :selected="v.id === upscaleStore.activeVariantId"
+            @select="() => { if (focusedItem) void upscaleStore.setActive(focusedItem.id, v.id) }"
           >
-            <div class="min-w-0 flex-1">
+            <template #icon>
+              <Icon
+                v-if="v.id === upscaleStore.activeVariantId"
+                icon="lucide:check"
+                class="size-4 text-primary"
+              />
+              <span v-else class="size-4" />
+            </template>
+            <div>
               <div class="flex items-center gap-1.5">
-                <Icon
-                  v-if="v.id === upscaleStore.activeVariantId"
-                  icon="lucide:check"
-                  class="size-3.5 text-primary shrink-0"
-                />
                 <span class="font-medium">{{ v.model_name }}</span>
                 <span class="text-muted">{{ v.scale_factor }}×</span>
               </div>
-              <div class="text-xs text-muted truncate">
+              <div class="truncate text-xs text-muted">
                 {{ variantDescription(v) }}
               </div>
             </div>
-
-            <Button
-              text
-              plain
-              severity="secondary"
-              size="small"
-              v-tooltip.left="'Delete variant'"
-              class="shrink-0 ml-2 hover:!text-red-400"
-              @click.stop="() => { if (focusedItem) void upscaleStore.deleteVariant(v.id, focusedItem.id) }"
-            >
-              <Icon icon="lucide:trash-2" class="size-3.5" />
-            </Button>
-          </div>
+            <template #actions>
+              <Button
+                v-tooltip.left="'Delete variant'"
+                text
+                plain
+                severity="secondary"
+                size="small"
+                class="hover:!text-red-400"
+                @click.stop="() => { if (focusedItem) void upscaleStore.deleteVariant(v.id, focusedItem.id) }"
+              >
+                <Icon icon="lucide:trash-2" class="size-3.5" />
+              </Button>
+            </template>
+          </ListItem>
         </div>
       </PaneSection>
     </PaneBody>

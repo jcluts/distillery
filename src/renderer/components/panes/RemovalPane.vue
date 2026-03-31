@@ -4,11 +4,12 @@ import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import Slider from 'primevue/slider'
 
-import PaneBody from '@/components/panes/PaneBody.vue'
-import PaneField from '@/components/panes/PaneField.vue'
-import PaneGate from '@/components/panes/PaneGate.vue'
-import PaneLayout from '@/components/panes/PaneLayout.vue'
-import PaneSection from '@/components/panes/PaneSection.vue'
+import PaneBody from '@/components/panes/primitives/PaneBody.vue'
+import PaneField from '@/components/panes/primitives/PaneField.vue'
+import PaneGate from '@/components/panes/primitives/PaneGate.vue'
+import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
+import PaneSection from '@/components/panes/primitives/PaneSection.vue'
+import ListItem from '@/components/panes/primitives/ListItem.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useRemovalStore } from '@/stores/removal'
 import { useUIStore } from '@/stores/ui'
@@ -236,27 +237,23 @@ function isOperationBusy(opId: string): boolean {
       <!-- Operations list -->
       <PaneSection v-if="(data?.operations.length ?? 0) > 0" title="Operations">
         <div class="space-y-1.5">
-          <div
+          <ListItem
             v-for="(operation, index) in data!.operations"
             :key="operation.id"
-            class="flex items-center gap-2 rounded-lg border border-muted px-2.5 py-2"
           >
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-xs font-medium text-default">
-                Removal {{ index + 1 }}
-                <span class="font-normal text-muted">· {{ getOperationStatus(operation.id, operation.enabled) }}</span>
-              </p>
-              <p class="text-xs text-muted">{{ formatTimestamp(operation.timestamp) }}</p>
-            </div>
-
-            <div class="flex shrink-0 items-center gap-1">
+            <p class="truncate text-xs font-medium">
+              Removal {{ index + 1 }}
+              <span class="font-normal text-muted">· {{ getOperationStatus(operation.id, operation.enabled) }}</span>
+            </p>
+            <p class="text-xs text-muted">{{ formatTimestamp(operation.timestamp) }}</p>
+            <template #actions>
               <Button
                 text
                 plain
                 severity="secondary"
                 size="small"
                 :aria-label="operation.enabled ? 'Hide removal' : 'Show removal'"
-                @click="removalStore.toggleOperation(focusedItem!.id, operation.id, !operation.enabled)"
+                @click.stop="removalStore.toggleOperation(focusedItem!.id, operation.id, !operation.enabled)"
               >
                 <Icon :icon="operation.enabled ? 'lucide:eye' : 'lucide:eye-off'" class="size-4" />
               </Button>
@@ -270,7 +267,7 @@ function isOperationBusy(opId: string): boolean {
                 :disabled="isOperationBusy(operation.id)"
                 :class="{ 'animate-spin': isOperationBusy(operation.id) }"
                 aria-label="Refresh removal"
-                @click="removalStore.refreshOperation(focusedItem!.id, operation.id)"
+                @click.stop="removalStore.refreshOperation(focusedItem!.id, operation.id)"
               >
                 <Icon icon="lucide:refresh-ccw" class="size-4" />
               </Button>
@@ -281,12 +278,12 @@ function isOperationBusy(opId: string): boolean {
                 severity="secondary"
                 size="small"
                 aria-label="Delete removal"
-                @click="removalStore.deleteOperation(focusedItem!.id, operation.id)"
+                @click.stop="removalStore.deleteOperation(focusedItem!.id, operation.id)"
               >
                 <Icon icon="lucide:trash-2" class="size-4" />
               </Button>
-            </div>
-          </div>
+            </template>
+          </ListItem>
         </div>
 
         <Button
