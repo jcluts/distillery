@@ -1,26 +1,13 @@
-# Distillery — Vue Porting Guide
+# Distillery — Vue Renderer Development Guide
 
-General-purpose context for porting functionality from the React reference codebase to the Vue renderer.
-
----
-
-## Background
-
-Distillery is an Electron desktop app for local AI image generation and media management. The renderer is being rewritten from React / shadcn/ui to **Vue 3 / PrimeVue / Pinia**. The main process, preload bridge, database, engine, and all backend services are unchanged — only `src/renderer/` is rebuilt.
-
-The React version and V1 prototype are **wireframes** — they define *what* functionality exists and roughly *how* it's laid out, but not the pixel-level styling. The goal is a clean, idiomatic PrimeVue implementation. We are content with default PrimeVue Aura appearance. Do not try to replicate the exact look of the React or V1 versions.
+Comprehensive reference for building, updating, and extending the Vue renderer. This document captures the established patterns, conventions, and architectural decisions that all renderer work must follow.
 
 ---
 
 ## Reference Sources
 
-When porting a feature, consult these in order:
-
 | Source | Location | What it provides |
 |---|---|---|
-| React reference codebase | `C:\Users\jason\projects\distillery-react` | **Wireframe reference** for component behavior, store logic, IPC calls, and layout structure. Defines *what* to build, not how it should look. |
-| V1 screenshots | `agent_docs/distillery_v1_screenshots/` | Rough visual reference for layout intent. Do not pixel-match — PrimeVue defaults take priority. |
-| V1 source (Distillery prototype) | `C:\Users\jason\simple-ai-client` | Legacy codebase. Use only if the React reference is unclear on a behavioral detail. |
 | PrimeVue documentation | [primevue.org](https://primevue.org/) | **Full documentation for every PrimeVue component** — props, events, slots, styling. Consult this before resorting to custom Tailwind. |
 | AGENTS.md | Project root | Architecture overview, process boundary, engine protocol, generation pipeline, PrimeVue conventions. |
 | DistilleryAPI interface | `src/renderer/types/index.ts` | The complete IPC surface. Every `window.api.*` call and event subscription is defined here. |
@@ -28,7 +15,7 @@ When porting a feature, consult these in order:
 
 ---
 
-## Current Tech Stack (Renderer)
+## Tech Stack (Renderer)
 
 | Layer | Technology |
 |---|---|
@@ -39,7 +26,7 @@ When porting a feature, consult these in order:
 | CSS | Tailwind 4 (`@tailwindcss/vite` plugin) |
 | Virtualization | `@tanstack/vue-virtual` |
 | Icons | `@iconify/vue` with `@iconify-json/lucide` (format: `lucide:icon-name`) |
-| Font | Inter Variable (`@fontsource-variable/inter`) |
+| Font | Geist Variable (`@fontsource-variable/geist`, `@fontsource-variable/geist-mono`) |
 | Template syntax | SFC templates **only** — no JSX, no render functions |
 
 **PrimeVue config** (in `src/renderer/main.ts`):
@@ -143,13 +130,36 @@ Typical pane structure (with gates and fields):
 - `TransformPane.vue` — Example of combining PaneSection and PaneField for tool-specific controls.
 - `CollectionsPane.vue` — List-selection pane using `ListItem`, drag-and-drop, and cross-store reactivity.
 
+### Pinia Stores
+
+All stores use **setup syntax** (`defineStore('id', () => { ... })`), not options syntax. State is `ref()`, derived state is `computed()`, methods are plain functions. Return all public state, getters, and actions from the setup function.
+
+Stores are ephemeral (no persistence middleware). State syncs to the main process via IPC.
+
+| Store | File | Responsibility |
+|---|---|---|
+| `useUIStore` | `stores/ui.ts` | Panel open/tab/width, view mode, thumbnail size, modal stack, settings |
+| `useLibraryStore` | `stores/library.ts` | Media items, selection, focus, filters, sort, pagination |
+| `useEngineStore` | `stores/engine.ts` | Engine state + loaded model name (mirror of main process) |
+| `useGenerationStore` | `stores/generation.ts` | Generation form fields + timeline records |
+| `useQueueStore` | `stores/queue.ts` | Work queue items + active generation progress/elapsed time |
+| `useModelStore` | `stores/model.ts` | Model catalog, settings, downloads, file presence |
+| `useProviderStore` | `stores/provider.ts` | Provider configs, API key presence, connection status |
+| `useModelBrowsingStore` | `stores/model-browsing.ts` | Provider model browsing, user models, identity mappings |
+| `useCollectionStore` | `stores/collection.ts` | Collections list, active collection, editing state |
+| `useImportFolderStore` | `stores/import-folder.ts` | Import folder list, scan progress |
+| `useRemovalStore` | `stores/removal.ts` | Object removal tool state + progress |
+| `useTransformStore` | `stores/transform.ts` | Transform/crop tool state |
+| `useAdjustmentStore` | `stores/adjustment.ts` | Non-destructive adjustment state |
+| `useUpscaleStore` | `stores/upscale.ts` | Upscale task state + progress |
+
 ### IPC Pattern
 
 All renderer ↔ main communication goes through `window.api.*` (exposed via preload bridge):
 - **Invoke (request/response):** `await window.api.someMethod(args)` → main process handler returns result
 - **Events (push from main):** `window.api.on('channel:name', callback)` → returns an unsubscribe function
 
-IPC subscriptions are centralized in `useIpcSubscriptions` (composable mounted in App.vue). When porting a feature that needs new IPC events, follow the same pattern: subscribe in the composable, dispatch to the appropriate store.
+IPC subscriptions are centralized in `useIpcSubscriptions` (composable mounted in App.vue). When adding a feature that receives push events from the main process, subscribe in this composable and dispatch to the appropriate store.
 
 ### Modal System
 
@@ -177,104 +187,17 @@ This pattern keeps modal open/close logic in the store (so any component can tri
 
 ---
 
-## Porting Patterns (React → Vue)
+## Icons
 
-### Components
-
-| React | Vue |
-|---|---|
-| `.tsx` file with JSX | `.vue` SFC with `<script setup lang="ts">` + `<template>` |
-| `props: SomeProps` interface | `defineProps<SomeProps>()` |
-| Callback props (`onSomething`) | `defineEmits<{ something: [...args] }>()` |
-| `useState` | `ref()` or `reactive()` |
-| `useMemo` | `computed()` |
-| `useEffect` (mount) | `onMounted()` |
-| `useEffect` (watch dep) | `watch()` or `watchEffect()` |
-| `useEffect` (cleanup) | `onBeforeUnmount()` or `watch` with cleanup callback |
-| `useRef` (DOM) | `const el = ref<HTMLElement \| null>(null)` + `ref="el"` in template |
-| `useCallback` | Not needed — Vue functions are stable unless recreated |
-| Conditional rendering `{cond && <X />}` | `<X v-if="cond" />` |
-| List rendering `{items.map(i => <X key={i.id} />)}` | `<X v-for="i in items" :key="i.id" />` |
-| `className={cn(...)}` | `:class="[...]"` or `:class="{ 'cls': cond }"` — no `cn()` needed |
-| `children` / render props | `<slot />` / named slots `<slot name="header" />` |
-
-### Stores (Zustand → Pinia)
-
-| Zustand | Pinia |
-|---|---|
-| `create<State>()((set, get) => ({ ... }))` | `defineStore('id', () => { ... })` (setup syntax) |
-| `set({ field: value })` | Direct mutation: `field.value = value` |
-| `get().field` | Just read the ref: `field.value` |
-| Selector: `useStore(s => s.field)` | `const store = useMyStore(); store.field` |
-| No built-in actions | Functions defined inside `defineStore` are actions |
-| Derived state via inline functions | `computed()` inside the store |
-
-All Pinia stores use **setup syntax** (`defineStore('id', () => { ... })`), not the options syntax. State is `ref()`, derived state is `computed()`, methods are plain functions. Return all public state, getters, and actions from the setup function.
-
-### Hooks → Composables
-
-React hooks become Vue composables. Same naming convention (`useXxx`), same purpose, different lifecycle:
-
-```ts
-// React hook
-export function useSomething(arg: string) {
-  const [val, setVal] = useState(0)
-  useEffect(() => { /* on mount */ }, [])
-  useEffect(() => { /* on arg change */ }, [arg])
-  return { val }
-}
-
-// Vue composable
-export function useSomething(arg: MaybeRef<string>) {
-  const val = ref(0)
-  onMounted(() => { /* on mount */ })
-  watch(() => toValue(arg), () => { /* on arg change */ })
-  return { val }
-}
-```
-
-### shadcn/ui → PrimeVue Component Mapping
-
-| shadcn/ui (React) | PrimeVue (Vue) | Notes |
-|---|---|---|
-| `<Button>` | `<Button>` | Use `icon` prop for icon-only; `severity` for color; `text`+`plain` for ghost; `outlined` for outline |
-| `<Input>` | `<InputText>` | |
-| `<Textarea>` | `<Textarea>` | |
-| `<Select>` | `<Select>` | Use `optionLabel`, `optionValue`, `:options` props |
-| `<Slider>` | `<Slider>` | Emits `number \| number[]` — handle both types |
-| `<Switch>` | `<ToggleSwitch>` | |
-| `<Checkbox>` | `<Checkbox>` | |
-| `<Dialog>` / `<AlertDialog>` | `<Dialog>` | Use `v-model:visible`, `header`, `modal` props + `#footer` slot |
-| `<Tooltip>` | `v-tooltip` directive | Registered globally — use `v-tooltip="'text'"` on any element |
-| `<ContextMenu>` | `<ContextMenu>` | |
-| `<DropdownMenu>` | `<Menu>` / `<TieredMenu>` | Use `:model` with MenuModel API |
-| `<Tabs>` | `<Tabs>` + `<TabList>` + `<Tab>` + `<TabPanels>` + `<TabPanel>` | |
-| `<Badge>` | `<Tag>` | Use `severity`, `value` props |
-| `<Separator>` | `<Divider>` | |
-| `<ToggleGroup>` | Row of `<Button>` | Use buttons with conditional `severity`/`outlined` |
-| `<SectionLabel>` | `<PaneSection>` | Custom React component replaced by our `PaneSection.vue` |
-| `<InfoTable>` | `<dl>` grid | Use `grid grid-cols-[auto_1fr]` with `<dt>`/`<dd>` pairs |
-| `<ScrollArea>` | `overflow-auto` (Tailwind) | Use native overflow |
-| `<ResizablePanelGroup>` | No direct equivalent | Use CSS flex + a simple drag handle if needed |
-| `cn()` utility | Not needed | Use Tailwind classes directly |
-
-For any component not listed, check the [PrimeVue documentation](https://primevue.org/). Always look for a built-in PrimeVue component before building custom markup.
-
-### Icons
-
-React used `lucide-react` with JSX components (`<Star />`). Vue uses `@iconify/vue`:
+Icons use `@iconify/vue` with the `lucide` collection (`@iconify-json/lucide`):
 
 ```vue
-<!-- React -->
-<Star className="size-4" />
-
-<!-- Vue -->
 <Icon icon="lucide:star" class="size-4" />
 ```
 
-Icon names follow the `{collection}:{name}` convention. The `lucide` collection is available via `@iconify-json/lucide`.
+Icon names follow the `{collection}:{name}` convention (`lucide:folder-open`, `lucide:trash-2`, etc.).
 
-For buttons with icons, use PrimeVue's `icon` slot or pass a PrimeVue-compatible icon class. For icon-only buttons, wrapping an `<Icon>` component inside `<Button>` is the standard pattern:
+For icon-only buttons, wrap an `<Icon>` inside `<Button>`:
 
 ```vue
 <Button text plain severity="secondary" @click="handler">
@@ -286,13 +209,13 @@ For buttons with icons, use PrimeVue's `icon` slot or pass a PrimeVue-compatible
 
 ## Development Rules
 
-These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
+These apply to all renderer work.
 
 ### Architecture
 - Simplest solution that satisfies the requirement. No overengineering.
 - DRY — consolidate similar code. If two panes share a pattern, extract it.
 - Delete dead code immediately. No "just in case" leftovers.
-- Never leave legacy or compatibility shims. Zero users, zero backwards-compatibility concerns.
+- Never leave legacy or compatibility shims. Zero backwards-compatibility concerns.
 - No ad-hoc band-aids. If something is broken, fix the architecture.
 
 ### Components & Styling — PrimeVue First
@@ -306,15 +229,12 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 4. **Custom Tailwind for visual styling** — absolute last resort. Only when no PrimeVue component or prop can achieve the effect.
 
 **Do not:**
-- Recreate the React/V1 styling with custom Tailwind classes. Those designs were built on shadcn/ui — a completely different component library. Trying to replicate them defeats the purpose of this rewrite.
 - Add decorative Tailwind classes (colors, borders, shadows, rounded corners, typography styles) to elements that a PrimeVue component could render instead.
-- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use the semantic utilities in `main.css` (`text-muted`, `bg-elevated`, `border-default`) or PrimeVue component props (`severity="secondary"`).
+- Use raw Tailwind color classes (`text-gray-400`, `bg-zinc-900`). Use PrimeVue's semantic CSS variables (`var(--p-text-color)`, `var(--p-text-muted-color)`, etc.) or PrimeVue component props (`severity="secondary"`).
 
 ### UI/UX
-- Professional, clean, elegant — but achieved through **PrimeVue Aura theme defaults**, not custom CSS.
+- Professional, clean, elegant — achieved through **PrimeVue Aura theme defaults**, not custom CSS.
 - Dark mode is the default (`class="dark"` on `<html>`).
-- The React and V1 versions are **wireframes**: they define the feature set, layout structure, and user flows. They do **not** define the visual styling — PrimeVue's default Aura appearance is the target.
-- Never copy React JSX, shadcn class lists, or V1 CSS. Understand the *behavior*, then find the PrimeVue component that provides it.
 
 ### TypeScript
 - All components use `<script setup lang="ts">`.
@@ -323,16 +243,92 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 - The `DistilleryAPI` interface in `src/renderer/types/index.ts` defines every available IPC method and event. Check it before adding new IPC calls.
 
 ### File Organization
-- Pane components: `src/renderer/components/panes/PaneName.vue`
-- Pane primitives: `src/renderer/components/panes/primitives/` — all reusable building blocks shared across panes (layout primitives, list item, star rating, slider, etc.)
-- Modal components: `src/renderer/components/modals/ModalName.vue`
-- Other components: `src/renderer/components/{feature}/ComponentName.vue`
-- Stores: `src/renderer/stores/{name}.ts`
-- Composables: `src/renderer/composables/useXxx.ts`
-- Pure utilities: `src/renderer/lib/{name}.ts`
-- Types: `src/renderer/types/index.ts` (single file, mirrors `src/main/types.ts`)
 
-All reusable sub-components that serve multiple panes live in `components/panes/primitives/`. This includes layout primitives (PaneLayout, PaneBody, PaneSection, PaneField, PaneGate), the ListItem component, and shared pane sub-components (StarRating, KeywordEditor, AdjustmentSlider, AspectIcon). Do not create per-pane subfolders for components that have only one file — keep them in `primitives/`.
+```
+src/renderer/
+├── main.ts                         # Vue app entry (createApp, Pinia, PrimeVue plugin)
+├── App.vue                         # Root: IPC subscriptions, modal mount points
+├── assets/main.css                 # Tailwind 4, Geist font, PrimeVue token utilities
+├── types/index.ts                  # Renderer type surface + DistilleryAPI interface
+├── lib/                            # Pure utility functions
+│   ├── constants.ts                # Resolution presets, aspect ratios, defaults
+│   ├── layout.ts                   # Panel pixel widths
+│   ├── canvas-draw.ts              # Canvas rendering utilities
+│   ├── format.ts                   # Formatting helpers
+│   ├── media.ts                    # Duration formatting
+│   ├── schema-to-form.ts           # Dynamic form generation from provider schemas
+│   ├── transform-math.ts           # Transform/crop geometry math
+│   └── adjustment-constants.ts     # Adjustment slider presets
+├── stores/                         # Pinia stores (setup syntax)
+├── composables/                    # Vue composables
+│   ├── useIpcSubscriptions.ts      # Centralized IPC event subscriptions
+│   ├── useKeyboardShortcuts.ts     # Lightroom-style keyboard shortcuts
+│   ├── useGridSelection.ts         # Grid click/shift-click/ctrl-click selection
+│   └── useFilmstripSelection.ts    # Filmstrip selection logic
+├── webgl/                          # WebGL shader utilities
+└── components/
+    ├── layout/                     # AppLayout, TitleBar, LeftSidebar, RightSidebar,
+    │                               #   MainContent, SidebarIconRail
+    ├── library/                    # FilterBar, GridView, LoupeView, LibraryStatusBar,
+    │   │                           #   MediaThumbnail, LoupeFilmstrip, VideoPlayer
+    │   └── canvas/                 # CanvasViewer (HTML Canvas, DPR-aware)
+    ├── panes/                      # Sidebar content panels
+    │   ├── GenerationPane.vue      # AI generation controls
+    │   ├── TimelinePane.vue        # Generation history timeline
+    │   ├── ImportPane.vue          # Import folder management
+    │   ├── MediaInfoPane.vue       # Selected media metadata + actions
+    │   ├── GenerationInfoPane.vue  # Generation metadata for selected image
+    │   ├── CollectionsPane.vue     # Collection list + management
+    │   ├── TransformPane.vue       # Crop/transform tools
+    │   ├── AdjustmentsPane.vue     # Non-destructive adjustments
+    │   ├── RemovalPane.vue         # Object removal tools
+    │   ├── UpscalePane.vue         # Upscaling controls
+    │   └── primitives/             # Reusable pane building blocks
+    │       ├── PaneLayout.vue      # Pane outer wrapper (title + scroll)
+    │       ├── PaneBody.vue        # Section spacing container
+    │       ├── PaneSection.vue     # Section with header
+    │       ├── PaneField.vue       # Labeled control within a section
+    │       ├── PaneGate.vue        # Empty-state message
+    │       ├── ListItem.vue        # Generic selectable list row
+    │       ├── StarRating.vue      # 5-star rating control
+    │       ├── KeywordEditor.vue   # Tag editor for keywords
+    │       ├── AdjustmentSlider.vue # Adjustment slider with reset
+    │       └── AspectIcon.vue      # Aspect ratio visual indicator
+    ├── generation/                 # Generation-related components
+    │   ├── DynamicForm.vue         # Schema-driven form for remote providers
+    │   ├── FormField.vue           # Individual dynamic form field
+    │   ├── GenerationStatus.vue    # Generation progress display
+    │   ├── ModelSelector.vue       # Model selection dropdown
+    │   ├── ModeToggle.vue          # Generation mode toggle
+    │   ├── LocalSizeSelector.vue   # Local model size controls
+    │   ├── SizeSelector.vue        # Remote model size controls
+    │   └── RefImageDropzone.vue    # Reference image drop target
+    ├── providers/                  # Provider management components
+    │   ├── ProviderManager.vue     # Main provider management layout
+    │   ├── ProviderSidebar.vue     # Provider list sidebar
+    │   ├── ProviderDetail.vue      # Provider config detail view
+    │   ├── LocalDetail.vue         # Local engine config detail
+    │   ├── LocalModelItem.vue      # Local model list item
+    │   ├── ModelBrowser.vue        # Remote model catalog browser
+    │   └── IdentityMappingSelect.vue # Model identity mapping selector
+    ├── upscale/
+    │   └── UpscaleStatus.vue       # Upscale progress display
+    └── modals/                     # App-level modals (mounted in App.vue)
+        ├── SettingsModal.vue
+        ├── ProviderManagerModal.vue
+        ├── GenerationDetailModal.vue
+        ├── CollectionModal.vue
+        ├── ImportFolderModal.vue
+        └── ImagePreviewModal.vue
+```
+
+**Conventions:**
+- Pane components go directly in `components/panes/` — one file per pane.
+- All reusable sub-components shared across panes go in `components/panes/primitives/`. Do not create per-pane subfolders.
+- Feature-specific components go in `components/{feature}/` (e.g. `generation/`, `providers/`, `upscale/`).
+- Modal components go in `components/modals/` and are always mounted in `App.vue`.
+- Stores: `stores/{name}.ts`. Composables: `composables/useXxx.ts`. Pure utilities: `lib/{name}.ts`.
+- Types: `types/index.ts` (single file, mirrors `src/main/types.ts`).
 
 ---
 
@@ -391,31 +387,25 @@ PrimeVue form inputs use `v-model` directly:
 
 ---
 
-## Common Porting Workflow
+## Development Workflow
 
-When picking up a new feature to port:
+When building a new feature or updating existing functionality:
 
-1. **Read the React component(s)** in `distillery-react/src/renderer/`. Understand the behavior, props, store interactions, and IPC calls.
-2. **Read `MediaInfoPane.vue`** as the reference implementation. Follow its patterns for pane structure, store usage, IPC calls, and sub-component organization.
-3. **Check types** in `src/renderer/types/index.ts` — the type definitions are already ported and shared. If a type is missing, check `src/main/types.ts` and add it to the renderer types.
-4. **Check the IPC surface** in `src/renderer/types/index.ts` (the `DistilleryAPI` interface). The methods you need should already exist since the main process is unchanged.
-5. **Check if a Pinia store exists** for this feature. If not, create one following the setup syntax pattern of the existing stores. If the store exists but is missing methods the React version relies on, add them.
-6. **Build the Vue component(s)**:
-   - Use `PaneLayout` as the root wrapper for any sidebar pane.
-   - Use `PaneBody` as the direct child of `PaneLayout` for the main content area. Use `PaneGate` for empty/invalid states before the `PaneBody`.
-   - Use `PaneSection` for every major labeled group within the pane. Aim for 2–4 sections.
-   - Use `PaneField` for individual labeled controls within a section that groups multiple related controls.
-   - Map React sub-components (e.g. `StarRating`, `KeywordEditor`) to Vue SFCs in `components/panes/primitives/`.
-   - Convert React callback props to Vue `defineEmits` — keep the parent in control of IPC/store logic.
-   - Check [PrimeVue documentation](https://primevue.org/) for components that match each UI element. Use their built-in props and variants. Accept the default PrimeVue Aura appearance — do not try to pixel-match the React version's styling.
-7. **Wire IPC subscriptions** in `useIpcSubscriptions.ts` if the feature receives push events from the main process.
-8. **Run `npx vue-tsc --noEmit -p tsconfig.web.json`** to typecheck before considering the work done.
+1. **Check the IPC surface** in `src/renderer/types/index.ts` (the `DistilleryAPI` interface). Verify the methods and events you need exist. If new main-process support is required, add the IPC handler first.
+2. **Check types** in `src/renderer/types/index.ts`. If a type is missing, check `src/main/types.ts` and add a matching definition to the renderer types.
+3. **Check if a Pinia store exists** for this feature in `src/renderer/stores/`. If not, create one following the setup syntax pattern of existing stores. If it exists but is missing needed state or actions, extend it.
+4. **Build or update the Vue component(s)**, following the established patterns documented below:
+   - Use `PaneLayout` as the root wrapper for any sidebar pane, with `PaneBody`, `PaneSection`, `PaneField`, and `PaneGate` as needed.
+   - Keep sub-components dumb — they emit events, parents handle IPC and store logic.
+   - Check [PrimeVue documentation](https://primevue.org/) for components that match each UI element. Use their built-in props and variants.
+5. **Wire IPC subscriptions** in `useIpcSubscriptions.ts` if the feature receives push events from the main process.
+6. **Run `npx vue-tsc --noEmit -p tsconfig.web.json`** to typecheck before considering the work done.
 
 ---
 
-## Established Component Patterns
+## Established Patterns
 
-These patterns have been established by already-ported components. Follow them for consistency.
+These patterns are used consistently across the codebase. Follow them for consistency.
 
 ### Pane Structure
 
@@ -458,9 +448,9 @@ const emit = defineEmits<{ change: [rating: number] }>()
 
 This keeps IPC calls centralized in the pane and makes sub-components reusable.
 
-### Status/Toggle Buttons (React ToggleGroup → Vue Button row)
+### Status/Toggle Buttons
 
-React's `<ToggleGroup>` has no direct PrimeVue equivalent. Use a row of `<Button>` with conditional styling to express the active state:
+For mutually exclusive toggle buttons (e.g. status flags), use a row of `<Button>` with conditional styling to express the active state:
 
 ```vue
 <Button
@@ -515,9 +505,9 @@ For key-value metadata display, use a `<dl>` with CSS grid — no custom compone
 </dl>
 ```
 
-### List Items (React Item/ItemGroup → Vue ListItem)
+### List Items
 
-The React codebase uses a custom `Item` / `ItemGroup` component family for selectable list rows (collections, import folders, etc.). In Vue, use the reusable **`ListItem`** component at `components/panes/primitives/ListItem.vue`.
+For selectable list rows (collections, import folders, etc.), use the reusable **`ListItem`** component at `components/panes/primitives/ListItem.vue`.
 
 ListItem provides a consistent look for all list patterns across every pane — selectable radio-style lists, action-button lists, drag-and-drop targets, etc.
 
@@ -600,7 +590,7 @@ export const useLibraryStore = defineStore('library', () => {
 })
 ```
 
-This is the Pinia equivalent of the React pattern where `buildQuery()` reads `useOtherStore.getState().field`. The key difference: Pinia refs are reactive, so you can `watch` them to trigger side effects — no need for React-style `useEffect` dependency arrays.
+Because Pinia refs are reactive, you can `watch` them to trigger side effects automatically.
 
 **Important:** Only use this when there's a genuine data dependency. Avoid circular store dependencies (A → B → A).
 

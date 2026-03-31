@@ -10,9 +10,6 @@
 			"path": "../../simple-ai-client"
 		},
 		{
-			"path": "../distillery-react"
-		},
-		{
 			"path": "../primevue"
 		}
 	],

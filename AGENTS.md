@@ -328,7 +328,7 @@ Stores are ephemeral (no persistence middleware). State syncs to the main proces
 
 | Document | Location |
 |---|---|
-| **Vue porting guide** | `docs/PORTING_GUIDE.md` |
+| **Vue renderer development guide** | `docs/VUE_DEVELOPMENT_GUIDE.md` |
 | React reference codebase | `C:\Users\jason\projects\distillery-react` |
 | Product spec | `docs/SPEC.md` |
 | Model manager spec | `docs/MODEL_MANAGER_SPEC.md` |
