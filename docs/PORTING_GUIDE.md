@@ -72,7 +72,7 @@ The layout uses **plain HTML flex containers**. Sidebar pane switching is driven
 
 Sidebar content switches based on the active tab in the UI store. Each sidebar uses a computed `activePaneComponent` that resolves to a concrete pane component (GenerationPane, TimelinePane, etc.).
 
-Panes use five structural primitives (all in `components/panes/`). These enforce consistent spacing, typography, and layout across every pane — individual panes should never hard-code spacing or header styles.
+Panes use a set of structural primitives (all in `components/panes/primitives/`). These enforce consistent spacing, typography, and layout across every pane — individual panes should never hard-code spacing or header styles.
 
 | Component | Purpose | Props |
 |---|---|---|
@@ -141,7 +141,7 @@ Typical pane structure (with gates and fields):
 - `MediaInfoPane.vue` — Definitive pattern for pane structure, store usage, IPC calls, and sub-component organization.
 - `RemovalPane.vue` — Best example of gates + PaneField grouping within sections.
 - `TransformPane.vue` — Example of combining PaneSection and PaneField for tool-specific controls.
-- `CollectionsPane.vue` — List-selection pane using `SelectableItem`, drag-and-drop, and cross-store reactivity.
+- `CollectionsPane.vue` — List-selection pane using `ListItem`, drag-and-drop, and cross-store reactivity.
 
 ### IPC Pattern
 
@@ -324,9 +324,7 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 
 ### File Organization
 - Pane components: `src/renderer/components/panes/PaneName.vue`
-- Pane sub-components: `src/renderer/components/panes/{pane-name}/SubComponent.vue`
-- Shared pane primitives: `src/renderer/components/panes/PaneLayout.vue`, `PaneBody.vue`, `PaneSection.vue`, `PaneField.vue`, `PaneGate.vue`
-- Shared reusable components: `src/renderer/components/shared/ComponentName.vue`
+- Pane primitives: `src/renderer/components/panes/primitives/` — all reusable building blocks shared across panes (layout primitives, list item, star rating, slider, etc.)
 - Modal components: `src/renderer/components/modals/ModalName.vue`
 - Other components: `src/renderer/components/{feature}/ComponentName.vue`
 - Stores: `src/renderer/stores/{name}.ts`
@@ -334,7 +332,7 @@ These apply to all renderer work. Sourced from AGENTS.md, updated for Vue:
 - Pure utilities: `src/renderer/lib/{name}.ts`
 - Types: `src/renderer/types/index.ts` (single file, mirrors `src/main/types.ts`)
 
-When a pane has sub-components (e.g. StarRating, KeywordEditor inside MediaInfoPane), place them in a kebab-case subfolder: `components/panes/media-info/StarRating.vue`. The pane itself stays at `components/panes/MediaInfoPane.vue`.
+All reusable sub-components that serve multiple panes live in `components/panes/primitives/`. This includes layout primitives (PaneLayout, PaneBody, PaneSection, PaneField, PaneGate), the ListItem component, and shared pane sub-components (StarRating, KeywordEditor, AdjustmentSlider, AspectIcon). Do not create per-pane subfolders for components that have only one file — keep them in `primitives/`.
 
 ---
 
@@ -407,7 +405,7 @@ When picking up a new feature to port:
    - Use `PaneBody` as the direct child of `PaneLayout` for the main content area. Use `PaneGate` for empty/invalid states before the `PaneBody`.
    - Use `PaneSection` for every major labeled group within the pane. Aim for 2–4 sections.
    - Use `PaneField` for individual labeled controls within a section that groups multiple related controls.
-   - Map React sub-components (e.g. `StarRating`, `KeywordEditor`) to Vue SFCs in a subfolder.
+   - Map React sub-components (e.g. `StarRating`, `KeywordEditor`) to Vue SFCs in `components/panes/primitives/`.
    - Convert React callback props to Vue `defineEmits` — keep the parent in control of IPC/store logic.
    - Check [PrimeVue documentation](https://primevue.org/) for components that match each UI element. Use their built-in props and variants. Accept the default PrimeVue Aura appearance — do not try to pixel-match the React version's styling.
 7. **Wire IPC subscriptions** in `useIpcSubscriptions.ts` if the feature receives push events from the main process.
@@ -517,28 +515,60 @@ For key-value metadata display, use a `<dl>` with CSS grid — no custom compone
 </dl>
 ```
 
-### Selectable Item Lists (React Item/ItemGroup → Vue SelectableItem)
+### List Items (React Item/ItemGroup → Vue ListItem)
 
-The React codebase uses a custom `Item` / `ItemGroup` component family for selectable list rows (collections, import folders, etc.). In Vue, use the reusable **`SelectableItem`** component at `components/shared/SelectableItem.vue`.
+The React codebase uses a custom `Item` / `ItemGroup` component family for selectable list rows (collections, import folders, etc.). In Vue, use the reusable **`ListItem`** component at `components/panes/primitives/ListItem.vue`.
 
-Props: `selected`, `draggable`, `dragOver`. Emits: `select`. Content goes in the default slot. The component provides a `group/item` CSS group so children can use `group-hover/item:opacity-100` for reveal-on-hover actions.
+ListItem provides a consistent look for all list patterns across every pane — selectable radio-style lists, action-button lists, drag-and-drop targets, etc.
 
+**Props:** `selectable`, `selected`, `draggable`, `dragOver`. **Emits:** `select`.
+
+**Named slots:**
+| Slot | Purpose |
+|---|---|
+| `#icon` | Left accessory — icon or thumbnail. Only rendered if provided. |
+| default | Main content — title text, subtitle, multi-line layout. Fills available space (`min-w-0 flex-1`). |
+| `#actions` | Hover-reveal action buttons. Hidden by default, fades in on row hover (`group-hover/item:opacity-100`). |
+| `#badge` | Right-pinned accessory — count badge or status indicator. Always visible. |
+
+**Selectable list example** (collections):
 ```vue
-<SelectableItem
+<ListItem
+  selectable
   :selected="item.id === activeId"
+  :draggable="true"
+  :drag-over="dragTargetId === item.id"
   @select="setActive(item.id)"
 >
-  <Icon icon="lucide:layers-3" class="size-4 shrink-0" />
-  <span class="min-w-0 flex-1 truncate">{{ item.name }}</span>
-  <Button
-    text plain severity="secondary" size="small"
-    class="opacity-0 group-hover/item:opacity-100"
-    @click.stop="onEdit(item.id)"
-  >
-    <Icon icon="lucide:settings" class="size-4" />
-  </Button>
-  <Tag severity="secondary" :value="String(item.count)" />
-</SelectableItem>
+  <template #icon>
+    <Icon icon="lucide:layers-3" class="size-4" />
+  </template>
+  {{ item.name }}
+  <template #actions>
+    <Button text plain severity="secondary" size="small" @click.stop="onEdit(item.id)">
+      <Icon icon="lucide:settings" class="size-4" />
+    </Button>
+  </template>
+  <template #badge>
+    <Tag severity="secondary" :value="String(item.count)" />
+  </template>
+</ListItem>
+```
+
+**Non-selectable list example** (import folders):
+```vue
+<ListItem>
+  <template #icon>
+    <Icon icon="lucide:folder" class="size-4 text-muted" />
+  </template>
+  <div class="truncate font-medium">{{ folder.name }}</div>
+  <div class="truncate text-xs text-muted">{{ folder.path }}</div>
+  <template #actions>
+    <Button text plain severity="secondary" size="small" @click.stop="onDelete(folder.id)">
+      <Icon icon="lucide:trash-2" class="size-4" />
+    </Button>
+  </template>
+</ListItem>
 ```
 
 For drag-and-drop support (reordering or media drops), pass `:draggable="true"` and `:drag-over="isDragTarget"`, then handle native drag events (`@dragstart`, `@dragover`, `@drop`, etc.) on the same element.
