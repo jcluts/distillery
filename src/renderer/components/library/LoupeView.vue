@@ -5,6 +5,7 @@ import LoupeFilmstrip from '@/components/library/LoupeFilmstrip.vue'
 import CanvasViewer from '@/components/library/canvas/CanvasViewer.vue'
 import CropOverlay from '@/components/library/canvas/CropOverlay.vue'
 import MaskOverlay from '@/components/library/canvas/MaskOverlay.vue'
+import VideoPlayer from '@/components/library/VideoPlayer.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useRemovalStore } from '@/stores/removal'
 import { useUIStore } from '@/stores/ui'
@@ -68,9 +69,12 @@ function onSelect(id: string): void {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <div class="relative min-h-0 flex-1 overflow-hidden px-4 pt-4 pb-2">
-      <CanvasViewer :media="currentItem" :zoom="uiStore.loupeZoom" />
-      <CropOverlay />
-      <MaskOverlay />
+      <VideoPlayer v-if="currentItem?.media_type === 'video'" :media="currentItem" :zoom="uiStore.loupeZoom" />
+      <template v-else>
+        <CanvasViewer :media="currentItem" :zoom="uiStore.loupeZoom" />
+        <CropOverlay />
+        <MaskOverlay />
+      </template>
     </div>
 
     <LoupeFilmstrip :items="libraryStore.items" :current-index="currentIndex" @select="onSelect" />

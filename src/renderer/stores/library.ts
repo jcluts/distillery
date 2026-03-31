@@ -135,6 +135,10 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
+  function selectAll(): void {
+    selectedIds.value = new Set(items.value.map((m) => m.id))
+  }
+
   function setSelection(ids: Set<string>): void {
     selectedIds.value = ids
     if (ids.size === 0) {
@@ -166,6 +170,7 @@ export const useLibraryStore = defineStore('library', () => {
     focusRelative,
     updateLocalItem,
     removeItems,
+    selectAll,
     setSelection
   }
 })

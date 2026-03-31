@@ -7,15 +7,26 @@ import ImportPane from '@/components/panes/ImportPane.vue'
 import TimelinePane from '@/components/panes/TimelinePane.vue'
 import SidebarIconRail, { type SidebarTab } from '@/components/layout/SidebarIconRail.vue'
 import { useUIStore, type LeftPanelTab } from '@/stores/ui'
+import { useQueueStore } from '@/stores/queue'
 
 const uiStore = useUIStore()
+const queueStore = useQueueStore()
 const collapsed = computed(() => !uiStore.leftPanelOpen)
 
-const tabs: SidebarTab[] = [
+const activeOrPendingCount = computed(() =>
+  queueStore.items.filter((q) => q.status === 'pending' || q.status === 'processing').length
+)
+
+const tabs = computed<SidebarTab[]>(() => [
   { id: 'generation', icon: 'lucide:sparkles', label: 'Generate' },
-  { id: 'timeline', icon: 'lucide:clock-3', label: 'Timeline' },
+  {
+    id: 'timeline',
+    icon: 'lucide:clock-3',
+    label: 'Timeline',
+    badge: activeOrPendingCount.value > 0 ? activeOrPendingCount.value : undefined
+  },
   { id: 'import', icon: 'lucide:download', label: 'Import' }
-]
+])
 
 const activePaneComponent = computed(() => {
   switch (uiStore.leftPanelTab) {
