@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 
+import PaneActions from '@/components/panes/primitives/PaneActions.vue'
 import PaneBody from '@/components/panes/primitives/PaneBody.vue'
 import PaneGate from '@/components/panes/primitives/PaneGate.vue'
 import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
@@ -154,14 +155,13 @@ function navigateToInput(mediaId: string | null): void {
 
       <!-- Actions -->
       <PaneSection title="Actions">
-        <div class="flex flex-col gap-2">
+        <PaneActions stack>
           <Button
             label="View Full Details"
             outlined
             severity="secondary"
             size="small"
             :disabled="!gen"
-            class="w-full"
             @click="openDetail"
           />
           <Button
@@ -170,10 +170,9 @@ function navigateToInput(mediaId: string | null): void {
             severity="secondary"
             size="small"
             :disabled="!gen"
-            class="w-full"
             @click="reloadSettings"
           />
-        </div>
+        </PaneActions>
       </PaneSection>
     </PaneBody>
   </PaneLayout>

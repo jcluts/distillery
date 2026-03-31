@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 
+import PaneActions from '@/components/panes/primitives/PaneActions.vue'
 import PaneBody from '@/components/panes/primitives/PaneBody.vue'
 import PaneField from '@/components/panes/primitives/PaneField.vue'
 import PaneGate from '@/components/panes/primitives/PaneGate.vue'
@@ -159,51 +160,47 @@ const GUIDE_OPTIONS: { value: 'thirds' | 'grid' | 'golden'; label: string }[] = 
             </div>
           </PaneField>
 
-          <div>
-            <div v-if="!isCropTarget">
-              <Button
-                outlined
-                severity="secondary"
-                class="w-full justify-center"
-                @click="transformStore.enterCropMode()"
-              >
-                <Icon icon="lucide:crop" class="size-4" />
-                Crop
-              </Button>
-            </div>
-            <div v-else class="flex gap-2">
-              <Button
-                class="flex-1 justify-center"
-                @click="transformStore.applyCrop()"
-              >
-                <Icon icon="lucide:check" class="size-4" />
-                Apply
-              </Button>
-              <Button
-                outlined
-                severity="secondary"
-                class="flex-1 justify-center"
-                @click="transformStore.cancelCrop()"
-              >
-                <Icon icon="lucide:x" class="size-4" />
-                Cancel
-              </Button>
-            </div>
-          </div>
+          <PaneActions v-if="!isCropTarget" stack>
+            <Button
+              outlined
+              severity="secondary"
+              @click="transformStore.enterCropMode()"
+            >
+              <Icon icon="lucide:crop" class="size-4" />
+              Crop
+            </Button>
+          </PaneActions>
+          <PaneActions v-else>
+            <Button
+              @click="transformStore.applyCrop()"
+            >
+              <Icon icon="lucide:check" class="size-4" />
+              Apply
+            </Button>
+            <Button
+              outlined
+              severity="secondary"
+              @click="transformStore.cancelCrop()"
+            >
+              <Icon icon="lucide:x" class="size-4" />
+              Cancel
+            </Button>
+          </PaneActions>
         </div>
       </PaneSection>
 
       <!-- Reset -->
       <PaneSection v-if="hasTransforms" title="Reset">
-        <Button
-          outlined
-          severity="secondary"
-          class="w-full justify-center"
-          @click="transformStore.resetAll(focusedItem!.id)"
-        >
-          <Icon icon="lucide:undo-2" class="size-4" />
-          Reset All
-        </Button>
+        <PaneActions stack>
+          <Button
+            outlined
+            severity="secondary"
+            @click="transformStore.resetAll(focusedItem!.id)"
+          >
+            <Icon icon="lucide:undo-2" class="size-4" />
+            Reset All
+          </Button>
+        </PaneActions>
       </PaneSection>
     </PaneBody>
   </PaneLayout>

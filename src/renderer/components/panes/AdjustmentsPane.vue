@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 
+import PaneActions from '@/components/panes/primitives/PaneActions.vue'
 import PaneBody from '@/components/panes/primitives/PaneBody.vue'
 import PaneGate from '@/components/panes/primitives/PaneGate.vue'
 import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
@@ -146,12 +147,11 @@ async function pasteAdjustments(): Promise<void> {
 
       <PaneSection title="Actions">
         <div class="space-y-2">
-          <div class="flex gap-2">
+          <PaneActions>
             <Button
               outlined
               severity="secondary"
               size="small"
-              class="min-w-0 flex-1 justify-center"
               :disabled="!canInteract"
               @click="copyAdjustments"
             >
@@ -162,26 +162,26 @@ async function pasteAdjustments(): Promise<void> {
               outlined
               severity="secondary"
               size="small"
-              class="min-w-0 flex-1 justify-center"
               :disabled="!canInteract || !canPaste"
               @click="pasteAdjustments"
             >
               <Icon icon="lucide:clipboard-paste" class="size-4" />
               Paste
             </Button>
-          </div>
+          </PaneActions>
 
-          <Button
-            outlined
-            severity="secondary"
-            size="small"
-            class="w-full justify-center"
-            :disabled="!showReset"
-            @click="resetAll"
-          >
-            <Icon icon="lucide:undo-2" class="size-4" />
-            Reset All
-          </Button>
+          <PaneActions stack>
+            <Button
+              outlined
+              severity="secondary"
+              size="small"
+              :disabled="!showReset"
+              @click="resetAll"
+            >
+              <Icon icon="lucide:undo-2" class="size-4" />
+              Reset All
+            </Button>
+          </PaneActions>
         </div>
       </PaneSection>
     </PaneBody>

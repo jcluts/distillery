@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import Slider from 'primevue/slider'
 
+import PaneActions from '@/components/panes/primitives/PaneActions.vue'
 import PaneBody from '@/components/panes/primitives/PaneBody.vue'
 import PaneField from '@/components/panes/primitives/PaneField.vue'
 import PaneGate from '@/components/panes/primitives/PaneGate.vue'
@@ -156,12 +157,11 @@ function isOperationBusy(opId: string): boolean {
             </div>
           </PaneField>
 
-          <div class="flex gap-2">
+          <PaneActions>
             <Button
               outlined
               severity="secondary"
               size="small"
-              class="flex-1 justify-center"
               :disabled="!isPaintTarget || !canUndo"
               @click="removalStore.undoStroke()"
             >
@@ -172,50 +172,44 @@ function isOperationBusy(opId: string): boolean {
               outlined
               severity="secondary"
               size="small"
-              class="flex-1 justify-center"
               :disabled="!isPaintTarget || !hasDraft"
               @click="removalStore.clearDraftStrokes()"
             >
               <Icon icon="lucide:trash-2" class="size-4" />
               Clear
             </Button>
-          </div>
+          </PaneActions>
         </div>
       </PaneSection>
 
       <!-- Paint Mask / Apply + Cancel -->
-      <div>
-        <div v-if="!isPaintTarget">
-          <Button
-            outlined
-            severity="secondary"
-            class="w-full justify-center"
-            @click="removalStore.enterPaintMode(focusedItem!.id)"
-          >
-            <Icon icon="lucide:brush" class="size-4" />
-            Paint Mask
-          </Button>
-        </div>
-        <div v-else class="flex gap-2">
-          <Button
-            class="flex-1 justify-center"
-            :disabled="!hasDraft"
-            @click="removalStore.applyDraft()"
-          >
-            <Icon icon="lucide:check" class="size-4" />
-            Apply
-          </Button>
-          <Button
-            outlined
-            severity="secondary"
-            class="flex-1 justify-center"
-            @click="removalStore.cancelPaintMode()"
-          >
-            <Icon icon="lucide:x" class="size-4" />
-            Cancel
-          </Button>
-        </div>
-      </div>
+      <PaneActions v-if="!isPaintTarget" stack>
+        <Button
+          outlined
+          severity="secondary"
+          @click="removalStore.enterPaintMode(focusedItem!.id)"
+        >
+          <Icon icon="lucide:brush" class="size-4" />
+          Paint Mask
+        </Button>
+      </PaneActions>
+      <PaneActions v-else>
+        <Button
+          :disabled="!hasDraft"
+          @click="removalStore.applyDraft()"
+        >
+          <Icon icon="lucide:check" class="size-4" />
+          Apply
+        </Button>
+        <Button
+          outlined
+          severity="secondary"
+          @click="removalStore.cancelPaintMode()"
+        >
+          <Icon icon="lucide:x" class="size-4" />
+          Cancel
+        </Button>
+      </PaneActions>
 
       <!-- Progress -->
       <div
@@ -286,15 +280,15 @@ function isOperationBusy(opId: string): boolean {
           </ListItem>
         </div>
 
-        <Button
-          v-if="staleEnabledCount > 0"
-          outlined
-          severity="secondary"
-          class="mt-2 w-full justify-center"
-          @click="removalStore.refreshAllStale(focusedItem!.id)"
-        >
-          Refresh All ({{ staleEnabledCount }})
-        </Button>
+        <PaneActions v-if="staleEnabledCount > 0" stack class="mt-2">
+          <Button
+            outlined
+            severity="secondary"
+            @click="removalStore.refreshAllStale(focusedItem!.id)"
+          >
+            Refresh All ({{ staleEnabledCount }})
+          </Button>
+        </PaneActions>
       </PaneSection>
     </PaneBody>
   </PaneLayout>

@@ -68,6 +68,7 @@ Panes use a set of structural primitives (all in `components/panes/primitives/`)
 | **`PaneSection`** | A major labeled group within a pane (e.g. "Brush", "File Info", "Actions"). Renders an uppercase section header (`text-xs font-medium tracking-wider uppercase`) with `space-y-1.5` between header and content. | `title: string` |
 | **`PaneField`** | A labeled control *within* a `PaneSection`. Lighter visual weight than a section header — uses `text-xs text-muted` for the label with `space-y-1` between label and content. Use when a section groups multiple related controls (e.g. brush size, feather, mode). | `label: string` |
 | **`PaneGate`** | Empty/invalid state message. Centered, muted text shown when the pane can't display its content (no selection, wrong media type, wrong view mode). Use with `v-if`/`v-else-if` chains before the `PaneBody`. | `message: string` |
+| **`PaneActions`** | Standardized layout container for action button groups. In row mode (default), child buttons are equal-width side-by-side. With `stack`, child buttons are full-width vertical. Automatically applies `flex-1 min-w-0 justify-center` (row) or `justify-center` (stack) to all direct children. | `stack?: boolean` |
 
 **Visual hierarchy:** `PaneLayout` title > `PaneSection` title > `PaneField` label
 
@@ -123,6 +124,7 @@ Typical pane structure (with gates and fields):
 - `PaneSection` — For every visually distinct group that deserves a bold header. Aim for 2–4 sections per pane.
 - `PaneField` — When a section contains multiple labeled controls. Wrap content in `<div class="space-y-3">` to space fields within a section. Don't use PaneField for a section with only one control.
 - `PaneGate` — When the pane requires a specific context to be useful (image selected, loupe view active, etc.). Place gates *before* PaneBody in a `v-if`/`v-else-if`/`v-else` chain.
+- `PaneActions` — For any group of action buttons. Use default (row) for side-by-side equal-width buttons (e.g., Apply/Cancel, Copy/Paste). Use `stack` for full-width stacked buttons (e.g., View Details + Reload). Never hand-code `flex gap-2` with `flex-1 justify-center` for button groups — use `PaneActions` instead.
 
 **Reference implementations:**
 - `MediaInfoPane.vue` — Definitive pattern for pane structure, store usage, IPC calls, and sub-component organization.
@@ -289,11 +291,6 @@ src/renderer/
     │       ├── PaneSection.vue     # Section with header
     │       ├── PaneField.vue       # Labeled control within a section
     │       ├── PaneGate.vue        # Empty-state message
-    │       ├── ListItem.vue        # Generic selectable list row
-    │       ├── StarRating.vue      # 5-star rating control
-    │       ├── KeywordEditor.vue   # Tag editor for keywords
-    │       ├── AdjustmentSlider.vue # Adjustment slider with reset
-    │       └── AspectIcon.vue      # Aspect ratio visual indicator
     ├── generation/                 # Generation-related components
     │   ├── DynamicForm.vue         # Schema-driven form for remote providers
     │   ├── FormField.vue           # Individual dynamic form field
