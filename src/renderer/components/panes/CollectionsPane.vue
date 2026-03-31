@@ -6,7 +6,7 @@ import Tag from 'primevue/tag'
 import Divider from 'primevue/divider'
 
 import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
-import ListItem from '@/components/panes/primitives/ListItem.vue'
+import ListItem from '@/components/shared/ListItem.vue'
 import { useCollectionStore } from '@/stores/collection'
 import { useUIStore } from '@/stores/ui'
 import type { CollectionRecord } from '@/types'

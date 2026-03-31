@@ -18,6 +18,9 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
+    server: {
+      port: 5174
+    },
     resolve: {
       alias: {
         '@': resolve('src/renderer'),
