@@ -3,6 +3,9 @@ import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 
+import { useUIStore } from '@/stores/ui'
+
+const uiStore = useUIStore()
 const isMaximized = ref(false)
 
 const dragStyle = { WebkitAppRegion: 'drag' as const }
@@ -50,6 +53,32 @@ onBeforeUnmount(() => {
       <span class="text-sm font-medium">Distillery</span>
     </div>
 
+    <!-- Actions (Models, Settings) -->
+    <div class="flex items-center gap-2" :style="noDragStyle" @dblclick.stop>
+      <Button
+        text
+        severity="secondary"
+        size="small"
+        aria-label="Open provider manager"
+        @click="uiStore.openModal('providers')"
+      >
+        <Icon icon="lucide:boxes" class="mr-1 size-4" />
+        Models
+      </Button>
+
+      <Button
+        text
+        severity="secondary"
+        size="small"
+        aria-label="Open settings"
+        @click="uiStore.openModal('settings')"
+      >
+        <Icon icon="lucide:settings" class="mr-1 size-4" />
+        Settings
+      </Button>
+    </div>
+
+    <!-- Window controls -->
     <div class="flex items-center" :style="noDragStyle" @dblclick.stop>
       <Button
         text

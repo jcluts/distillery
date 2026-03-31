@@ -1,6 +1,7 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 
 import type {
+  DownloadProgressEvent,
   EngineStatus,
   GenerationProgressEvent,
   GenerationResultEvent,
@@ -16,6 +17,7 @@ import { useEngineStore } from '@/stores/engine'
 import { useGenerationStore } from '@/stores/generation'
 import { useImportFolderStore } from '@/stores/import-folder'
 import { useLibraryStore } from '@/stores/library'
+import { useModelStore } from '@/stores/model'
 import { useQueueStore } from '@/stores/queue'
 import { useRemovalStore } from '@/stores/removal'
 import { useUpscaleStore } from '@/stores/upscale'
@@ -27,6 +29,7 @@ export function useIpcSubscriptions(): void {
   const generationStore = useGenerationStore()
   const importFolderStore = useImportFolderStore()
   const libraryStore = useLibraryStore()
+  const modelStore = useModelStore()
   const queueStore = useQueueStore()
   const removalStore = useRemovalStore()
   const upscaleStore = useUpscaleStore()
@@ -122,6 +125,23 @@ export function useIpcSubscriptions(): void {
         void generationStore.loadTimeline()
       })
     )
+
+    // Model download progress
+    unsubs.push(
+      window.api.on('model:download-progress', (payload: unknown) => {
+        modelStore.setDownloadProgress(payload as DownloadProgressEvent)
+      })
+    )
+
+    // Reconcile download statuses when window regains focus (Chromium throttles
+    // background renderers, so the final 'completed' event can be missed)
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        void modelStore.reconcileDownloadStatuses()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    unsubs.push(() => document.removeEventListener('visibilitychange', handleVisibilityChange))
   })
 
   onBeforeUnmount(() => {
