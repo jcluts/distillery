@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 
+import ImagePreviewModal from '@/components/modals/ImagePreviewModal.vue'
 import { useGenerationStore, type RefImage } from '@/stores/generation'
 import { useLibraryStore } from '@/stores/library'
 
@@ -21,6 +22,17 @@ const isDragOver = ref(false)
 const dragOverThumbIndex = ref<number | null>(null)
 const draggingIndex = ref<number | null>(null)
 const dragSourceIndex = ref<number | null>(null)
+
+const previewOpen = ref(false)
+const previewSrc = ref<string | null>(null)
+const previewAlt = ref('Reference image')
+
+function openPreview(src: string | null, alt: string): void {
+  if (!src) return
+  previewSrc.value = src
+  previewAlt.value = alt
+  previewOpen.value = true
+}
 
 // ---------------------------------------------------------------------------
 // Image resolution
@@ -245,6 +257,7 @@ const isExternalDrag = computed(() => draggingIndex.value === null)
         @dragover="onThumbDragOver(idx, $event)"
         @dragleave="onThumbDragLeave(idx, $event)"
         @drop="onThumbDrop(idx, $event)"
+        @click.stop="openPreview(resolveImage(img).fileSrc ?? resolveImage(img).thumbSrc, resolveImage(img).label)"
       >
         <img
           v-if="resolveImage(img).thumbSrc"
@@ -296,4 +309,6 @@ const isExternalDrag = computed(() => draggingIndex.value === null)
       </span>
     </div>
   </div>
+
+  <ImagePreviewModal v-model:open="previewOpen" :src="previewSrc" :alt="previewAlt" />
 </template>

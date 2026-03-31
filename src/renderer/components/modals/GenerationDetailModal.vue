@@ -1,0 +1,218 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import Tag from 'primevue/tag'
+
+import ImagePreviewModal from '@/components/modals/ImagePreviewModal.vue'
+import { useGenerationStore } from '@/stores/generation'
+import { useUIStore } from '@/stores/ui'
+import type { GenerationInput, GenerationRecord } from '@/types'
+
+const uiStore = useUIStore()
+const generationStore = useGenerationStore()
+
+// ---------------------------------------------------------------------------
+// Visibility
+// ---------------------------------------------------------------------------
+
+const open = computed({
+  get: () => uiStore.activeModals.includes('generation-detail'),
+  set: (val: boolean) => {
+    if (!val) close()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------------
+
+const gen = ref<GenerationRecord | null>(null)
+const inputs = ref<GenerationInput[]>([])
+const outputThumb = ref<string | null>(null)
+
+watch(
+  [open, () => generationStore.detailGenerationId],
+  async ([isOpen, genId]) => {
+    if (!isOpen || !genId) {
+      gen.value = null
+      inputs.value = []
+      outputThumb.value = null
+      return
+    }
+
+    const [record, genInputs, thumb] = await Promise.all([
+      window.api.timeline.get(genId).catch(() => null),
+      window.api.timeline.getGenerationInputs(genId).catch(() => [] as GenerationInput[]),
+      window.api.timeline.getThumbnail(genId).catch(() => null)
+    ])
+
+    gen.value = record
+    inputs.value = genInputs
+    outputThumb.value = thumb
+  },
+  { immediate: true }
+)
+
+// ---------------------------------------------------------------------------
+// Parameter rows — reusable pattern from GenerationInfoPane
+// ---------------------------------------------------------------------------
+
+interface InfoRow {
+  label: string
+  value: string | number
+}
+
+const paramRows = computed<InfoRow[]>(() => {
+  const g = gen.value
+  if (!g) return []
+
+  const rows: InfoRow[] = [
+    { label: 'Provider', value: g.provider ?? '—' },
+    { label: 'Model', value: g.model_file ?? '—' },
+    { label: 'Resolution', value: g.width && g.height ? `${g.width} × ${g.height}` : '—' },
+    { label: 'Seed', value: g.seed ?? '—' },
+    { label: 'Steps', value: g.steps ?? '—' },
+    { label: 'Guidance', value: g.guidance ?? '—' }
+  ]
+
+  if (g.total_time_ms) {
+    rows.push({ label: 'Time', value: `${(g.total_time_ms / 1000).toFixed(1)}s` })
+  }
+
+  return rows
+})
+
+// ---------------------------------------------------------------------------
+// Image preview modal
+// ---------------------------------------------------------------------------
+
+const previewOpen = ref(false)
+const previewSrc = ref<string | null>(null)
+
+function openPreview(src: string): void {
+  previewSrc.value = src
+  previewOpen.value = true
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+function close(): void {
+  uiStore.closeModal('generation-detail')
+  generationStore.setDetailGenerationId(null)
+}
+
+async function reloadSettings(): Promise<void> {
+  if (!gen.value) return
+  uiStore.setLeftPanelTab('generation')
+  await generationStore.reloadFromGeneration(gen.value.id)
+  close()
+}
+
+async function removeFromTimeline(): Promise<void> {
+  if (!generationStore.detailGenerationId) return
+  await window.api.timeline.remove(generationStore.detailGenerationId)
+  await generationStore.loadTimeline()
+  close()
+}
+</script>
+
+<template>
+  <Dialog
+    v-model:visible="open"
+    :header="gen ? `Generation #${gen.number}` : 'Generation'"
+    modal
+    :closable="true"
+    :style="{ width: '48rem' }"
+  >
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <!-- Left column: Output + Reference images -->
+      <div class="space-y-4">
+        <div>
+          <div class="mb-1.5 text-xs font-medium text-muted">Output</div>
+          <div
+            class="aspect-square w-full overflow-hidden rounded-lg border border-default bg-surface-100/30"
+            :class="{ 'cursor-pointer': outputThumb }"
+            @click="outputThumb ? openPreview(outputThumb) : undefined"
+          >
+            <img
+              v-if="outputThumb"
+              :src="outputThumb"
+              alt="Generation output"
+              class="size-full object-cover"
+              draggable="false"
+            />
+            <div v-else class="flex size-full items-center justify-center text-xs text-muted">
+              —
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="mb-1.5 text-xs font-medium text-muted">Reference Images</div>
+          <div v-if="inputs.length === 0" class="text-xs text-muted">None</div>
+          <div v-else class="flex items-center gap-2 overflow-x-auto">
+            <div
+              v-for="input in inputs"
+              :key="input.id"
+              class="relative size-12 shrink-0 overflow-hidden rounded border border-default bg-surface-100/30"
+              :title="input.original_filename ?? ''"
+            >
+              <img
+                :src="input.thumb_path"
+                :alt="input.original_filename ?? 'Reference'"
+                class="absolute inset-0 size-full object-cover"
+                draggable="false"
+              />
+            </div>
+            <Tag :value="String(inputs.length)" severity="secondary" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column: Prompt + Parameters -->
+      <div class="space-y-4">
+        <div>
+          <div class="mb-1.5 text-xs font-medium text-muted">Prompt</div>
+          <div
+            class="max-h-32 overflow-y-auto rounded-lg border border-default bg-surface-100/30 p-2 text-sm"
+          >
+            {{ gen?.prompt ?? '—' }}
+          </div>
+        </div>
+
+        <div>
+          <div class="mb-1.5 text-xs font-medium text-muted">Parameters</div>
+          <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+            <template v-for="row in paramRows" :key="row.label">
+              <dt class="text-muted">{{ row.label }}</dt>
+              <dd class="truncate">{{ row.value }}</dd>
+            </template>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="flex items-center justify-end gap-2">
+        <Button
+          label="Reload Settings"
+          outlined
+          severity="secondary"
+          :disabled="!gen"
+          @click="reloadSettings"
+        />
+        <Button
+          label="Remove from Timeline"
+          severity="danger"
+          :disabled="!generationStore.detailGenerationId"
+          @click="removeFromTimeline"
+        />
+      </div>
+    </template>
+  </Dialog>
+
+  <ImagePreviewModal v-model:open="previewOpen" :src="previewSrc" alt="Generation output" />
+</template>

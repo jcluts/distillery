@@ -17,6 +17,7 @@ const collapsed = computed(() => !uiStore.rightPanelOpen)
 
 const tabs: SidebarTab[] = [
   { id: 'info', icon: 'lucide:info', label: 'Info' },
+  { id: 'generation', icon: 'lucide:sparkles', label: 'Generation' },
   { id: 'collections', icon: 'lucide:layers-3', label: 'Collections' },
   { id: 'transform', icon: 'lucide:crop', label: 'Transform' },
   { id: 'adjustments', icon: 'lucide:sliders-horizontal', label: 'Adjustments' },

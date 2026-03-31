@@ -10,6 +10,7 @@ import PaneLayout from '@/components/panes/PaneLayout.vue'
 import PaneSection from '@/components/panes/PaneSection.vue'
 import { useImportFolderStore } from '@/stores/import-folder'
 import { useUIStore } from '@/stores/ui'
+import { formatRelative } from '@/lib/format'
 import type { ImportFolderRecord, ImportScanProgress } from '@/types'
 
 const importFolderStore = useImportFolderStore()
@@ -56,18 +57,6 @@ function openImportFolderModal(editId?: string): void {
   uiStore.openModal('import-folder')
 }
 
-function formatRelative(iso: string): string {
-  const delta = Date.now() - new Date(iso).getTime()
-  if (!Number.isFinite(delta) || delta < 0) return 'Just now'
-  const sec = Math.floor(delta / 1000)
-  if (sec < 60) return `${sec}s ago`
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  return `${Math.floor(hr / 24)}d ago`
-}
-
 function folderDetail(
   folder: ImportFolderRecord,
   progress: ImportScanProgress | undefined
@@ -78,7 +67,9 @@ function folderDetail(
     return `Importing ${progress.files_processed}/${total}...`
   }
   if (progress?.status === 'error') return progress.error ?? 'Import failed'
-  return folder.last_scanned ? `Last scanned ${formatRelative(folder.last_scanned)}` : 'Never scanned'
+  return folder.last_scanned
+    ? `Last scanned ${formatRelative(folder.last_scanned)}`
+    : 'Never scanned'
 }
 
 function isFolderScanning(progress: ImportScanProgress | undefined): boolean {
@@ -113,9 +104,7 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
           class="w-full"
           @click="onChooseFiles"
         />
-        <p v-if="importedCount > 0" class="text-xs text-muted">
-          {{ importedCount }} imported
-        </p>
+        <p v-if="importedCount > 0" class="text-xs text-muted">{{ importedCount }} imported</p>
       </PaneSection>
 
       <Divider />
@@ -135,25 +124,15 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
 
       <!-- Saved Sources -->
       <PaneSection :title="`Saved Sources (${folders.length})`">
-        <p v-if="folders.length === 0" class="text-xs text-muted">
-          No saved sources yet.
-        </p>
+        <p v-if="folders.length === 0" class="text-xs text-muted">No saved sources yet.</p>
         <div v-else class="space-y-2">
-          <div
-            v-for="folder in folders"
-            :key="folder.id"
-            class="group rounded-md border p-2.5"
-          >
+          <div v-for="folder in folders" :key="folder.id" class="group rounded-md border p-2.5">
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
                   <Icon icon="lucide:folder" class="size-3.5 shrink-0 text-muted" />
                   <span class="truncate text-sm font-medium">{{ folder.name }}</span>
-                  <Tag
-                    v-if="folder.auto_import"
-                    value="Auto"
-                    severity="secondary"
-                  />
+                  <Tag v-if="folder.auto_import" value="Auto" severity="secondary" />
                 </div>
                 <p class="mt-1 truncate text-xs text-muted" :title="folder.path">
                   {{ folder.path }}
@@ -163,7 +142,9 @@ const scanProgress = computed(() => importFolderStore.scanProgress)
                 </p>
               </div>
 
-              <div class="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+              <div
+                class="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+              >
                 <Button
                   text
                   plain

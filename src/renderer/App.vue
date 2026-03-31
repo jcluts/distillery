@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CollectionModal from '@/components/modals/CollectionModal.vue'
+import GenerationDetailModal from '@/components/modals/GenerationDetailModal.vue'
 import ImportFolderModal from '@/components/modals/ImportFolderModal.vue'
 import ProviderManagerModal from '@/components/modals/ProviderManagerModal.vue'
 import SettingsModal from '@/components/modals/SettingsModal.vue'
@@ -12,6 +13,7 @@ useIpcSubscriptions()
 <template>
   <AppLayout />
   <CollectionModal />
+  <GenerationDetailModal />
   <ImportFolderModal />
   <ProviderManagerModal />
   <SettingsModal />
