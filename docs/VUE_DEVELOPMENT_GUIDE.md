@@ -285,12 +285,19 @@ src/renderer/
     │   ├── AdjustmentsPane.vue     # Non-destructive adjustments
     │   ├── RemovalPane.vue         # Object removal tools
     │   ├── UpscalePane.vue         # Upscaling controls
-    │   └── primitives/             # Reusable pane building blocks
+    │   └── primitives/             # Pane structural building blocks
     │       ├── PaneLayout.vue      # Pane outer wrapper (title + scroll)
     │       ├── PaneBody.vue        # Section spacing container
     │       ├── PaneSection.vue     # Section with header
     │       ├── PaneField.vue       # Labeled control within a section
     │       ├── PaneGate.vue        # Empty-state message
+    │       └── PaneActions.vue     # Action button group layout
+    ├── shared/                     # Reusable components shared across panes/features
+    │   ├── AdjustmentSlider.vue    # Labeled slider with reset
+    │   ├── AspectIcon.vue          # Aspect ratio icon
+    │   ├── KeywordEditor.vue       # Keyword tag editor
+    │   ├── ListItem.vue            # Selectable list row (collections, folders, etc.)
+    │   └── StarRating.vue          # Interactive star rating
     ├── generation/                 # Generation-related components
     │   ├── DynamicForm.vue         # Schema-driven form for remote providers
     │   ├── FormField.vue           # Individual dynamic form field
@@ -321,7 +328,8 @@ src/renderer/
 
 **Conventions:**
 - Pane components go directly in `components/panes/` — one file per pane.
-- All reusable sub-components shared across panes go in `components/panes/primitives/`. Do not create per-pane subfolders.
+- Pane structural primitives (`PaneLayout`, `PaneBody`, `PaneSection`, `PaneField`, `PaneGate`, `PaneActions`) live in `components/panes/primitives/`.
+- Reusable UI components shared across panes and features (`ListItem`, `StarRating`, `AdjustmentSlider`, etc.) live in `components/shared/`.
 - Feature-specific components go in `components/{feature}/` (e.g. `generation/`, `providers/`, `upscale/`).
 - Modal components go in `components/modals/` and are always mounted in `App.vue`.
 - Stores: `stores/{name}.ts`. Composables: `composables/useXxx.ts`. Pure utilities: `lib/{name}.ts`.
@@ -504,7 +512,7 @@ For key-value metadata display, use a `<dl>` with CSS grid — no custom compone
 
 ### List Items
 
-For selectable list rows (collections, import folders, etc.), use the reusable **`ListItem`** component at `components/panes/primitives/ListItem.vue`.
+For selectable list rows (collections, import folders, etc.), use the reusable **`ListItem`** component at `components/shared/ListItem.vue`.
 
 ListItem provides a consistent look for all list patterns across every pane — selectable radio-style lists, action-button lists, drag-and-drop targets, etc.
 

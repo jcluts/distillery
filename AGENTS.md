@@ -154,6 +154,7 @@ src/
         ├── library/                # FilterBar, GridView, LoupeView, LibraryStatusBar,
         │   │                       #   MediaThumbnail, LoupeFilmstrip
         │   └── canvas/             # CanvasViewer (HTML Canvas, DPR-aware)
+        ├── shared/                 # Reusable components (ListItem, StarRating, etc.)
         └── panes/                  # Sidebar content panels (PaneLayout, PaneSection,
                                     #   GenerationPane, TimelinePane, ImportPane,
                                     #   MediaInfoPane, GenerationInfoPane, CollectionsPane)
