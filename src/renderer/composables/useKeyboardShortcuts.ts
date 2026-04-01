@@ -48,8 +48,15 @@ export function useKeyboardShortcuts(): void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
+    if (event.defaultPrevented) {
+      return
+    }
+
     const isMac = navigator.platform.toLowerCase().includes('mac')
     const modKey = isMac ? event.metaKey : event.ctrlKey
+    const focusedItem = libraryStore.focusedId
+      ? libraryStore.items.find((item) => item.id === libraryStore.focusedId) ?? null
+      : null
 
     // Respect text input focus: ignore plain keys while typing, but allow mod-key shortcuts
     if (isTextInputFocused() && !modKey && event.key !== 'Escape') {
@@ -131,10 +138,11 @@ export function useKeyboardShortcuts(): void {
 
     // Z or Space — cycle zoom (loupe only, not in crop mode)
     if (uiStore.viewMode === 'loupe') {
-      if (
-        (event.key.toLowerCase() === 'z' || event.key === ' ') &&
-        !transformStore.cropMode
-      ) {
+      if (event.key === ' ' && focusedItem?.media_type === 'video') {
+        return
+      }
+
+      if ((event.key.toLowerCase() === 'z' || event.key === ' ') && !transformStore.cropMode) {
         event.preventDefault()
         uiStore.cycleZoom()
         return

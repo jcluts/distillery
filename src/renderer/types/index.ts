@@ -41,6 +41,24 @@ export interface ImageAdjustments {
   clarity: number
 }
 
+export interface VideoTrim {
+  startTime: number
+  endTime: number
+}
+
+export interface VideoEdits {
+  version: 1
+  trim?: VideoTrim
+  timestamp?: string
+}
+
+export interface VideoMetadata {
+  duration: number
+  width: number
+  height: number
+  frameRate: number
+}
+
 export interface MediaRecord {
   id: string
   file_path: string
@@ -682,6 +700,12 @@ export interface DistilleryAPI {
   transforms: {
     get(mediaId: string): Promise<ImageTransforms | null>
     save(mediaId: string, transforms: ImageTransforms | null): Promise<void>
+  }
+
+  // Video edits
+  videoEdits: {
+    get(mediaId: string): Promise<VideoEdits | null>
+    save(mediaId: string, edits: VideoEdits | null): Promise<void>
   }
 
   // Keywords

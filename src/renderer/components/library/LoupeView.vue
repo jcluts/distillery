@@ -10,11 +10,13 @@ import { useLibraryStore } from '@/stores/library'
 import { useRemovalStore } from '@/stores/removal'
 import { useUIStore } from '@/stores/ui'
 import { useTransformStore } from '@/stores/transform'
+import { useVideoEditStore } from '@/stores/video-edits'
 
 const libraryStore = useLibraryStore()
 const removalStore = useRemovalStore()
 const uiStore = useUIStore()
 const transformStore = useTransformStore()
+const videoEditStore = useVideoEditStore()
 
 const currentIndex = computed(() => {
   if (libraryStore.items.length === 0) return -1
@@ -57,6 +59,16 @@ watch(
     if (!removalStore.paintMode || !removalStore.paintMediaId) return
     if (!current || current.id !== removalStore.paintMediaId || current.media_type !== 'image') {
       removalStore.cancelPaintMode()
+    }
+  }
+)
+
+watch(
+  () => currentItem.value,
+  (current) => {
+    if (!videoEditStore.trimMode) return
+    if (!current || current.id !== videoEditStore.activeMediaId || current.media_type !== 'video') {
+      videoEditStore.clearSession()
     }
   }
 )

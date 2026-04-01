@@ -6,7 +6,8 @@ import type {
   MediaUpdate,
   MediaQuery,
   MediaPage,
-  RemovalData
+  RemovalData,
+  VideoEdits
 } from '../../types'
 
 interface TransformsRow {
@@ -15,6 +16,10 @@ interface TransformsRow {
 
 interface AdjustmentsRow {
   adjustments_json: string | null
+}
+
+interface VideoEditsRow {
+  video_edits_json: string | null
 }
 
 interface RemovalsRow {
@@ -249,6 +254,41 @@ export function saveTransforms(
   db.prepare(
     "UPDATE media SET transforms_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
   ).run(transforms ? JSON.stringify(transforms) : null, mediaId)
+}
+
+/**
+ * Fetch persisted video edits for a media item.
+ */
+export function getVideoEdits(
+  db: Database.Database,
+  mediaId: string
+): VideoEdits | null {
+  const row = db
+    .prepare('SELECT video_edits_json FROM media WHERE id = ?')
+    .get(mediaId) as VideoEditsRow | undefined
+
+  if (!row?.video_edits_json) {
+    return null
+  }
+
+  try {
+    return JSON.parse(row.video_edits_json) as VideoEdits
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Persist video edits for a media item.
+ */
+export function saveVideoEdits(
+  db: Database.Database,
+  mediaId: string,
+  edits: VideoEdits | null
+): void {
+  db.prepare(
+    "UPDATE media SET video_edits_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+  ).run(edits ? JSON.stringify(edits) : null, mediaId)
 }
 
 /**

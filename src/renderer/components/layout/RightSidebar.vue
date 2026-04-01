@@ -9,6 +9,7 @@ import MediaInfoPane from '@/components/panes/MediaInfoPane.vue'
 import RemovalPane from '@/components/panes/RemovalPane.vue'
 import TransformPane from '@/components/panes/TransformPane.vue'
 import UpscalePane from '@/components/panes/UpscalePane.vue'
+import VideoEditPane from '@/components/panes/VideoEditPane.vue'
 import SidebarIconRail, { type SidebarTab } from '@/components/layout/SidebarIconRail.vue'
 import { useUIStore, type RightPanelTab } from '@/stores/ui'
 
@@ -22,7 +23,8 @@ const tabs: SidebarTab[] = [
   { id: 'transform', icon: 'lucide:crop', label: 'Transform' },
   { id: 'adjustments', icon: 'lucide:sliders-horizontal', label: 'Adjustments' },
   { id: 'removal', icon: 'lucide:eraser', label: 'Removals' },
-  { id: 'upscale', icon: 'lucide:maximize-2', label: 'Upscale' }
+  { id: 'upscale', icon: 'lucide:maximize-2', label: 'Upscale' },
+  { id: 'videoEdit', icon: 'lucide:scissors', label: 'Video' }
 ]
 
 const activePaneComponent = computed(() => {
@@ -39,6 +41,8 @@ const activePaneComponent = computed(() => {
       return RemovalPane
     case 'upscale':
       return UpscalePane
+    case 'videoEdit':
+      return VideoEditPane
     default:
       return MediaInfoPane
   }

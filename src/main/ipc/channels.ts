@@ -20,6 +20,10 @@ export const IPC_CHANNELS = {
   TRANSFORMS_GET: 'transforms:get',
   TRANSFORMS_SAVE: 'transforms:save',
 
+  // Video Edits
+  VIDEO_EDITS_GET: 'videoEdits:get',
+  VIDEO_EDITS_SAVE: 'videoEdits:save',
+
   // Adjustments
   ADJUSTMENTS_GET: 'adjustments:get',
   ADJUSTMENTS_SAVE: 'adjustments:save',

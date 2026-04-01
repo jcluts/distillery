@@ -38,6 +38,24 @@ export interface ImageAdjustments {
   clarity: number
 }
 
+export interface VideoTrim {
+  startTime: number
+  endTime: number
+}
+
+export interface VideoEdits {
+  version: 1
+  trim?: VideoTrim
+  timestamp?: string
+}
+
+export interface VideoMetadata {
+  duration: number
+  width: number
+  height: number
+  frameRate: number
+}
+
 export interface MediaRecord {
   id: string
   file_path: string

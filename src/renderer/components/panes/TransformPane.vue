@@ -77,7 +77,7 @@ const GUIDE_OPTIONS: { value: 'thirds' | 'grid' | 'golden'; label: string }[] = 
 <template>
   <PaneLayout title="Transform">
     <PaneGate v-if="noSelection" message="Select an image to transform" />
-    <PaneGate v-else-if="notImage" message="Transforms are available for images only" />
+    <PaneGate v-else-if="notImage" message="Use the Video pane for video editing" />
     <PaneGate v-else-if="notLoupe" message="Open an image in the loupe view to access transforms" />
 
     <PaneBody v-else>

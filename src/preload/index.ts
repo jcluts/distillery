@@ -47,6 +47,12 @@ const api: DistilleryAPI = {
       ipcRenderer.invoke(CH.TRANSFORMS_SAVE, mediaId, transforms)
   },
 
+  // Video edits
+  videoEdits: {
+    get: (mediaId: string) => ipcRenderer.invoke(CH.VIDEO_EDITS_GET, mediaId),
+    save: (mediaId: string, edits) => ipcRenderer.invoke(CH.VIDEO_EDITS_SAVE, mediaId, edits)
+  },
+
   // Keywords
   keywords: {
     getForMedia: (mediaId: string) => ipcRenderer.invoke(CH.KEYWORDS_GET_FOR_MEDIA, mediaId),

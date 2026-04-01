@@ -15,6 +15,7 @@ export type RightPanelTab =
   | 'adjustments'
   | 'removal'
   | 'upscale'
+  | 'videoEdit'
 
 const LEFT_PANEL_TABS: LeftPanelTab[] = ['generation', 'timeline', 'import']
 const RIGHT_PANEL_TABS: RightPanelTab[] = [
@@ -24,7 +25,8 @@ const RIGHT_PANEL_TABS: RightPanelTab[] = [
   'transform',
   'adjustments',
   'removal',
-  'upscale'
+  'upscale',
+  'videoEdit'
 ]
 
 function clampThumbnailSize(size: number): number {
