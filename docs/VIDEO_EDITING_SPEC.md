@@ -5,7 +5,7 @@
 Port non-destructive video editing from V1 (simple-ai-client) to Distillery's Vue renderer. Scope: **video trim** and **video info display**. Video crop is deferred — it requires ffmpeg export infrastructure that doesn't exist yet. The architecture follows the proven patterns established by the `transforms`, `adjustments`, and `removal` features.
 
 **Design principles:**
-- Trim controls integrate seamlessly into the existing `VideoPlayer.vue` — no separate mode or modal.
+- Trim controls **replace** (not stack below) the normal playback controls when trim mode is active. There is only ever one horizontal time-control visible — in standard mode it's a seek slider, in trim mode it's the interactive trim timeline (which also functions as the seek bar).
 - The sidebar pane shows trim state and video metadata; the player owns the interactive trim timeline.
 - Non-destructive: trim data is stored as JSON metadata in the existing `video_edits_json` column and applied at playback time.
 - Frame-accurate: all trim operations snap to nearest frame boundary.
@@ -237,96 +237,166 @@ const isPlaying = ref(false)
 
 ## 5. UI Components
 
-### 5.1 VideoPlayer.vue — Trim Integration
+### 5.1 Design Philosophy: Unified Control Surface
 
-The existing `VideoPlayer.vue` gains trim awareness. This is where the trim timeline and transport controls live — they are part of the player, not the sidebar.
+The core insight: **a trim timeline and a seek bar are the same thing**. Both map a horizontal axis to time. Having two stacked sliders — one for playback position and one for trim range — creates visual competition and cognitive overhead. The user doesn't know which one "owns" their position in the video.
 
-**New props: none.** The player reads from `useVideoEditStore` directly (same pattern as V1's `useVideoEditStore` integration).
+Instead, when trim mode activates, the controls overlay **transforms in-place**:
+
+- The PrimeVue Slider (seek bar) is replaced by the interactive TrimTimeline, which **is also the seek bar**. Click anywhere on it to seek. Drag handles to set trim points. The playhead is visible in both modes.
+- The simple play button + time display expand into a full transport bar with frame stepping, plus trim point actions (Set In, Set Out, Clear).
+- Volume, loop, and pin controls remain in their same positions — they are mode-independent.
+
+The result is a single control surface that changes shape, not two stacked control surfaces that fight for attention.
+
+### 5.2 VideoPlayer.vue — Two Control Modes
+
+The controls overlay at the bottom of the VideoPlayer renders one of two modes:
+
+**Standard mode** (current behavior, slightly enhanced):
+
+```
+┌──────────────────────────────────────────────────────┐
+│  ▶  00:12 / 01:45   ━━━━━━━━━━━━━━━━━━━  🔊 ▬▬ 🔁 📌 │
+└──────────────────────────────────────────────────────┘
+     ↑                 ↑                     ↑       ↑
+   play/           PrimeVue               volume  loop/pin
+   pause            Slider
+```
+
+When a persisted trim exists (but trim mode is off), playback is clamped to the trimmed range. The seek slider's range represents only the trimmed segment — the user sees and interacts with the trimmed video as if it were the whole video. This is the "consumer" experience.
+
+**Trim mode** (activated from sidebar pane):
+
+```
+┌──────────────────────────────────────────────────────┐
+│  ⏮ ⏪ ▶ ⏩ ⏭  00:12.345   [I] [O]   [✕]   🔊 ▬▬ 🔁 │
+├──────────────────────────────────────────────────────┤
+│  ░░░░[|━━━━━━━━━▼━━━━━━━━━━━━|]░░░░░░░░░░░░░░░░░░░ │
+│  00:04.567      ↑ playhead       01:32.100  / 01:45 │
+└──────────────────────────────────────────────────────┘
+     ↑              ↑              ↑       ↑      ↑
+  transport     timecode      trim pts  clear  volume/loop
+```
+
+The top row replaces the simple play button with full transport controls and trim actions. The bottom area replaces the PrimeVue Slider with the interactive TrimTimeline track — a visual bar showing the full video duration, with draggable IN/OUT handles, dimmed excluded regions, and the playhead. Below the track, time labels show positions in monospace.
+
+The key: **the TrimTimeline IS the seek bar in trim mode**. Click anywhere on it to seek the playhead. There is only ever one horizontal time control visible.
+
+### 5.3 VideoPlayer.vue — Implementation Details
+
+**New props: none.** The player reads from `useVideoEditStore` directly.
 
 **Changes:**
 
 1. **Import the video edit store** and read `trimMode`, `trimStart`, `trimEnd`, `activeMediaId`.
 
-2. **Playhead clamping** — When trim is applied (persisted trim, not just staged), constrain playback to the trimmed range:
-   - On `timeupdate`: if `currentTime >= effectiveEnd`, pause or loop to `effectiveStart`.
-   - `effectiveStart` / `effectiveEnd` are computed:
-     - In trim mode: full video range (user needs to see everything to set points).
-     - Otherwise: `currentEdits?.trim?.startTime ?? 0` / `currentEdits?.trim?.endTime ?? duration`.
+2. **Conditional controls rendering** — The controls overlay template uses `v-if`/`v-else` to switch between standard and trim control layouts. Both share the same outer container (same positioning, backdrop blur, visibility toggling).
 
-3. **Keyboard shortcuts** — Active when video player area has focus and no text input is focused:
+3. **Playhead clamping** — On `timeupdate`:
+   - **Standard mode with persisted trim:** Clamp playback to `[trim.startTime, trim.endTime]`. At `effectiveEnd`, either pause or loop to `effectiveStart`.
+   - **Trim mode:** No clamping — the full video is accessible so the user can set trim points anywhere.
+   
+4. **Effective range:**
+   - Standard mode: `effectiveStart = edits?.trim?.startTime ?? 0`, `effectiveEnd = edits?.trim?.endTime ?? duration`.
+   - Trim mode: `effectiveStart = 0`, `effectiveEnd = duration` (full range).
 
-   | Key | Action |
-   |---|---|
-   | `Space` / `K` | Play/pause |
-   | `J` | Step back 1 frame |
-   | `L` | Step forward 1 frame |
-   | `I` | Set IN point at playhead, save |
-   | `O` | Set OUT point at playhead, save |
+5. **Keyboard shortcuts** — Active when video player area has focus and no text input is focused:
 
-   `I`/`O` shortcuts only function when `trimMode` is active.
+   | Key | Action | Availability |
+   |---|---|---|
+   | `Space` / `K` | Play/pause | Always |
+   | `J` | Step back 1 frame | Always |
+   | `L` | Step forward 1 frame | Always |
+   | `I` | Set IN point at playhead, save | Trim mode only |
+   | `O` | Set OUT point at playhead, save | Trim mode only |
 
-4. **Trim timeline** — Rendered below the playback controls bar when `trimMode === true`:
+6. **Store sync** — On `timeupdate`, call `videoEditStore.setCurrentTime()`. On `loadedmetadata`, extract metadata and call `videoEditStore.setMetadata()`.
 
-   ```
-   ┌────────────────────────────────────────────────┐
-   │  ▶ 00:12.345 / 01:45.678   ━━━━━━━━━━  🔊 🔁 📌 │  ← existing controls
-   ├────────────────────────────────────────────────┤
-   │  ⏮ ⏪ ▶ ⏩ ⏭  │ [Set In] [Set Out] [Clear]    │  ← transport + trim points
-   ├────────────────────────────────────────────────┤
-   │  [ |◄─────────trimmed region───────────►| ]    │  ← interactive timeline
-   │  00:04.567          ▼ playhead     01:32.100   │  ← time labels
-   └────────────────────────────────────────────────┘
-   ```
+7. **Controls pinning in trim mode** — When trim mode is active, controls are always visible (auto-pinned). The user needs persistent access to the timeline while working.
 
-5. **Sync to store** — On `timeupdate`, call `videoEditStore.setCurrentTime()`. On `loadedmetadata`, call `videoEditStore.setMetadata()`.
+### 5.4 TrimTimeline.vue
 
-### 5.2 TrimTimeline (inline in VideoPlayer or extracted component)
+A child component rendered inside VideoPlayer's controls overlay, replacing the PrimeVue Slider when trim mode is active. File: `src/renderer/components/library/TrimTimeline.vue`.
 
-An interactive timeline track rendered inside the VideoPlayer when trim mode is active. Implemented as a child component `TrimTimeline.vue` in `src/renderer/components/library/`.
+**Props:**
+```typescript
+defineProps<{
+  duration: number
+  currentTime: number
+  trimStart: number | null
+  trimEnd: number | null
+  frameRate: number
+}>()
+
+defineEmits<{
+  seek: [time: number]
+  'update:trimStart': [time: number | null]
+  'update:trimEnd': [time: number | null]
+  save: []
+}>()
+```
 
 **Visual elements:**
-- **Track background** — full-width bar representing the video's full duration.
-- **Dimmed regions** — areas outside the trim range are darkened (semi-transparent overlay).
-- **Trim handles** — draggable `[` and `]` bracket markers at the IN/OUT points. Wide enough hit target (16px) for comfortable dragging.
-- **Trimmed region** — the area between handles, slightly highlighted. The region itself is draggable (moves both handles, maintaining span width).
-- **Playhead** — vertical line with a dot top, showing current position. Clicking anywhere on the track seeks the playhead.
-- **Time labels** — current time, duration, and trimmed duration displayed below the track in monospace.
-- **Hover tooltip** — shows time at cursor position when hovering over the track.
+- **Track background** — full-width bar (height ~32px) representing the full video duration, dark background.
+- **Dimmed regions** — areas outside trim range overlaid with semi-transparent black (visually "excluded").
+- **Trim handles** — `[` and `]` bracket markers at IN/OUT positions. 16px wide hit target, styled with accent color. `cursor: ew-resize`.
+- **Active region** — area between handles has a subtle accent-tinted background, `cursor: grab` (for region dragging).
+- **Playhead** — thin vertical line with a circular head, positioned at `currentTime / duration * 100%`. Styled with white/light color to contrast with the accent-colored trim handles.
+- **Time labels row** — below the track: current time (left), trimmed duration (center, accent color), total duration (right). All monospace `text-xs`.
 
 **Interaction model:**
 
 | Gesture | Effect |
 |---|---|
-| Click track | Seek playhead to clicked time |
-| Drag IN handle | Move start point (frame-snapped, auto-saves on release) |
-| Drag OUT handle | Move end point (frame-snapped, auto-saves on release) |
-| Drag trimmed region | Move both handles together (maintains span, clamps to [0, duration]) |
-| Double-click handle | Clear that trim point |
+| Click track (not on handle) | Seek playhead to clicked time |
+| Drag IN handle | Move start point (frame-snapped), emit `update:trimStart` |
+| Drag OUT handle | Move end point (frame-snapped), emit `update:trimEnd` |
+| Drag active region | Move both handles together maintaining span, clamp to [0, duration] |
+| Mouse up after handle/region drag | Emit `save` |
+| Double-click a handle | Clear that trim point (emit `update:trimStart/End` with `null`) + `save` |
 
-**Drag state machine:** `idle → dragging(in | out | region | playhead) → idle`. On mouseup, if drag was a handle or region, call `saveEdits()`.
+**Drag state machine:**
+```
+type DragTarget = 'in' | 'out' | 'region' | 'playhead' | null
+```
+- `mousedown` on handle → set drag target, capture
+- `mousemove` → update handle position or seek (if playhead drag)
+- `mouseup` → if was dragging handle/region, emit `save`; clear drag target
 
-### 5.3 TrimTransport (inline in VideoPlayer)
+**Constraints during drag:**
+- IN handle clamped to `[0, (trimEnd ?? duration) - minSpan]` where `minSpan = 3 / frameRate` (3 frames minimum).
+- OUT handle clamped to `[(trimStart ?? 0) + minSpan, duration]`.
+- Region drag: both handles shift by same delta, clamped so neither exceeds [0, duration].
+- All positions frame-snapped via `snapToFrame()`.
 
-Transport-style buttons rendered above the trim timeline:
+### 5.5 Transport Controls (inline in VideoPlayer trim mode)
+
+Not a separate component — rendered inline in the VideoPlayer controls overlay when in trim mode. Replaces the simple play button with:
 
 ```
-⏮  ⏪  ▶  ⏩  ⏭   │   [Set In]  [Set Out]  [✕ Clear]
+⏮  ⏪  ▶  ⏩  ⏭    00:12.345    [I Set In]  [O Set Out]  [✕ Clear]    🔊 ▬▬ 🔁
 ```
 
-| Button | Action |
-|---|---|
-| ⏮ Jump Start | Seek to `trimStart ?? 0` |
-| ⏪ Step Back | Seek back 1 frame (`currentTime - 1/frameRate`) |
-| ▶ Play/Pause | Toggle playback |
-| ⏩ Step Forward | Seek forward 1 frame |
-| ⏭ Jump End | Seek to `trimEnd ?? duration` |
-| Set In | Set IN point at current playhead time, save |
-| Set Out | Set OUT point at current playhead time, save |
-| Clear | Clear all trim points, save |
+| Element | Component | Action |
+|---|---|---|
+| ⏮ Jump Start | `<button>` icon-only | Seek to `trimStart ?? 0` |
+| ⏪ Step Back | `<button>` icon-only | `currentTime - 1/frameRate` |
+| ▶ Play/Pause | `<button>` icon-only (slightly larger) | Toggle playback |
+| ⏩ Step Forward | `<button>` icon-only | `currentTime + 1/frameRate` |
+| ⏭ Jump End | `<button>` icon-only | Seek to `trimEnd ?? duration` |
+| Timecode | `<span>` monospace | Current time display (MM:SS.mmm) |
+| Set In | `<Button>` severity="secondary" size="small" | Set IN = playhead, save |
+| Set Out | `<Button>` severity="secondary" size="small" | Set OUT = playhead, save |
+| Clear | `<button>` icon-only | Clear trim, save (only visible if trim exists) |
+| 🔊 + slider | Same as standard mode | Volume control |
+| 🔁 | Same as standard mode | Loop toggle |
 
-Use PrimeVue `Button` components with `severity="secondary"`, `text` variant for transport buttons. Icon-only buttons use `icon` and `aria-label` props.
+Transport buttons use the same minimal styling as the existing playback button (small icon buttons with hover highlight, no PrimeVue Button — keeping with the overlay aesthetic). The Set In / Set Out buttons are slightly more prominent since they're the primary actions.
 
-### 5.4 VideoEditPane.vue (Right Sidebar)
+Note: the Pin button is removed in trim mode since controls are always visible when trimming.
+
+### 5.6 VideoEditPane.vue (Right Sidebar)
 
 File: `src/renderer/components/panes/VideoEditPane.vue`
 
@@ -462,8 +532,8 @@ Build bottom-up so each layer is testable before the next:
 
 ### Phase 4: Player Integration
 
-10. **TrimTimeline.vue** — Interactive trim timeline component.
-11. **VideoPlayer.vue updates** — Trim timeline rendering, playhead clamping, keyboard shortcuts, store sync.
+10. **TrimTimeline.vue** — Interactive timeline track component (replaces seek slider in trim mode).
+11. **VideoPlayer.vue updates** — Two-mode controls rendering (standard ↔ trim), transport bar, playhead clamping, keyboard shortcuts, store sync, auto-pin in trim mode.
 12. **LoupeView.vue** — Add trim mode exit watcher.
 
 ### Phase 5: Polish
@@ -513,8 +583,8 @@ Build bottom-up so each layer is testable before the next:
 |---|---|
 | `videoEditStore.ts` (Zustand) | `stores/video-edits.ts` (Pinia, setup syntax) |
 | `video-edit-service.ts` + `video-edit-db.ts` + `video-edit-handlers.ts` | `repositories/media.ts` + `handlers/video-edits.ts` (simple — no service layer needed) |
-| `TrimTimeline.tsx` | `components/library/TrimTimeline.vue` |
-| `TrimControls.tsx` | Integrated into `VideoPlayer.vue` (trim transport section) |
+| `TrimTimeline.tsx` | `components/library/TrimTimeline.vue` (replaces seek slider in trim mode) |
+| `TrimControls.tsx` | Inline in `VideoPlayer.vue` controls overlay (transport row in trim mode) |
 | `TrimSection.tsx` + `VideoInfoSection.tsx` | `components/panes/VideoEditPane.vue` (single pane with sections) |
 | `VideoTransformPanel → VideoTransformPanel` | `VideoEditPane.vue` (standalone pane, not nested in TransformPane) |
 | `video-edits.ts` (types) | `types.ts` (shared types file) |
@@ -522,5 +592,6 @@ Build bottom-up so each layer is testable before the next:
 **Key simplifications vs V1:**
 - V1 had a separate service layer (`video-edit-service.ts`) wrapping a DB layer (`video-edit-db.ts`). Distillery uses the established pattern: repository functions called directly from IPC handlers. No service layer needed.
 - V1 had path-based AND id-based lookups with path→relative conversion. Distillery uses id-based only (consistent with transforms/adjustments).
+- V1 stacked a trim timeline below the normal playback controls. Distillery replaces the controls in-place — one unified control surface that transforms between standard and trim modes.
 - V1's video crop/export features are omitted (out of scope).
 - V1's thumbnail strip in the trim timeline is deferred (can be added later).
