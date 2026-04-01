@@ -2,8 +2,10 @@
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Tag from 'primevue/tag'
+import { useToast } from 'primevue/usetoast'
 
 import PaneLayout from '@/components/panes/primitives/PaneLayout.vue'
 import PaneBody from '@/components/panes/primitives/PaneBody.vue'
@@ -21,6 +23,8 @@ import { useQueueStore } from '@/stores/queue'
 import { useModelStore } from '@/stores/model'
 import { useProviderStore } from '@/stores/provider'
 import { useModelBrowsingStore } from '@/stores/model-browsing'
+import { usePromptStore } from '@/stores/prompt'
+import { useUIStore } from '@/stores/ui'
 import type { CanonicalEndpointDef } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -33,6 +37,9 @@ const queueStore = useQueueStore()
 const modelStore = useModelStore()
 const providerStore = useProviderStore()
 const modelBrowsingStore = useModelBrowsingStore()
+const promptStore = usePromptStore()
+const uiStore = useUIStore()
+const toast = useToast()
 
 // ---------------------------------------------------------------------------
 // Local state
@@ -41,6 +48,9 @@ const modelBrowsingStore = useModelBrowsingStore()
 const endpoint = ref<CanonicalEndpointDef | null>(null)
 const validationErrors = ref<Record<string, string>>({})
 const fieldsRef = ref<FormFieldConfig[]>([])
+const showSavePromptForm = ref(false)
+const savePromptTitle = ref('')
+const savePromptPending = ref(false)
 
 // ---------------------------------------------------------------------------
 // Model availability check
@@ -131,6 +141,51 @@ async function handleSubmit(): Promise<void> {
   }
 }
 
+function openPromptEditor(): void {
+  uiStore.openModal('prompt-editor')
+}
+
+function openSavePromptForm(): void {
+  if (!prompt.value.trim()) return
+  showSavePromptForm.value = true
+  savePromptTitle.value = ''
+}
+
+function cancelSavePrompt(): void {
+  showSavePromptForm.value = false
+  savePromptTitle.value = ''
+}
+
+async function handleSavePrompt(): Promise<void> {
+  if (!prompt.value.trim() || savePromptPending.value) return
+
+  savePromptPending.value = true
+
+  try {
+    const created = await promptStore.createPrompt({
+      text: prompt.value,
+      title: savePromptTitle.value.trim() || undefined
+    })
+
+    cancelSavePrompt()
+    toast.add({
+      severity: 'success',
+      summary: 'Prompt saved',
+      detail: created.title ?? 'Saved to prompt library',
+      life: 3000
+    })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Save failed',
+      detail: error instanceof Error ? error.message : String(error),
+      life: 3500
+    })
+  } finally {
+    savePromptPending.value = false
+  }
+}
+
 // ---------------------------------------------------------------------------
 // API status (inline for remote endpoints)
 // ---------------------------------------------------------------------------
@@ -181,20 +236,86 @@ const apiConnStatus = computed(() => {
 
           <!-- Prompt -->
           <PaneSection title="Prompt">
-            <Textarea
-              data-focus-prompt="true"
-              placeholder="Describe what you want to generate…"
-              :model-value="prompt"
-              rows="3"
-              auto-resize
-              class="w-full resize-none text-sm"
-              @update:model-value="(v: string) => generationStore.setFormValue('prompt', v)"
-              @keydown.meta.enter.prevent="handleSubmit"
-              @keydown.ctrl.enter.prevent="handleSubmit"
-            />
+            <div class="relative">
+              <Textarea
+                data-focus-prompt="true"
+                placeholder="Describe what you want to generate…"
+                :model-value="prompt"
+                rows="3"
+                auto-resize
+                class="w-full resize-none pr-24 text-sm"
+                @update:model-value="(v: string) => generationStore.setFormValue('prompt', v)"
+                @keydown.meta.enter.prevent="handleSubmit"
+                @keydown.ctrl.enter.prevent="handleSubmit"
+              />
+
+              <div class="absolute right-1 top-1 flex items-center gap-1">
+                <Button
+                  v-tooltip.top="'Save prompt to library'"
+                  type="button"
+                  text
+                  plain
+                  severity="secondary"
+                  size="small"
+                  :disabled="!prompt.trim()"
+                  @click="openSavePromptForm"
+                >
+                  <Icon icon="lucide:bookmark-plus" class="size-3.5" />
+                </Button>
+                <Button
+                  v-tooltip.top="'Open prompt editor'"
+                  type="button"
+                  text
+                  plain
+                  severity="secondary"
+                  size="small"
+                  @click="openPromptEditor"
+                >
+                  <Icon icon="lucide:pen-square" class="size-3.5" />
+                </Button>
+              </div>
+            </div>
+
             <p v-if="validationErrors.prompt" class="mt-1 text-xs text-red-400">
               {{ validationErrors.prompt }}
             </p>
+
+            <div v-if="showSavePromptForm" class="mt-3 rounded-lg border border-default bg-elevated p-3">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div class="flex-1">
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+                    Title
+                  </label>
+                  <InputText
+                    v-model="savePromptTitle"
+                    class="w-full"
+                    maxlength="120"
+                    placeholder="Optional title"
+                    @keydown.enter.prevent="handleSavePrompt"
+                  />
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    label="Cancel"
+                    severity="secondary"
+                    outlined
+                    size="small"
+                    :disabled="savePromptPending"
+                    @click="cancelSavePrompt"
+                  />
+                  <Button
+                    type="button"
+                    label="Save"
+                    size="small"
+                    :loading="savePromptPending"
+                    :disabled="!prompt.trim()"
+                    @click="handleSavePrompt"
+                  />
+                </div>
+              </div>
+            </div>
           </PaneSection>
 
           <!-- Dynamic form fields -->

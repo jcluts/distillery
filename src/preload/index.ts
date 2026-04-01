@@ -8,12 +8,15 @@ import type {
   GenerationSubmitInput,
   ImageAdjustments,
   ImageTransforms,
-  RemovalData,
   ImportFolderCreate,
   ImportFolderUpdate,
   MediaQuery,
   MediaUpdate,
   ModelLoadParams,
+  PromptCollectionCreate,
+  PromptCreate,
+  PromptUpdate,
+  RemovalData,
   SettingsUpdate,
   UpscaleRequest
 } from '../renderer/types'
@@ -80,6 +83,30 @@ const api: DistilleryAPI = {
       ipcRenderer.invoke(CH.COLLECTIONS_ADD_MEDIA, collectionId, mediaIds),
     removeMedia: (collectionId: string, mediaIds: string[]) =>
       ipcRenderer.invoke(CH.COLLECTIONS_REMOVE_MEDIA, collectionId, mediaIds)
+  },
+
+  // Prompt library
+  prompts: {
+    getAll: () => ipcRenderer.invoke(CH.PROMPTS_GET_ALL),
+    search: (query: string) => ipcRenderer.invoke(CH.PROMPTS_SEARCH, query),
+    getByCollection: (collectionId: string) =>
+      ipcRenderer.invoke(CH.PROMPTS_GET_BY_COLLECTION, collectionId),
+    create: (data: PromptCreate) => ipcRenderer.invoke(CH.PROMPTS_CREATE, data),
+    update: (id: string, data: PromptUpdate) => ipcRenderer.invoke(CH.PROMPTS_UPDATE, id, data),
+    delete: (id: string) => ipcRenderer.invoke(CH.PROMPTS_DELETE, id),
+    incrementUse: (id: string) => ipcRenderer.invoke(CH.PROMPTS_INCREMENT_USE, id),
+    setRating: (id: string, rating: number) =>
+      ipcRenderer.invoke(CH.PROMPTS_SET_RATING, id, rating),
+
+    collections: {
+      getAll: () => ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_GET_ALL),
+      create: (data: PromptCollectionCreate) =>
+        ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_CREATE, data),
+      update: (id: string, data: Partial<PromptCollectionCreate>) =>
+        ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_UPDATE, id, data),
+      delete: (id: string) => ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_DELETE, id),
+      reorder: (orderedIds: string[]) => ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_REORDER, orderedIds)
+    }
   },
 
   // Import folders

@@ -46,6 +46,22 @@ export const IPC_CHANNELS = {
   COLLECTIONS_ADD_MEDIA: 'collections:addMedia',
   COLLECTIONS_REMOVE_MEDIA: 'collections:removeMedia',
 
+  // Prompt Library
+  PROMPTS_GET_ALL: 'prompts:getAll',
+  PROMPTS_SEARCH: 'prompts:search',
+  PROMPTS_GET_BY_COLLECTION: 'prompts:getByCollection',
+  PROMPTS_CREATE: 'prompts:create',
+  PROMPTS_UPDATE: 'prompts:update',
+  PROMPTS_DELETE: 'prompts:delete',
+  PROMPTS_INCREMENT_USE: 'prompts:incrementUse',
+  PROMPTS_SET_RATING: 'prompts:setRating',
+
+  PROMPT_COLLECTIONS_GET_ALL: 'promptCollections:getAll',
+  PROMPT_COLLECTIONS_CREATE: 'promptCollections:create',
+  PROMPT_COLLECTIONS_UPDATE: 'promptCollections:update',
+  PROMPT_COLLECTIONS_DELETE: 'promptCollections:delete',
+  PROMPT_COLLECTIONS_REORDER: 'promptCollections:reorder',
+
   // Import Folders
   IMPORT_FOLDERS_GET_ALL: 'importFolders:getAll',
   IMPORT_FOLDERS_CREATE: 'importFolders:create',

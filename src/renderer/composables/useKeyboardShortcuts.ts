@@ -58,6 +58,10 @@ export function useKeyboardShortcuts(): void {
       ? libraryStore.items.find((item) => item.id === libraryStore.focusedId) ?? null
       : null
 
+    if (uiStore.activeModals.length > 0) {
+      return
+    }
+
     // Respect text input focus: ignore plain keys while typing, but allow mod-key shortcuts
     if (isTextInputFocused() && !modKey && event.key !== 'Escape') {
       return

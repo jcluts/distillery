@@ -138,6 +138,50 @@ export interface CollectionUpdate {
 }
 
 // -----------------------------------------------------------------------------
+// Prompt Library
+// -----------------------------------------------------------------------------
+
+export interface PromptRecord {
+  id: string
+  title: string | null
+  text: string
+  rating: number
+  use_count: number
+  collection_id: string | null
+  created_at: string
+  updated_at: string
+  last_used_at: string | null
+}
+
+export interface PromptCollectionRecord {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+  prompt_count?: number
+}
+
+export interface PromptCreate {
+  text: string
+  title?: string
+  collection_id?: string
+}
+
+export interface PromptUpdate {
+  text?: string
+  title?: string
+  rating?: number
+  collection_id?: string | null
+}
+
+export interface PromptCollectionCreate {
+  name: string
+  parent_id?: string | null
+}
+
+// -----------------------------------------------------------------------------
 // Import Folders
 // -----------------------------------------------------------------------------
 
@@ -728,6 +772,29 @@ export interface DistilleryAPI {
     reorder(orderedIds: string[]): Promise<void>
     addMedia(collectionId: string, mediaIds: string[]): Promise<void>
     removeMedia(collectionId: string, mediaIds: string[]): Promise<void>
+  }
+
+  // Prompt library
+  prompts: {
+    getAll(): Promise<PromptRecord[]>
+    search(query: string): Promise<PromptRecord[]>
+    getByCollection(collectionId: string): Promise<PromptRecord[]>
+    create(data: PromptCreate): Promise<PromptRecord>
+    update(id: string, data: PromptUpdate): Promise<PromptRecord | null>
+    delete(id: string): Promise<void>
+    incrementUse(id: string): Promise<void>
+    setRating(id: string, rating: number): Promise<void>
+
+    collections: {
+      getAll(): Promise<PromptCollectionRecord[]>
+      create(data: PromptCollectionCreate): Promise<PromptCollectionRecord>
+      update(
+        id: string,
+        data: Partial<PromptCollectionCreate>
+      ): Promise<PromptCollectionRecord | null>
+      delete(id: string): Promise<void>
+      reorder(orderedIds: string[]): Promise<void>
+    }
   }
 
   // Import folders

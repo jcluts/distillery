@@ -35,6 +35,7 @@ import { registerSettingsHandlers } from './ipc/handlers/settings'
 import { registerModelHandlers } from './ipc/handlers/models'
 import { registerKeywordsHandlers } from './ipc/handlers/keywords'
 import { registerCollectionsHandlers } from './ipc/handlers/collections'
+import { registerPromptHandlers } from './ipc/handlers/prompts'
 import { registerImportFolderHandlers } from './ipc/handlers/import-folders'
 import { registerWindowHandlers } from './ipc/handlers/window'
 import { registerProviderHandlers } from './ipc/handlers/providers'
@@ -516,6 +517,7 @@ app.whenReady().then(async () => {
   registerQueueHandlers(workQueueManager)
   registerTimelineHandlers()
   registerKeywordsHandlers()
+  registerPromptHandlers()
   registerCollectionsHandlers({
     onCollectionsUpdated: () => {
       mainWindow?.webContents.send(IPC_CHANNELS.COLLECTIONS_UPDATED)
