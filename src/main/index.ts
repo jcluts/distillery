@@ -3,7 +3,6 @@ import * as fs from 'fs'
 import { join } from 'path'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
 import { getDatabase, closeDatabase } from './db/connection'
 import { EngineManager } from './engine/engine-manager'
 import { TimelineService } from './timeline/timeline-service'
@@ -134,7 +133,7 @@ function createWindow(): void {
     // We render custom window controls in the renderer so they match app chrome.
     autoHideMenuBar: true,
     backgroundColor: '#1f1f1f',
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'linux' ? {} : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
