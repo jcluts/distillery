@@ -168,22 +168,12 @@ async function handleRemoveModel(modelId: string): Promise<void> {
           @click="providerStore.testConnection(providerId)"
         />
 
-        <Button
-          v-if="keyUrl"
-          text
-          severity="secondary"
-          size="small"
-          @click="openUrl(keyUrl!)"
-        >
+        <Button v-if="keyUrl" text severity="secondary" size="small" @click="openUrl(keyUrl!)">
           <Icon icon="lucide:external-link" class="mr-1 size-3.5" />
           Get Key
         </Button>
 
-        <Tag
-          v-if="connStat === 'success'"
-          severity="success"
-          class="gap-1"
-        >
+        <Tag v-if="connStat === 'success'" severity="success" class="gap-1">
           <Icon icon="lucide:check" class="size-3" />
           Connected
         </Tag>
@@ -207,6 +197,7 @@ async function handleRemoveModel(modelId: string): Promise<void> {
           :provider-id="providerId"
           :browse-mode="browseMode"
           :added-model-ids="addedModelIds"
+          :has-api-key="hasStoredKey"
         />
       </div>
 

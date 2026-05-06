@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRaw, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
@@ -13,6 +13,7 @@ const props = defineProps<{
   providerId: string
   browseMode: 'search' | 'list'
   addedModelIds: Set<string>
+  hasApiKey: boolean
 }>()
 
 const browsingStore = useModelBrowsingStore()
@@ -20,7 +21,21 @@ const browsingStore = useModelBrowsingStore()
 // ── Shared state ──────────────────────────────────────────────────────────────
 const query = ref('')
 const addingIds = ref(new Set<string>())
-const errorIds = ref(new Set<string>())
+const addErrors = ref<Record<string, string>>({})
+
+function toPlainProviderModel(model: ProviderModel): ProviderModel {
+  const rawModel = toRaw(model)
+
+  return {
+    modelId: rawModel.modelId,
+    name: rawModel.name,
+    description: rawModel.description,
+    type: rawModel.type,
+    providerId: rawModel.providerId,
+    requestSchema: structuredClone(toRaw(rawModel.requestSchema)),
+    modelIdentityId: rawModel.modelIdentityId
+  }
+}
 
 // Reset when provider changes
 watch(
@@ -28,13 +43,35 @@ watch(
   () => {
     query.value = ''
     addingIds.value = new Set()
-    errorIds.value = new Set()
-    // For list mode, load on provider switch
-    if (props.browseMode === 'list') {
+    addErrors.value = {}
+    if (props.browseMode === 'list' && props.hasApiKey) {
       void browsingStore.listModels(props.providerId)
     }
   },
   { immediate: true }
+)
+
+watch(
+  () => props.hasApiKey,
+  (hasApiKey, previousHasApiKey) => {
+    if (hasApiKey === previousHasApiKey) return
+
+    browsingStore.invalidateProviderBrowseState(props.providerId)
+
+    if (!hasApiKey) {
+      return
+    }
+
+    if (props.browseMode === 'list') {
+      void browsingStore.listModels(props.providerId, { force: true })
+      return
+    }
+
+    const trimmedQuery = query.value.trim()
+    if (trimmedQuery) {
+      void browsingStore.searchModels(props.providerId, trimmedQuery)
+    }
+  }
 )
 
 // ── Search mode: debounced search ─────────────────────────────────────────────
@@ -42,7 +79,7 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(query, (q) => {
   if (debounceTimer) clearTimeout(debounceTimer)
-  if (!q.trim() || props.browseMode !== 'search') return
+  if (!q.trim() || props.browseMode !== 'search' || !props.hasApiKey) return
   debounceTimer = setTimeout(() => {
     void browsingStore.searchModels(props.providerId, q.trim())
   }, 400)
@@ -57,8 +94,16 @@ const isLoading = computed(() =>
 
 const models = computed<Array<SearchResultModel | ProviderModel>>(() => {
   if (props.browseMode === 'search') {
+    if (!props.hasApiKey || !query.value.trim()) {
+      return []
+    }
     return browsingStore.searchResults[props.providerId]?.models ?? []
   }
+
+  if (!props.hasApiKey) {
+    return []
+  }
+
   const all = browsingStore.listCache[props.providerId] ?? []
   if (!query.value.trim()) return all
   const q = query.value.toLowerCase()
@@ -71,6 +116,12 @@ const models = computed<Array<SearchResultModel | ProviderModel>>(() => {
 })
 
 const emptyMessage = computed(() => {
+  if (!props.hasApiKey) {
+    return props.browseMode === 'search'
+      ? 'Add an API key to search models'
+      : 'Add an API key to browse models'
+  }
+
   if (props.browseMode === 'search') {
     return query.value.trim() ? `No models found for "${query.value}"` : 'Type to search for models'
   }
@@ -80,26 +131,28 @@ const emptyMessage = computed(() => {
 
 // ── Add model ─────────────────────────────────────────────────────────────────
 async function handleAdd(model: SearchResultModel | ProviderModel): Promise<void> {
+  const sourceModel = toRaw(model)
+
   addingIds.value = new Set(addingIds.value).add(model.modelId)
-  const nextErrors = new Set(errorIds.value)
-  nextErrors.delete(model.modelId)
-  errorIds.value = nextErrors
+  addErrors.value = Object.fromEntries(
+    Object.entries(addErrors.value).filter(([modelId]) => modelId !== sourceModel.modelId)
+  )
 
   try {
     // For search results, try to fetch full detail (with schema) first
     let providerModel: ProviderModel
-    if (!('requestSchema' in model)) {
+    if (!('requestSchema' in sourceModel)) {
       let detail: ProviderModel | null = null
       try {
-        detail = await window.api.providers.fetchModelDetail(props.providerId, model.modelId)
+        detail = await window.api.providers.fetchModelDetail(props.providerId, sourceModel.modelId)
       } catch {
         // fall through to stub
       }
-      providerModel = detail ?? {
-        modelId: model.modelId,
-        name: model.name,
-        description: model.description,
-        type: model.type,
+      providerModel = detail ? toPlainProviderModel(detail) : {
+        modelId: sourceModel.modelId,
+        name: sourceModel.name,
+        description: sourceModel.description,
+        type: sourceModel.type,
         providerId: props.providerId,
         requestSchema: {
           properties: { prompt: { type: 'string', title: 'Prompt' } },
@@ -108,21 +161,26 @@ async function handleAdd(model: SearchResultModel | ProviderModel): Promise<void
         }
       }
     } else {
-      providerModel = {
-        modelId: model.modelId,
-        name: model.name,
-        description: model.description,
-        type: model.type,
-        providerId: props.providerId,
-        requestSchema: model.requestSchema
-      }
+      providerModel = toPlainProviderModel(sourceModel)
     }
+
     await browsingStore.addUserModel(props.providerId, providerModel)
-  } catch {
-    errorIds.value = new Set(errorIds.value).add(model.modelId)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to add model'
+
+    console.error('[ProviderManager] Failed to add provider model', {
+      providerId: props.providerId,
+      modelId: sourceModel.modelId,
+      error: message
+    })
+
+    addErrors.value = {
+      ...addErrors.value,
+      [sourceModel.modelId]: message
+    }
   } finally {
     const next = new Set(addingIds.value)
-    next.delete(model.modelId)
+    next.delete(sourceModel.modelId)
     addingIds.value = next
   }
 }
@@ -181,9 +239,10 @@ async function handleAdd(model: SearchResultModel | ProviderModel): Promise<void
 
           <!-- Error / retry -->
           <Tag
-            v-if="errorIds.has(model.modelId)"
+            v-if="addErrors[model.modelId]"
             severity="danger"
             class="cursor-pointer gap-1"
+            :title="addErrors[model.modelId]"
             @click="handleAdd(model)"
           >
             <Icon icon="lucide:alert-circle" class="size-3" />

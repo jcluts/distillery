@@ -52,8 +52,11 @@ export const useModelBrowsingStore = defineStore('model-browsing', () => {
     }
   }
 
-  async function listModels(providerId: string): Promise<void> {
-    if (listCache.value[providerId]) return
+  async function listModels(providerId: string, options?: { force?: boolean }): Promise<void> {
+    if (!options?.force && Object.prototype.hasOwnProperty.call(listCache.value, providerId)) {
+      return
+    }
+
     listLoading.value = { ...listLoading.value, [providerId]: true }
     try {
       const models = await window.api.providers.listModels(providerId)
@@ -63,6 +66,23 @@ export const useModelBrowsingStore = defineStore('model-browsing', () => {
     } finally {
       listLoading.value = { ...listLoading.value, [providerId]: false }
     }
+  }
+
+  function invalidateProviderBrowseState(providerId: string): void {
+    const nextSearchResults = { ...searchResults.value }
+    const nextSearchLoading = { ...searchLoading.value }
+    const nextListCache = { ...listCache.value }
+    const nextListLoading = { ...listLoading.value }
+
+    delete nextSearchResults[providerId]
+    delete nextSearchLoading[providerId]
+    delete nextListCache[providerId]
+    delete nextListLoading[providerId]
+
+    searchResults.value = nextSearchResults
+    searchLoading.value = nextSearchLoading
+    listCache.value = nextListCache
+    listLoading.value = nextListLoading
   }
 
   async function addUserModel(providerId: string, model: ProviderModel): Promise<void> {
@@ -116,6 +136,7 @@ export const useModelBrowsingStore = defineStore('model-browsing', () => {
     loadIdentities,
     searchModels,
     listModels,
+    invalidateProviderBrowseState,
     addUserModel,
     removeUserModel,
     setModelIdentity
