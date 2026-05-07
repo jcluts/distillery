@@ -565,12 +565,16 @@ export interface ModelFilesCheckResult {
 // Settings
 // -----------------------------------------------------------------------------
 
+export type LocalGenerationBackend = 'cn-engine' | 'stable-diffusion.cpp'
+
 export interface AppSettings {
   // Paths
   library_root: string
   engine_path: string
+  sd_cpp_server_path: string
   model_base_path: string
   upscale_backend: UpscaleBackendPreference
+  local_generation_backend: LocalGenerationBackend
   active_model_id: string
   model_quant_selections: ModelQuantSelections
 

@@ -12,7 +12,8 @@ import { WORK_TASK_TYPES } from './queue/work-task-types'
 import { FileManager } from './files/file-manager'
 import { MediaIngestionService } from './generation/media-ingestion-service'
 import { GenerationService } from './generation/generation-service'
-import { LocalCnProvider } from './generation/providers/local-cn-provider'
+import { LocalProvider } from './generation/providers/local-provider'
+import { SdCppServerManager } from './generation/providers/sd-cpp-server-manager'
 import { RemoteApiProvider } from './generation/providers/remote-api-provider'
 import { ProviderRegistry } from './generation/providers/provider-registry'
 import { EndpointCatalog } from './generation/catalog/endpoint-catalog'
@@ -77,6 +78,7 @@ let engineManager: EngineManager | null = null
 let workQueueManager: WorkQueueManager | null = null
 let generationService: GenerationService | null = null
 let fileManager: FileManager | null = null
+let sdCppServerManager: SdCppServerManager | null = null
 
 /**
  * Migrate user-created identities from the legacy model-identities.json file
@@ -395,7 +397,6 @@ app.whenReady().then(async () => {
   registerProviderAdapter('replicate', replicateAdapter)
   registerProviderAdapter('wavespeed', wavespeedAdapter)
 
-  let endpointCatalog: EndpointCatalog
   const providerManagerService = new ProviderManager({
     db,
     configService: providerConfigService,
@@ -403,16 +404,20 @@ app.whenReady().then(async () => {
     onModelsChanged: () => endpointCatalog.invalidate()
   })
 
-  endpointCatalog = new EndpointCatalog(providerConfigService, () =>
-    providerManagerService.getProvidersWithUserModels(),
-  (providerId, providerModelId) => modelIdentityService.findIdentityId(providerModelId, providerId)
+  const endpointCatalog = new EndpointCatalog(
+    providerConfigService,
+    () => providerManagerService.getProvidersWithUserModels(),
+    (providerId, providerModelId) =>
+      modelIdentityService.findIdentityId(providerModelId, providerId)
   )
 
   const providerRegistry = new ProviderRegistry()
-  const localProvider = new LocalCnProvider({
+  sdCppServerManager = new SdCppServerManager()
+  const localProvider = new LocalProvider({
     engineManager,
     db,
-    modelCatalogService
+    modelCatalogService,
+    sdCppServerManager
   })
   providerRegistry.register(localProvider)
 
@@ -464,7 +469,11 @@ app.whenReady().then(async () => {
 
   // Initialize upscale services
   const upscaleModelService = new UpscaleModelService()
-  const upscaleExecutionService = new UpscaleExecutionService(db, upscaleModelService, engineManager)
+  const upscaleExecutionService = new UpscaleExecutionService(
+    db,
+    upscaleModelService,
+    engineManager
+  )
   const upscaleService = new UpscaleService({
     db,
     fileManager,
@@ -540,6 +549,7 @@ app.whenReady().then(async () => {
     engineManager,
     fileManager,
     modelDownloadManager,
+    sdCppServerManager,
     onLibraryRootChanged: () => {
       mainWindow?.webContents.send(IPC_CHANNELS.LIBRARY_UPDATED)
     }
@@ -652,6 +662,14 @@ app.on('before-quit', async () => {
       await engineManager.stop()
     } catch {
       console.warn('[Main] Engine shutdown error (force-killed)')
+    }
+  }
+
+  if (sdCppServerManager) {
+    try {
+      await sdCppServerManager.stop()
+    } catch {
+      console.warn('[Main] stable-diffusion.cpp shutdown error')
     }
   }
 

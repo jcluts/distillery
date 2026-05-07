@@ -69,8 +69,25 @@ const hasAnyModels = computed(() => hasLocalModels.value || hasRemoteModels.valu
 // ---------------------------------------------------------------------------
 
 const prompt = computed(() => generationStore.prompt)
-const requiresLocalEngine = computed(() => endpoint.value?.providerId === 'local')
-const engineCanGenerate = computed(() => engineStore.status.state === 'ready' || engineStore.status.state === 'idle')
+const localBackend = computed(() => modelStore.settings?.local_generation_backend ?? 'cn-engine')
+const isLocalEndpoint = computed(() => endpoint.value?.providerId === 'local')
+const requiresLocalEngine = computed(
+  () => isLocalEndpoint.value && localBackend.value === 'cn-engine'
+)
+const engineCanGenerate = computed(
+  () => engineStore.status.state === 'ready' || engineStore.status.state === 'idle'
+)
+const localModelReady = computed(() =>
+  isLocalEndpoint.value && endpoint.value
+    ? (modelStore.filesByModelId[endpoint.value.providerModelId]?.isReady ?? false)
+    : true
+)
+const sdCppCanGenerate = computed(
+  () =>
+    !isLocalEndpoint.value ||
+    localBackend.value !== 'stable-diffusion.cpp' ||
+    (localModelReady.value && !!modelStore.settings?.sd_cpp_server_path?.trim())
+)
 const requiresRefImage = computed(
   () =>
     generationStore.generationMode === 'image-to-image' ||
@@ -80,6 +97,8 @@ const generateDisabled = computed(
   () =>
     !prompt.value.trim() ||
     (requiresLocalEngine.value && !engineCanGenerate.value) ||
+    (isLocalEndpoint.value && !localModelReady.value) ||
+    !sdCppCanGenerate.value ||
     (requiresRefImage.value && generationStore.refImages.length === 0)
 )
 
@@ -301,7 +320,10 @@ const apiConnStatus = computed(() => {
               {{ validationErrors.prompt }}
             </p>
 
-            <div v-if="showSavePromptForm" class="mt-3 rounded-lg border border-default bg-elevated p-3">
+            <div
+              v-if="showSavePromptForm"
+              class="mt-3 rounded-lg border border-default bg-elevated p-3"
+            >
               <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div class="flex-1">
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
@@ -352,12 +374,7 @@ const apiConnStatus = computed(() => {
           <div v-else class="py-4 text-center text-sm text-muted">Loading schema…</div>
 
           <!-- Generate button -->
-          <Button
-            type="button"
-            class="w-full"
-            :disabled="generateDisabled"
-            @click="handleSubmit"
-          >
+          <Button type="button" class="w-full" :disabled="generateDisabled" @click="handleSubmit">
             <template v-if="isGenerating">
               <Icon icon="lucide:loader-2" class="size-4 animate-spin" />
               Generating
@@ -371,9 +388,11 @@ const apiConnStatus = computed(() => {
               <div class="flex items-center gap-2">
                 <Icon icon="lucide:wifi" class="size-3.5 text-muted shrink-0" />
                 <span class="text-xs text-muted flex-1">
-                  {{ isGenerating
-                    ? `Sending to ${apiProvider?.displayName ?? endpoint.providerId}…`
-                    : `API Mode — ${apiProvider?.displayName ?? endpoint.providerId}` }}
+                  {{
+                    isGenerating
+                      ? `Sending to ${apiProvider?.displayName ?? endpoint.providerId}…`
+                      : `API Mode — ${apiProvider?.displayName ?? endpoint.providerId}`
+                  }}
                 </span>
                 <Tag
                   v-if="apiConnStatus?.status === 'success'"
@@ -383,17 +402,12 @@ const apiConnStatus = computed(() => {
                 />
                 <Tag
                   v-if="apiConnStatus?.status === 'error'"
+                  v-tooltip.top="apiConnStatus.message"
                   severity="danger"
                   class="text-[10px]"
                   :value="'API Error'"
-                  v-tooltip.top="apiConnStatus.message"
                 />
-                <Tag
-                  v-if="!apiKeyPresent"
-                  severity="warn"
-                  class="text-[10px]"
-                  value="No API Key"
-                />
+                <Tag v-if="!apiKeyPresent" severity="warn" class="text-[10px]" value="No API Key" />
               </div>
             </div>
           </template>

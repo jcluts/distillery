@@ -10,7 +10,12 @@ import SelectButton from 'primevue/selectbutton'
 import { useModelStore } from '@/stores/model'
 import { useUIStore } from '@/stores/ui'
 import { useUpscaleStore } from '@/stores/upscale'
-import type { AppSettings, SettingsUpdate, UpscaleBackendPreference } from '@/types'
+import type {
+  AppSettings,
+  LocalGenerationBackend,
+  SettingsUpdate,
+  UpscaleBackendPreference
+} from '@/types'
 
 const uiStore = useUIStore()
 const modelStore = useModelStore()
@@ -39,6 +44,11 @@ const upscaleBackendOptions = [
   { label: 'Auto', value: 'auto' },
   { label: 'ONNX', value: 'onnx' },
   { label: 'cn-engine', value: 'cn-engine' }
+]
+
+const localGenerationBackendOptions = [
+  { label: 'cn-engine', value: 'cn-engine' },
+  { label: 'stable-diffusion.cpp', value: 'stable-diffusion.cpp' }
 ]
 
 // Load settings when modal opens, reset when it closes
@@ -74,6 +84,13 @@ async function browseFolder(title: string, key: keyof AppSettings): Promise<void
   }
 }
 
+async function browseFile(title: string, key: keyof AppSettings): Promise<void> {
+  const paths = await window.api.showOpenDialog({ title, properties: ['openFile'] })
+  if (paths && paths.length > 0 && paths[0]) {
+    update(key, paths[0] as AppSettings[typeof key])
+  }
+}
+
 async function onSave(): Promise<void> {
   if (!draft.value) return
   saving.value = true
@@ -86,8 +103,10 @@ async function onSave(): Promise<void> {
     const updates: SettingsUpdate = {
       library_root: draft.value.library_root,
       engine_path: draft.value.engine_path,
+      sd_cpp_server_path: draft.value.sd_cpp_server_path,
       model_base_path: draft.value.model_base_path,
       upscale_backend: draft.value.upscale_backend,
+      local_generation_backend: draft.value.local_generation_backend,
       offload_to_cpu: draft.value.offload_to_cpu,
       flash_attn: draft.value.flash_attn,
       vae_on_cpu: draft.value.vae_on_cpu,
@@ -98,6 +117,7 @@ async function onSave(): Promise<void> {
     await window.api.saveSettings(updates)
 
     if (modelBasePathChanged) await modelStore.hydrate()
+    else await modelStore.refreshSettings()
     if (upscaleBackendChanged) await upscaleStore.loadModels()
 
     uiStore.closeModal('settings')
@@ -110,12 +130,7 @@ async function onSave(): Promise<void> {
 </script>
 
 <template>
-  <Dialog
-    v-model:visible="open"
-    modal
-    :style="{ width: '720px' }"
-    :closable="true"
-  >
+  <Dialog v-model:visible="open" modal :style="{ width: '720px' }" :closable="true">
     <template #header>
       <div class="flex items-center gap-2">
         <Icon icon="lucide:settings" class="size-5" />
@@ -172,6 +187,28 @@ async function onSave(): Promise<void> {
           </div>
         </div>
 
+        <!-- stable-diffusion.cpp path (dev only) -->
+        <div v-if="showEnginePath" class="space-y-1.5">
+          <label class="text-xs font-medium text-muted"
+            >stable-diffusion.cpp server path (dev)</label
+          >
+          <div class="flex items-center gap-2">
+            <InputText
+              :model-value="draft?.sd_cpp_server_path ?? ''"
+              placeholder="/path/to/resources/sd-cpp/mac/sd-server"
+              class="w-full"
+              @update:model-value="update('sd_cpp_server_path', String($event))"
+            />
+            <Button
+              severity="secondary"
+              size="small"
+              @click="browseFile('Choose stable-diffusion.cpp server path', 'sd_cpp_server_path')"
+            >
+              <Icon icon="lucide:folder-open" class="size-4" />
+            </Button>
+          </div>
+        </div>
+
         <!-- Model directory -->
         <div class="space-y-1.5">
           <label class="text-xs font-medium text-muted">Model directory</label>
@@ -190,6 +227,20 @@ async function onSave(): Promise<void> {
               <Icon icon="lucide:folder-open" class="size-4" />
             </Button>
           </div>
+        </div>
+
+        <!-- Upscale backend -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-muted">Local generation backend</label>
+          <SelectButton
+            :model-value="draft?.local_generation_backend ?? 'cn-engine'"
+            :options="localGenerationBackendOptions"
+            option-label="label"
+            option-value="value"
+            @update:model-value="
+              update('local_generation_backend', $event as LocalGenerationBackend)
+            "
+          />
         </div>
 
         <!-- Upscale backend -->
@@ -217,7 +268,7 @@ async function onSave(): Promise<void> {
               :options="onOffOptions"
               option-label="label"
               option-value="value"
-            @update:model-value="update('offload_to_cpu', Boolean($event))"
+              @update:model-value="update('offload_to_cpu', Boolean($event))"
             />
           </div>
 

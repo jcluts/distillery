@@ -52,8 +52,8 @@ export class ModelResolver {
     return quant
   }
 
-  getActiveModelPaths(): ModelLoadParams {
-    const model = this.getModel(this.settings.active_model_id)
+  getModelPaths(modelId: string): ModelLoadParams {
+    const model = this.getModel(modelId)
     const selections = this.getModelSelections(model.id)
 
     if (!selections.diffusionQuant || !selections.textEncoderQuant) {
@@ -68,6 +68,10 @@ export class ModelResolver {
       vae: this.resolveRelative(model.vae.file),
       llm: this.resolveRelative(textEncoderQuant.file)
     }
+  }
+
+  getActiveModelPaths(): ModelLoadParams {
+    return this.getModelPaths(this.settings.active_model_id)
   }
 
   resolveRelative(relativePath: string): string {

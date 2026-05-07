@@ -190,8 +190,9 @@ export interface ImportFolderRecord {
 
 export type ImportFolderCreate = Omit<ImportFolderRecord, 'id' | 'last_scanned' | 'created_at'>
 
-export type ImportFolderUpdate =
-  Partial<Omit<ImportFolderRecord, 'id' | 'path' | 'created_at'>> & { id: string }
+export type ImportFolderUpdate = Partial<Omit<ImportFolderRecord, 'id' | 'path' | 'created_at'>> & {
+  id: string
+}
 
 export interface ImportScanProgress {
   folder_id: string
@@ -266,8 +267,6 @@ export interface GenerationSubmitInput {
   mode: GenerationMode
   params: CanonicalGenerationParams
 }
-
-
 
 export interface WorkItem {
   id: string
@@ -405,11 +404,15 @@ export interface EngineResultEvent {
 }
 
 // Settings types
+export type LocalGenerationBackend = 'cn-engine' | 'stable-diffusion.cpp'
+
 export interface AppSettings {
   library_root: string
   engine_path: string
+  sd_cpp_server_path: string
   model_base_path: string
   upscale_backend: UpscaleBackendPreference
+  local_generation_backend: LocalGenerationBackend
   active_model_id: string
   model_quant_selections: ModelQuantSelections
   offload_to_cpu: boolean

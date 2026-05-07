@@ -5,6 +5,7 @@ import * as settingsRepo from '../../db/repositories/settings'
 import type { EngineManager } from '../../engine/engine-manager'
 import type { FileManager } from '../../files/file-manager'
 import type { ModelDownloadManager } from '../../models/model-download-manager'
+import type { SdCppServerManager } from '../../generation/providers/sd-cpp-server-manager'
 import os from 'os'
 import type { SettingsUpdate } from '../../types'
 
@@ -12,6 +13,7 @@ export function registerSettingsHandlers(options?: {
   engineManager?: EngineManager
   fileManager?: FileManager
   modelDownloadManager?: ModelDownloadManager
+  sdCppServerManager?: SdCppServerManager
   onLibraryRootChanged?: (nextRoot: string) => void
 }): void {
   const db = getDatabase()
@@ -27,6 +29,7 @@ export function registerSettingsHandlers(options?: {
     const engineManager = options?.engineManager
     const fileManager = options?.fileManager
     const modelDownloadManager = options?.modelDownloadManager
+    const sdCppServerManager = options?.sdCppServerManager
 
     if (fileManager && typeof updates.library_root === 'string') {
       fileManager.setLibraryRoot(updates.library_root)
@@ -65,6 +68,41 @@ export function registerSettingsHandlers(options?: {
           console.log('[Settings] Model unloaded after model/quant change')
         } catch (err) {
           console.error('[Settings] Failed to unload model:', err)
+        }
+      }
+
+      if (
+        updates.local_generation_backend === 'stable-diffusion.cpp' &&
+        engineManager.getStatus().state === 'ready'
+      ) {
+        try {
+          await engineManager.unloadModel()
+          console.log('[Settings] cn-engine model unloaded after switching local backend')
+        } catch (err) {
+          console.error('[Settings] Failed to unload cn-engine model:', err)
+        }
+      }
+    }
+
+    if (sdCppServerManager) {
+      const sdCppSettingsChanged =
+        updates.local_generation_backend !== undefined ||
+        updates.sd_cpp_server_path !== undefined ||
+        updates.active_model_id !== undefined ||
+        updates.model_quant_selections !== undefined ||
+        updates.offload_to_cpu !== undefined ||
+        updates.flash_attn !== undefined ||
+        updates.vae_on_cpu !== undefined ||
+        updates.llm_on_cpu !== undefined
+
+      if (sdCppSettingsChanged) {
+        try {
+          await sdCppServerManager.stop()
+          console.log(
+            '[Settings] stable-diffusion.cpp server stopped after backend settings change'
+          )
+        } catch (err) {
+          console.error('[Settings] Failed to stop stable-diffusion.cpp server:', err)
         }
       }
     }

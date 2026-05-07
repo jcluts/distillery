@@ -27,7 +27,7 @@ export interface GenerationResult {
 export interface GenerationProvider {
   readonly providerId: string
   readonly executionMode: 'queued-local' | 'remote-async'
-  prepare?(): Promise<void>
+  prepare?(request: GenerationRequest): Promise<void>
   execute(request: GenerationRequest): Promise<GenerationResult>
   on?(event: 'progress', listener: (event: GenerationProgressEvent) => void): void
 }

@@ -81,17 +81,19 @@ export class GenerateTaskHandler implements WorkTaskHandler {
       const refImagePaths = await this.mediaIngestionService.getRefImagesForProvider(generationId)
       const outputDir = await this.mediaIngestionService.getOutputDir(generationId)
 
-      if (provider.prepare) {
-        await provider.prepare()
-      }
-
-      const result = await provider.execute({
+      const request = {
         generationId,
         endpoint,
         params,
         refImagePaths,
         outputDir
-      })
+      }
+
+      if (provider.prepare) {
+        await provider.prepare(request)
+      }
+
+      const result = await provider.execute(request)
 
       const mediaRecords = await this.mediaIngestionService.finalize(
         generationId,

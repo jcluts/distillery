@@ -20,6 +20,9 @@
 		},
 		{
 			"path": "../../Import"
+		},
+		{
+			"path": "../stable-diffusion.cpp"
 		}
 	],
 	"settings": {}

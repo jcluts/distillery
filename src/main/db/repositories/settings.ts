@@ -31,12 +31,25 @@ function getDefaultEnginePath(): string {
   return path.join(engineDir, exeName)
 }
 
+function getDefaultSdCppServerPath(): string {
+  const resourcesRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.join(app.getAppPath(), 'resources')
+
+  const platformDir =
+    process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'win' : process.platform
+  const exeName = process.platform === 'win32' ? 'sd-server.exe' : 'sd-server'
+  return path.join(resourcesRoot, 'sd-cpp', platformDir, exeName)
+}
+
 function getDefaults(): AppSettings {
   return {
     library_root: DEFAULT_LIBRARY_ROOT,
     engine_path: getDefaultEnginePath(),
+    sd_cpp_server_path: getDefaultSdCppServerPath(),
     model_base_path: getDefaultModelBasePath(),
     upscale_backend: 'auto',
+    local_generation_backend: 'cn-engine',
     active_model_id: DEFAULT_ACTIVE_MODEL_ID,
     model_quant_selections: JSON.parse(JSON.stringify(DEFAULT_MODEL_QUANT_SELECTIONS)),
     offload_to_cpu: true,
@@ -65,6 +78,10 @@ function normalizeSettings(settings: AppSettings, defaults: AppSettings): AppSet
       typeof settings.engine_path === 'string' && settings.engine_path.trim()
         ? settings.engine_path
         : defaults.engine_path,
+    sd_cpp_server_path:
+      typeof settings.sd_cpp_server_path === 'string' && settings.sd_cpp_server_path.trim()
+        ? settings.sd_cpp_server_path
+        : defaults.sd_cpp_server_path,
     model_base_path:
       typeof settings.model_base_path === 'string' && settings.model_base_path.trim()
         ? settings.model_base_path
@@ -79,6 +96,11 @@ function normalizeSettings(settings: AppSettings, defaults: AppSettings): AppSet
       settings.upscale_backend === 'auto'
         ? settings.upscale_backend
         : defaults.upscale_backend,
+    local_generation_backend:
+      settings.local_generation_backend === 'cn-engine' ||
+      settings.local_generation_backend === 'stable-diffusion.cpp'
+        ? settings.local_generation_backend
+        : defaults.local_generation_backend,
     model_quant_selections:
       settings.model_quant_selections && typeof settings.model_quant_selections === 'object'
         ? settings.model_quant_selections

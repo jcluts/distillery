@@ -84,7 +84,8 @@ const identityMap = computed(() => {
     const isReady = isLocal
       ? (modelStore.filesByModelId[endpoint.providerModelId]?.isReady ?? false)
       : true
-    const identityId = endpoint.modelIdentityId ?? `${endpoint.providerId}-${endpoint.providerModelId}`
+    const identityId =
+      endpoint.modelIdentityId ?? `${endpoint.providerId}-${endpoint.providerModelId}`
     const identity =
       modelBrowsingStore.identities.find((e) => e.id === identityId) ??
       modelBrowsingStore.identities.find((e) =>
@@ -92,7 +93,7 @@ const identityMap = computed(() => {
       )
     const resolvedId = identity?.id ?? identityId
     const label = isLocal
-      ? 'Local (cn-engine)'
+      ? 'Local'
       : (providerDisplayNames.value[endpoint.providerId] ?? endpoint.providerId)
 
     if (!map.has(resolvedId)) {
@@ -158,21 +159,18 @@ const emptyMessage = computed(() =>
 // Auto-select
 // ---------------------------------------------------------------------------
 
-watch(
-  [currentEntry, identityEntries],
-  ([entry, entries]) => {
-    if (entry || entries.length === 0) return
-    const firstReady = entries.find((e) => e.providerOptions.some((p) => p.isReady))
-    const fallback = firstReady ?? entries[0]
-    if (!fallback) return
-    const local = fallback.providerOptions.find((p) => p.isLocal && p.isReady)
-    const chosen = local ?? fallback.providerOptions[0]
-    if (chosen) {
-      generationStore.setEndpointKey(chosen.endpointKey)
-      if (chosen.isLocal) void modelStore.setActiveModel(chosen.providerModelId)
-    }
+watch([currentEntry, identityEntries], ([entry, entries]) => {
+  if (entry || entries.length === 0) return
+  const firstReady = entries.find((e) => e.providerOptions.some((p) => p.isReady))
+  const fallback = firstReady ?? entries[0]
+  if (!fallback) return
+  const local = fallback.providerOptions.find((p) => p.isLocal && p.isReady)
+  const chosen = local ?? fallback.providerOptions[0]
+  if (chosen) {
+    generationStore.setEndpointKey(chosen.endpointKey)
+    if (chosen.isLocal) void modelStore.setActiveModel(chosen.providerModelId)
   }
-)
+})
 
 // ---------------------------------------------------------------------------
 // Handlers
