@@ -10,7 +10,7 @@ import os from 'os'
 import type { SettingsUpdate } from '../../types'
 
 export function registerSettingsHandlers(options?: {
-  engineManager?: EngineManager
+  engineManager?: EngineManager | null
   fileManager?: FileManager
   modelDownloadManager?: ModelDownloadManager
   sdCppServerManager?: SdCppServerManager

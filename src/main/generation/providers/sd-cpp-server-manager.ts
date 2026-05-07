@@ -13,12 +13,23 @@ export interface SdCppServerConfig {
   vaeOnCpu: boolean
 }
 
+export interface SdCppServerProgress {
+  step: number
+  totalSteps: number
+}
+
 export class SdCppServerManager {
   private process: ChildProcess | null = null
   private baseUrl: string | null = null
   private activeConfigKey: string | null = null
   private stopping = false
   private startPromise: Promise<string> | null = null
+  private readonly progressListeners = new Set<(progress: SdCppServerProgress) => void>()
+
+  onProgress(listener: (progress: SdCppServerProgress) => void): () => void {
+    this.progressListeners.add(listener)
+    return () => this.progressListeners.delete(listener)
+  }
 
   async ensureRunning(config: SdCppServerConfig): Promise<string> {
     const configKey = this.buildConfigKey(config)
@@ -115,11 +126,13 @@ export class SdCppServerManager {
     })
 
     this.process.stdout?.on('data', (data: Buffer) => {
+      this.handleProgressOutput(data)
       const text = data.toString().trim()
       if (text) console.log(`[sd-cpp:stdout] ${text}`)
     })
 
     this.process.stderr?.on('data', (data: Buffer) => {
+      this.handleProgressOutput(data)
       const text = data.toString().trim()
       if (text) console.log(`[sd-cpp:stderr] ${text}`)
     })
@@ -176,6 +189,24 @@ export class SdCppServerManager {
 
   private buildConfigKey(config: SdCppServerConfig): string {
     return JSON.stringify(config)
+  }
+
+  private handleProgressOutput(data: Buffer): void {
+    if (this.progressListeners.size === 0) return
+
+    const text = data.toString()
+    const matches = Array.from(text.matchAll(/(?:^|[^\d])(\d+)\/(\d+)(?:[^\d]|$)/g))
+    const latest = matches[matches.length - 1]
+    if (!latest) return
+
+    const step = Number(latest[1])
+    const totalSteps = Number(latest[2])
+    if (!Number.isFinite(step) || !Number.isFinite(totalSteps)) return
+    if (step < 0 || totalSteps <= 0 || step > totalSteps) return
+
+    for (const listener of this.progressListeners) {
+      listener({ step, totalSteps })
+    }
   }
 }
 

@@ -1,28 +1,30 @@
 import Database from 'better-sqlite3'
 import * as settingsRepo from '../db/repositories/settings'
-import { EngineManager } from '../engine/engine-manager'
+import type { EngineManager } from '../engine/engine-manager'
 import { CnEngineUpscaleExecutor } from './cn-engine-upscale-executor'
 import { OnnxUpscaleExecutor } from './onnx-upscale-executor'
 import { UpscaleModelService } from './upscale-model-service'
 import type { UpscaleExecutionArgs, UpscaleExecutionResult } from './upscale-execution-types'
 
 export class UpscaleExecutionService {
-  private readonly cnEngineExecutor: CnEngineUpscaleExecutor
+  private readonly cnEngineExecutor: CnEngineUpscaleExecutor | null
   private readonly onnxExecutor = new OnnxUpscaleExecutor()
 
   constructor(
     private readonly db: Database.Database,
     private readonly modelService: UpscaleModelService,
-    engineManager: EngineManager
+    engineManager?: EngineManager | null
   ) {
-    this.cnEngineExecutor = new CnEngineUpscaleExecutor(engineManager)
+    this.cnEngineExecutor = engineManager ? new CnEngineUpscaleExecutor(engineManager) : null
   }
 
   async execute(args: UpscaleExecutionArgs): Promise<UpscaleExecutionResult> {
     const backendPreference = settingsRepo.getSetting(this.db, 'upscale_backend')
     const resolvedModel = this.modelService.resolveExecutionModel(args.modelId, backendPreference)
     if (!resolvedModel) {
-      throw new Error(`Upscale model not available for backend preference '${backendPreference}': ${args.modelId}`)
+      throw new Error(
+        `Upscale model not available for backend preference '${backendPreference}': ${args.modelId}`
+      )
     }
 
     const executorArgs = {
@@ -38,10 +40,16 @@ export class UpscaleExecutionService {
       onProgress: args.onProgress
     }
 
+    if (resolvedModel.backend === 'cn-engine' && !this.cnEngineExecutor) {
+      throw new Error(
+        'cn-engine upscale backend is disabled. Set DISTILLERY_ENABLE_CN_ENGINE=1 before launch to enable it.'
+      )
+    }
+
     const result =
       resolvedModel.backend === 'onnx'
         ? await this.onnxExecutor.execute(executorArgs)
-        : await this.cnEngineExecutor.execute(executorArgs)
+        : await this.cnEngineExecutor!.execute(executorArgs)
 
     return {
       ...result,

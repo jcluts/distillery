@@ -1,6 +1,6 @@
 {
   "providerId": "local",
-  "displayName": "Local cn-engine",
+  "displayName": "Local",
   "enabled": true,
   "executionMode": "queued-local",
   "endpoints": [

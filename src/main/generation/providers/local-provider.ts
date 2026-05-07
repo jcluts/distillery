@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
 import * as settingsRepo from '../../db/repositories/settings'
-import { EngineManager } from '../../engine/engine-manager'
+import type { EngineManager } from '../../engine/engine-manager'
 import type { ModelCatalogService } from '../../models/model-catalog-service'
 import type { GenerationProgressEvent, LocalGenerationBackend } from '../../types'
 import { CnEngineGenerationExecutor } from './cn-engine-generation-executor'
@@ -13,14 +13,14 @@ export class LocalProvider implements GenerationProvider {
   readonly executionMode = 'queued-local' as const
 
   private readonly db: Database.Database
-  private readonly cnEngineExecutor: CnEngineGenerationExecutor
+  private readonly cnEngineExecutor: CnEngineGenerationExecutor | null
   private readonly sdCppExecutor: SdCppGenerationExecutor
   private readonly progressListeners = new Set<(event: GenerationProgressEvent) => void>()
   private executionLock: Promise<void> = Promise.resolve()
   private activeBackend: LocalGenerationBackend | null = null
 
   constructor(args: {
-    engineManager: EngineManager
+    engineManager?: EngineManager | null
     db: Database.Database
     modelCatalogService: ModelCatalogService
     sdCppServerManager: SdCppServerManager
@@ -32,12 +32,14 @@ export class LocalProvider implements GenerationProvider {
       }
     }
 
-    this.cnEngineExecutor = new CnEngineGenerationExecutor({
-      engineManager: args.engineManager,
-      db: args.db,
-      modelCatalogService: args.modelCatalogService,
-      onProgress
-    })
+    this.cnEngineExecutor = args.engineManager
+      ? new CnEngineGenerationExecutor({
+          engineManager: args.engineManager,
+          db: args.db,
+          modelCatalogService: args.modelCatalogService,
+          onProgress
+        })
+      : null
     this.sdCppExecutor = new SdCppGenerationExecutor({
       db: args.db,
       modelCatalogService: args.modelCatalogService,
@@ -62,7 +64,7 @@ export class LocalProvider implements GenerationProvider {
 
   async stop(): Promise<void> {
     await this.sdCppExecutor.stop()
-    await this.cnEngineExecutor.stop()
+    await this.cnEngineExecutor?.stop()
     this.activeBackend = null
   }
 
@@ -73,13 +75,21 @@ export class LocalProvider implements GenerationProvider {
       if (this.activeBackend === 'stable-diffusion.cpp') {
         await this.sdCppExecutor.stop()
       } else {
-        await this.cnEngineExecutor.stop()
+        await this.cnEngineExecutor?.stop()
       }
       this.activeBackend = null
     }
 
     this.activeBackend = backend
-    return backend === 'stable-diffusion.cpp' ? this.sdCppExecutor : this.cnEngineExecutor
+    if (backend === 'stable-diffusion.cpp') return this.sdCppExecutor
+
+    if (!this.cnEngineExecutor) {
+      throw new Error(
+        'cn-engine backend is disabled. Set DISTILLERY_ENABLE_CN_ENGINE=1 before launch to enable it.'
+      )
+    }
+
+    return this.cnEngineExecutor
   }
 
   private async withExecutionLock<T>(action: () => Promise<T>): Promise<T> {

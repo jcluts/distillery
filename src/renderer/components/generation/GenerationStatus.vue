@@ -5,6 +5,7 @@ import ProgressBar from 'primevue/progressbar'
 import Tag from 'primevue/tag'
 
 import { useEngineStore } from '@/stores/engine'
+import { useModelStore } from '@/stores/model'
 import { useQueueStore } from '@/stores/queue'
 
 // ---------------------------------------------------------------------------
@@ -12,6 +13,7 @@ import { useQueueStore } from '@/stores/queue'
 // ---------------------------------------------------------------------------
 
 const engineStore = useEngineStore()
+const modelStore = useModelStore()
 const queueStore = useQueueStore()
 
 const isUnloadingModel = ref(false)
@@ -20,12 +22,19 @@ const isUnloadingModel = ref(false)
 // Derived state
 // ---------------------------------------------------------------------------
 
-const isModelLoading = computed(() => engineStore.status.state === 'loading')
-const isModelReady = computed(() => engineStore.status.state === 'ready')
-const hasError = computed(() => engineStore.status.state === 'error')
+const usesCnEngine = computed(() => modelStore.settings?.local_generation_backend === 'cn-engine')
+const isModelLoading = computed(() => usesCnEngine.value && engineStore.status.state === 'loading')
+const isModelReady = computed(() => usesCnEngine.value && engineStore.status.state === 'ready')
+const hasError = computed(() => usesCnEngine.value && engineStore.status.state === 'error')
 
 const isGenerating = computed(() => !!queueStore.activePhase && !isModelLoading.value)
 const isQueueProcessing = computed(() => queueStore.items.some((q) => q.status === 'processing'))
+const hasDeterminateProgress = computed(
+  () =>
+    queueStore.activeStep != null &&
+    queueStore.activeTotalSteps != null &&
+    queueStore.activeTotalSteps > 0
+)
 
 const canUnloadModel = computed(
   () =>
@@ -37,7 +46,7 @@ const canUnloadModel = computed(
 
 const progressValue = computed(() => {
   const { activeStep, activeTotalSteps } = queueStore
-  if (activeStep != null && activeTotalSteps != null && activeTotalSteps > 0) {
+  if (hasDeterminateProgress.value && activeStep != null && activeTotalSteps != null) {
     return Math.round((activeStep / activeTotalSteps) * 100)
   }
   return 0
@@ -56,8 +65,10 @@ const hasContent = computed(
 // Status label + severity
 const statusLabel = computed(() => {
   if (isModelLoading.value) return 'Loading model…'
-  if (isGenerating.value) return queueStore.activePhase ? `Generating: ${queueStore.activePhase}` : 'Generating…'
-  if (hasError.value) return engineStore.status.error ? `Engine error: ${engineStore.status.error}` : 'Engine error'
+  if (isGenerating.value)
+    return queueStore.activePhase ? `Generating: ${queueStore.activePhase}` : 'Generating…'
+  if (hasError.value)
+    return engineStore.status.error ? `Engine error: ${engineStore.status.error}` : 'Engine error'
   if (isModelReady.value) return 'Model ready'
   return 'Idle'
 })
@@ -92,10 +103,7 @@ async function handleUnloadModel(): Promise<void> {
 
       <div class="flex items-center gap-2">
         <!-- Step counter -->
-        <span
-          v-if="isGenerating && queueStore.activeStep != null && queueStore.activeTotalSteps != null"
-          class="text-xs tabular-nums text-muted"
-        >
+        <span v-if="isGenerating && hasDeterminateProgress" class="text-xs tabular-nums text-muted">
           {{ queueStore.activeStep }}/{{ queueStore.activeTotalSteps }}
         </span>
 
@@ -114,17 +122,14 @@ async function handleUnloadModel(): Promise<void> {
     </div>
 
     <!-- Progress bar -->
+    <ProgressBar v-if="isModelLoading" mode="indeterminate" class="!h-1.5" />
     <ProgressBar
-      v-if="isModelLoading"
-      mode="indeterminate"
-      class="!h-1.5"
-    />
-    <ProgressBar
-      v-else-if="isGenerating"
+      v-else-if="isGenerating && hasDeterminateProgress"
       :value="progressValue"
       :show-value="false"
       class="!h-1.5"
     />
+    <ProgressBar v-else-if="isGenerating" mode="indeterminate" class="!h-1.5" />
 
     <!-- Pending counter -->
     <p v-if="queueStore.pendingCount > 0" class="text-xs text-muted">

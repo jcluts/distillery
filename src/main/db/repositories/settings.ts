@@ -6,6 +6,7 @@ import type { AppSettings, SettingsKey } from '../../types'
 
 const DEFAULT_LIBRARY_ROOT = path.join(os.homedir(), 'Distillery', 'Library')
 const DEFAULT_ACTIVE_MODEL_ID = 'flux2-klein-4b'
+const ENABLE_CN_ENGINE = process.env.DISTILLERY_ENABLE_CN_ENGINE === '1'
 
 const DEFAULT_MODEL_QUANT_SELECTIONS = {
   'flux2-klein-4b': {
@@ -49,7 +50,7 @@ function getDefaults(): AppSettings {
     sd_cpp_server_path: getDefaultSdCppServerPath(),
     model_base_path: getDefaultModelBasePath(),
     upscale_backend: 'auto',
-    local_generation_backend: 'cn-engine',
+    local_generation_backend: 'stable-diffusion.cpp',
     active_model_id: DEFAULT_ACTIVE_MODEL_ID,
     model_quant_selections: JSON.parse(JSON.stringify(DEFAULT_MODEL_QUANT_SELECTIONS)),
     offload_to_cpu: true,
@@ -71,6 +72,22 @@ function getDefaults(): AppSettings {
   }
 }
 
+function normalizeUpscaleBackend(
+  value: AppSettings['upscale_backend'],
+  fallback: AppSettings['upscale_backend']
+): AppSettings['upscale_backend'] {
+  if (value === 'cn-engine' && !ENABLE_CN_ENGINE) return fallback
+  return value === 'onnx' || value === 'cn-engine' || value === 'auto' ? value : fallback
+}
+
+function normalizeLocalGenerationBackend(
+  value: AppSettings['local_generation_backend'],
+  fallback: AppSettings['local_generation_backend']
+): AppSettings['local_generation_backend'] {
+  if (value === 'cn-engine' && !ENABLE_CN_ENGINE) return fallback
+  return value === 'cn-engine' || value === 'stable-diffusion.cpp' ? value : fallback
+}
+
 function normalizeSettings(settings: AppSettings, defaults: AppSettings): AppSettings {
   return {
     ...settings,
@@ -90,17 +107,11 @@ function normalizeSettings(settings: AppSettings, defaults: AppSettings): AppSet
       typeof settings.active_model_id === 'string' && settings.active_model_id.trim()
         ? settings.active_model_id
         : defaults.active_model_id,
-    upscale_backend:
-      settings.upscale_backend === 'onnx' ||
-      settings.upscale_backend === 'cn-engine' ||
-      settings.upscale_backend === 'auto'
-        ? settings.upscale_backend
-        : defaults.upscale_backend,
-    local_generation_backend:
-      settings.local_generation_backend === 'cn-engine' ||
-      settings.local_generation_backend === 'stable-diffusion.cpp'
-        ? settings.local_generation_backend
-        : defaults.local_generation_backend,
+    upscale_backend: normalizeUpscaleBackend(settings.upscale_backend, defaults.upscale_backend),
+    local_generation_backend: normalizeLocalGenerationBackend(
+      settings.local_generation_backend,
+      defaults.local_generation_backend
+    ),
     model_quant_selections:
       settings.model_quant_selections && typeof settings.model_quant_selections === 'object'
         ? settings.model_quant_selections

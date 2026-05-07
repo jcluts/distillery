@@ -10,12 +10,7 @@ import SelectButton from 'primevue/selectbutton'
 import { useModelStore } from '@/stores/model'
 import { useUIStore } from '@/stores/ui'
 import { useUpscaleStore } from '@/stores/upscale'
-import type {
-  AppSettings,
-  LocalGenerationBackend,
-  SettingsUpdate,
-  UpscaleBackendPreference
-} from '@/types'
+import type { AppSettings, SettingsUpdate, UpscaleBackendPreference } from '@/types'
 
 const uiStore = useUIStore()
 const modelStore = useModelStore()
@@ -33,7 +28,7 @@ const draft = ref<AppSettings | null>(null)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
-const showEnginePath = import.meta.env.DEV
+const showRuntimePaths = import.meta.env.DEV
 
 const onOffOptions = [
   { label: 'On', value: true },
@@ -42,13 +37,7 @@ const onOffOptions = [
 
 const upscaleBackendOptions = [
   { label: 'Auto', value: 'auto' },
-  { label: 'ONNX', value: 'onnx' },
-  { label: 'cn-engine', value: 'cn-engine' }
-]
-
-const localGenerationBackendOptions = [
-  { label: 'cn-engine', value: 'cn-engine' },
-  { label: 'stable-diffusion.cpp', value: 'stable-diffusion.cpp' }
+  { label: 'ONNX', value: 'onnx' }
 ]
 
 // Load settings when modal opens, reset when it closes
@@ -102,11 +91,9 @@ async function onSave(): Promise<void> {
 
     const updates: SettingsUpdate = {
       library_root: draft.value.library_root,
-      engine_path: draft.value.engine_path,
       sd_cpp_server_path: draft.value.sd_cpp_server_path,
       model_base_path: draft.value.model_base_path,
       upscale_backend: draft.value.upscale_backend,
-      local_generation_backend: draft.value.local_generation_backend,
       offload_to_cpu: draft.value.offload_to_cpu,
       flash_attn: draft.value.flash_attn,
       vae_on_cpu: draft.value.vae_on_cpu,
@@ -167,28 +154,8 @@ async function onSave(): Promise<void> {
           </div>
         </div>
 
-        <!-- Engine path (dev only) -->
-        <div v-if="showEnginePath" class="space-y-1.5">
-          <label class="text-xs font-medium text-muted">Engine base path (dev)</label>
-          <div class="flex items-center gap-2">
-            <InputText
-              :model-value="draft?.engine_path ?? ''"
-              placeholder="C:\path\to\resources\cn-engine\win32\vulkan"
-              class="w-full"
-              @update:model-value="update('engine_path', String($event))"
-            />
-            <Button
-              severity="secondary"
-              size="small"
-              @click="browseFolder('Choose cn-engine directory', 'engine_path')"
-            >
-              <Icon icon="lucide:folder-open" class="size-4" />
-            </Button>
-          </div>
-        </div>
-
         <!-- stable-diffusion.cpp path (dev only) -->
-        <div v-if="showEnginePath" class="space-y-1.5">
+        <div v-if="showRuntimePaths" class="space-y-1.5">
           <label class="text-xs font-medium text-muted"
             >stable-diffusion.cpp server path (dev)</label
           >
@@ -227,20 +194,6 @@ async function onSave(): Promise<void> {
               <Icon icon="lucide:folder-open" class="size-4" />
             </Button>
           </div>
-        </div>
-
-        <!-- Upscale backend -->
-        <div class="space-y-1.5">
-          <label class="text-xs font-medium text-muted">Local generation backend</label>
-          <SelectButton
-            :model-value="draft?.local_generation_backend ?? 'cn-engine'"
-            :options="localGenerationBackendOptions"
-            option-label="label"
-            option-value="value"
-            @update:model-value="
-              update('local_generation_backend', $event as LocalGenerationBackend)
-            "
-          />
         </div>
 
         <!-- Upscale backend -->

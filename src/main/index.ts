@@ -79,6 +79,7 @@ let workQueueManager: WorkQueueManager | null = null
 let generationService: GenerationService | null = null
 let fileManager: FileManager | null = null
 let sdCppServerManager: SdCppServerManager | null = null
+const ENABLE_CN_ENGINE = process.env.DISTILLERY_ENABLE_CN_ENGINE === '1'
 
 /**
  * Migrate user-created identities from the legacy model-identities.json file
@@ -369,10 +370,15 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Initialize engine manager
+  // cn-engine is latent by default; stable-diffusion.cpp is the normal local backend.
   const enginePath = startupSettings.engine_path
-  engineManager = new EngineManager(enginePath || '')
-  console.log('[Main] Engine manager created')
+  if (ENABLE_CN_ENGINE) {
+    engineManager = new EngineManager(enginePath || '')
+    console.log('[Main] Engine manager created')
+  } else {
+    engineManager = null
+    console.log('[Main] cn-engine disabled (set DISTILLERY_ENABLE_CN_ENGINE=1 to enable)')
+  }
 
   // Initialize work queue + generation services
   workQueueManager = new WorkQueueManager(db)
@@ -633,14 +639,14 @@ app.whenReady().then(async () => {
   })
 
   // Start engine process if path is configured (model will be lazy-loaded on first generation)
-  if (enginePath) {
+  if (ENABLE_CN_ENGINE && engineManager && enginePath) {
     try {
       await engineManager.start()
       console.log('[Main] Engine started (model will load on first generation)')
     } catch (err) {
       console.error('[Main] Engine startup error:', err)
     }
-  } else {
+  } else if (ENABLE_CN_ENGINE) {
     console.log('[Main] Engine path not configured, skipping engine start')
   }
 

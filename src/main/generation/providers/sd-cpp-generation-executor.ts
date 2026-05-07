@@ -59,11 +59,26 @@ export class SdCppGenerationExecutor {
     const img2img = request.refImagePaths.length > 0
     const body = await this.buildRequestBody(request, asNumber(width), asNumber(height), img2img)
     const endpoint = img2img ? '/sdapi/v1/img2img' : '/sdapi/v1/txt2img'
-    const response = await requestJson<SdApiImageResponse>(`${baseUrl}${endpoint}`, {
-      method: 'POST',
-      body,
-      timeoutMs: 600_000
+    const stopListening = this.serverManager.onProgress(({ step, totalSteps }) => {
+      this.emitProgress(
+        request.generationId,
+        'generating',
+        `Generating with stable-diffusion.cpp (${step}/${totalSteps})`,
+        step,
+        totalSteps
+      )
     })
+
+    let response: SdApiImageResponse
+    try {
+      response = await requestJson<SdApiImageResponse>(`${baseUrl}${endpoint}`, {
+        method: 'POST',
+        body,
+        timeoutMs: 600_000
+      })
+    } finally {
+      stopListening()
+    }
 
     if (response.error) {
       return {
@@ -176,12 +191,20 @@ export class SdCppGenerationExecutor {
     return body
   }
 
-  private emitProgress(generationId: string, phase: string, message: string): void {
+  private emitProgress(
+    generationId: string,
+    phase: string,
+    message: string,
+    step?: number,
+    totalSteps?: number
+  ): void {
     this.onProgress({
       generationId,
       providerId: 'local',
       phase,
-      message
+      message,
+      step,
+      totalSteps
     })
   }
 }

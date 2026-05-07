@@ -18,11 +18,16 @@ export const useQueueStore = defineStore('queue', () => {
     items.value = next
   }
 
-  function setActiveProgress(jobId: string, phase: string, step?: number, totalSteps?: number): void {
+  function setActiveProgress(
+    jobId: string,
+    phase: string,
+    step?: number,
+    totalSteps?: number
+  ): void {
     activeJobId.value = jobId
     activePhase.value = phase
-    if (step !== undefined) activeStep.value = step
-    if (totalSteps !== undefined) activeTotalSteps.value = totalSteps
+    activeStep.value = step ?? null
+    activeTotalSteps.value = totalSteps ?? null
   }
 
   function clearActiveProgress(): void {

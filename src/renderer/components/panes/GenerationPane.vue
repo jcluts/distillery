@@ -69,7 +69,9 @@ const hasAnyModels = computed(() => hasLocalModels.value || hasRemoteModels.valu
 // ---------------------------------------------------------------------------
 
 const prompt = computed(() => generationStore.prompt)
-const localBackend = computed(() => modelStore.settings?.local_generation_backend ?? 'cn-engine')
+const localBackend = computed(
+  () => modelStore.settings?.local_generation_backend ?? 'stable-diffusion.cpp'
+)
 const isLocalEndpoint = computed(() => endpoint.value?.providerId === 'local')
 const requiresLocalEngine = computed(
   () => isLocalEndpoint.value && localBackend.value === 'cn-engine'
