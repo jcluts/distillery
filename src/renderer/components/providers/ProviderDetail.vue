@@ -220,6 +220,13 @@ async function handleRemoveModel(modelId: string): Promise<void> {
                 <span class="shrink-0 opacity-30">·</span>
                 <span class="truncate text-muted">{{ model.modelId }}</span>
               </template>
+              <Tag
+                v-for="mode in model.modes ?? (model.type ? [model.type] : [])"
+                :key="mode"
+                severity="secondary"
+                class="ml-0.5 shrink-0 text-[10px]"
+                :value="mode"
+              />
             </div>
 
             <IdentityMappingSelect

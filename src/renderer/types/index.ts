@@ -280,6 +280,7 @@ export interface CanonicalGenerationParams {
 
 export interface GenerationSubmitInput {
   endpointKey: string
+  mode: GenerationMode
   params: CanonicalGenerationParams
 }
 
@@ -446,6 +447,8 @@ export interface SearchResultModel {
   name: string
   description?: string
   type?: GenerationMode
+  modes?: GenerationMode[]
+  outputType?: 'image' | 'video'
   runCount?: number
   raw?: unknown
 }
@@ -455,6 +458,8 @@ export interface ProviderModel {
   name: string
   description?: string
   type?: GenerationMode
+  modes?: GenerationMode[]
+  outputType?: 'image' | 'video'
   providerId: string
   requestSchema: CanonicalRequestSchema
   modelIdentityId?: string
@@ -810,7 +815,10 @@ export interface DistilleryAPI {
   // Generation
   submitGeneration(params: GenerationSubmitInput): Promise<string>
   cancelGeneration(jobId: string): Promise<void>
-  listGenerationEndpoints(): Promise<CanonicalEndpointDef[]>
+  listGenerationEndpoints(filter?: {
+    providerId?: string
+    outputType?: 'image' | 'video'
+  }): Promise<CanonicalEndpointDef[]>
   getGenerationEndpointSchema(endpointKey: string): Promise<CanonicalEndpointDef | null>
 
   // Engine

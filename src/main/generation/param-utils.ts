@@ -1,5 +1,28 @@
 import { randomInt } from 'crypto'
-import type { CanonicalGenerationParams, GenerationMode } from '../types'
+import type { CanonicalGenerationParams, CanonicalRequestSchema, GenerationMode } from '../types'
+
+const GENERATION_MODES: GenerationMode[] = [
+  'text-to-image',
+  'image-to-image',
+  'text-to-video',
+  'image-to-video'
+]
+
+const IMAGE_INPUT_FIELD_NAMES = new Set([
+  'images',
+  'image_urls',
+  'image_url',
+  'image',
+  'init_image',
+  'init_image_url',
+  'input_image',
+  'input_image_url',
+  'reference_image',
+  'reference_images',
+  'ref_images'
+])
+
+const PROMPT_FIELD_NAMES = new Set(['prompt', 'text', 'caption'])
 
 /**
  * Coerce an unknown value to a string. Returns '' for null/undefined.
@@ -102,10 +125,10 @@ export function coerceGenerationMode(raw: string | null | undefined): Generation
   ) {
     return 'image-to-image'
   }
-  if (haystack === 'text-to-video' || haystack === 'txt2vid') {
+  if (haystack === 'text-to-video' || haystack === 'txt2vid' || haystack === 't2v') {
     return 'text-to-video'
   }
-  if (haystack === 'image-to-video' || haystack === 'img2vid') {
+  if (haystack === 'image-to-video' || haystack === 'img2vid' || haystack === 'i2v') {
     return 'image-to-video'
   }
 
@@ -126,24 +149,110 @@ export function coerceGenerationMode(raw: string | null | undefined): Generation
   return undefined
 }
 
+function coerceExplicitGenerationMode(raw: string | null | undefined): GenerationMode | undefined {
+  if (!raw) return undefined
+  const haystack = raw.toLowerCase().trim()
+
+  if (haystack === 'text-to-image' || haystack === 'txt2img' || haystack === 't2i') {
+    return 'text-to-image'
+  }
+  if (
+    haystack === 'image-to-image' ||
+    haystack === 'img2img' ||
+    haystack === 'i2i' ||
+    haystack === 'edit' ||
+    haystack === 'image-editing'
+  ) {
+    return 'image-to-image'
+  }
+  if (haystack === 'text-to-video' || haystack === 'txt2vid' || haystack === 't2v') {
+    return 'text-to-video'
+  }
+  if (haystack === 'image-to-video' || haystack === 'img2vid' || haystack === 'i2v') {
+    return 'image-to-video'
+  }
+
+  return undefined
+}
+
+export function normalizeGenerationModes(values: unknown): GenerationMode[] {
+  const rawValues = Array.isArray(values) ? values : [values]
+  const modes: GenerationMode[] = []
+
+  for (const value of rawValues) {
+    const mode =
+      typeof value === 'string' && GENERATION_MODES.includes(value as GenerationMode)
+        ? (value as GenerationMode)
+        : coerceGenerationMode(typeof value === 'string' ? value : undefined)
+    if (mode && !modes.includes(mode)) modes.push(mode)
+  }
+
+  return modes
+}
+
+export function schemaHasImageInput(schema: CanonicalRequestSchema | undefined): boolean {
+  if (!schema?.properties) return false
+
+  return Object.keys(schema.properties).some((key) =>
+    IMAGE_INPUT_FIELD_NAMES.has(key.toLowerCase())
+  )
+}
+
+export function schemaHasPromptInput(schema: CanonicalRequestSchema | undefined): boolean {
+  if (!schema?.properties) return false
+
+  return Object.keys(schema.properties).some((key) => PROMPT_FIELD_NAMES.has(key.toLowerCase()))
+}
+
+export function schemaRequiresOnlyImageInput(schema: CanonicalRequestSchema | undefined): boolean {
+  const required = schema?.required ?? []
+  if (required.length === 0) return false
+
+  return required.every((key) => IMAGE_INPUT_FIELD_NAMES.has(key.toLowerCase()))
+}
+
 export function inferModeInfo(
   type: GenerationMode | string | undefined,
-  modelId: string
+  modelId: string,
+  options?: {
+    name?: string
+    description?: string
+    requestSchema?: CanonicalRequestSchema
+  }
 ): {
   modes: GenerationMode[]
   outputType: 'image' | 'video'
 } {
-  const coerced = coerceGenerationMode(type)
+  const coerced = coerceExplicitGenerationMode(type)
   if (coerced) {
     const isVideo = coerced === 'text-to-video' || coerced === 'image-to-video'
     return { modes: [coerced], outputType: isVideo ? 'video' : 'image' }
   }
 
-  const haystack = modelId.toLowerCase()
+  const haystack = [type, modelId, options?.name, options?.description]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase()
 
   if (haystack.includes('video')) {
+    const hasImageInput =
+      schemaHasImageInput(options?.requestSchema) ||
+      haystack.includes('image-to-video') ||
+      haystack.includes('img2vid') ||
+      haystack.includes('i2v')
+    const supportsPromptOnly =
+      schemaHasPromptInput(options?.requestSchema) ||
+      (!schemaRequiresOnlyImageInput(options?.requestSchema) &&
+        !haystack.includes('image-to-video') &&
+        !haystack.includes('img2vid') &&
+        !haystack.includes('i2v'))
+    const modes: GenerationMode[] = []
+
+    if (supportsPromptOnly) modes.push('text-to-video')
+    if (hasImageInput) modes.push('image-to-video')
+
     return {
-      modes: haystack.includes('image') ? ['image-to-video'] : ['text-to-video'],
+      modes: modes.length > 0 ? modes : ['text-to-video'],
       outputType: 'video'
     }
   }

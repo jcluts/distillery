@@ -4,7 +4,10 @@ import { randomUUID } from 'crypto'
 
 const MAX_LOG_BODY_CHARS = 1600
 
-export async function downloadRemoteOutput(url: string, outputDir: string): Promise<string> {
+export async function downloadRemoteOutput(
+  url: string,
+  outputDir: string
+): Promise<{ localPath: string; mimeType?: string }> {
   console.log('[RemoteOutputDownloader] start', { url, outputDir })
 
   const response = await fetch(url)
@@ -26,7 +29,8 @@ export async function downloadRemoteOutput(url: string, outputDir: string): Prom
 
   const parsedUrl = new URL(url)
   const baseName = path.basename(parsedUrl.pathname)
-  const extension = path.extname(baseName).toLowerCase()
+  const mimeType = response.headers.get('content-type')?.split(';')[0]?.trim() || undefined
+  const extension = path.extname(baseName).toLowerCase() || extensionFromMimeType(mimeType)
   const stem = baseName ? path.basename(baseName, extension) : randomUUID()
   const safeExtension = extension || '.bin'
   const outputPath = path.join(outputDir, `${randomUUID()}-${stem}${safeExtension}`)
@@ -37,8 +41,20 @@ export async function downloadRemoteOutput(url: string, outputDir: string): Prom
   console.log('[RemoteOutputDownloader] complete', {
     url,
     outputPath,
+    mimeType,
     bytes: content.byteLength
   })
 
-  return outputPath
+  return { localPath: outputPath, mimeType }
+}
+
+function extensionFromMimeType(mimeType: string | undefined): string {
+  if (!mimeType) return ''
+  if (mimeType.includes('video/mp4')) return '.mp4'
+  if (mimeType.includes('video/webm')) return '.webm'
+  if (mimeType.includes('video/quicktime')) return '.mov'
+  if (mimeType.includes('image/jpeg') || mimeType.includes('image/jpg')) return '.jpg'
+  if (mimeType.includes('image/webp')) return '.webp'
+  if (mimeType.includes('image/png')) return '.png'
+  return ''
 }

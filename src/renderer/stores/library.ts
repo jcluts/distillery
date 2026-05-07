@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 
 import { GRID_PAGE_SIZE } from '@/lib/constants'
 import { useCollectionStore } from '@/stores/collection'
-import type { MediaPage, MediaQuery, MediaRecord, MediaSortField, MediaStatus } from '@/types'
+import type { MediaPage, MediaQuery, MediaRecord, MediaSortField, MediaStatus, MediaType } from '@/types'
 
 function normalizeSelection(items: MediaRecord[], selectedIds: Set<string>): Set<string> {
   if (selectedIds.size === 0) return selectedIds
@@ -24,6 +24,7 @@ export const useLibraryStore = defineStore('library', () => {
 
   const ratingFilter = ref(0)
   const statusFilter = ref<MediaStatus | 'unmarked' | 'all'>('all')
+  const mediaTypeFilter = ref<MediaType | 'all'>('all')
   const searchQuery = ref('')
   const sortField = ref<MediaSortField>('created_at')
   const sortDirection = ref<'asc' | 'desc'>('desc')
@@ -37,6 +38,7 @@ export const useLibraryStore = defineStore('library', () => {
       pageSize: pageSize.value,
       rating: ratingFilter.value > 0 ? ratingFilter.value : undefined,
       status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+      media_type: mediaTypeFilter.value !== 'all' ? mediaTypeFilter.value : undefined,
       sort: sortField.value,
       sortDirection: sortDirection.value,
       search: searchQuery.value || undefined,
@@ -158,6 +160,7 @@ export const useLibraryStore = defineStore('library', () => {
     focusedId,
     ratingFilter,
     statusFilter,
+    mediaTypeFilter,
     searchQuery,
     sortField,
     sortDirection,

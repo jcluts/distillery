@@ -33,7 +33,7 @@ export class FileManager {
    * Resolve a relative path to an absolute path within the library.
    */
   resolve(relativePath: string): string {
-    return join(this.libraryRoot, relativePath)
+    return join(this.libraryRoot, ...relativePath.split(/[\\/]+/))
   }
 
   /**

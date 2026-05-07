@@ -1,5 +1,12 @@
-import { asRecord, asOptionalNumber, coerceGenerationMode, getString } from '../../param-utils'
+import {
+  asRecord,
+  asOptionalNumber,
+  coerceGenerationMode,
+  getString,
+  inferModeInfo
+} from '../../param-utils'
 import type { SearchResultModel, ProviderModel } from '../../management/types'
+import type { CanonicalRequestSchema } from '../../../types'
 import type { ProviderConfig } from '../../catalog/provider-config'
 import {
   extractRequestBodySchemaFromOpenApi,
@@ -13,37 +20,60 @@ export function normalizeFalSearchResult(raw: unknown, _config: ProviderConfig):
   const metadata = asRecord(source.metadata) ?? {}
   const modelId =
     getString(source.endpoint_id) || getString(source.id) || getString(source.model_id) || ''
+  const name =
+    getString(metadata.display_name) || getString(source.title) || getString(source.name) || modelId
+  const description = getString(metadata.description) || getString(source.description) || undefined
+  const rawType =
+    getString(metadata.category) ||
+    getString(source.category) ||
+    getString(source.task) ||
+    getString(source.type)
+  const type = coerceGenerationMode(rawType)
+  const capability = inferModeInfo(rawType ?? undefined, modelId, { name, description })
 
   return {
     modelId,
-    name: getString(metadata.display_name) || getString(source.title) || getString(source.name) || modelId,
-    description: getString(metadata.description) || getString(source.description) || undefined,
-    type: coerceGenerationMode(
-      getString(metadata.category) ||
-        getString(source.category) ||
-        getString(source.task) ||
-        getString(source.type)
-    ),
-    runCount: asOptionalNumber(source.run_count) ?? asOptionalNumber(metadata.run_count) ?? undefined,
+    name,
+    description,
+    type,
+    modes: capability.modes,
+    outputType: capability.outputType,
+    runCount:
+      asOptionalNumber(source.run_count) ?? asOptionalNumber(metadata.run_count) ?? undefined,
     raw
   }
 }
 
-export function normalizeFalModelDetail(raw: unknown, config: ProviderConfig): ProviderModel | null {
+export function normalizeFalModelDetail(
+  raw: unknown,
+  config: ProviderConfig
+): ProviderModel | null {
   const source = unwrapFalModel(raw)
   const model = normalizeFalSearchResult(source ?? raw, config)
   if (!model.modelId) return null
 
   const requestSchema =
     extractCanonicalSchemaFromOpenApi(source) ?? extractCanonicalSchemaFromOpenApi(raw)
+  const normalizedSchema = requestSchema ?? fallbackRequestSchema()
+  const capability = inferModeInfo(
+    model.outputType === 'video' ? 'video' : model.type,
+    model.modelId,
+    {
+      name: model.name,
+      description: model.description,
+      requestSchema: normalizedSchema
+    }
+  )
 
   return {
     modelId: model.modelId,
     name: model.name,
     description: model.description,
     type: model.type,
+    modes: capability.modes,
+    outputType: capability.outputType,
     providerId: config.providerId,
-    requestSchema: requestSchema ?? fallbackRequestSchema()
+    requestSchema: normalizedSchema
   }
 }
 
@@ -69,7 +99,7 @@ function unwrapFalModel(raw: unknown): Record<string, unknown> | null {
   return source
 }
 
-function extractCanonicalSchemaFromOpenApi(raw: unknown) {
+function extractCanonicalSchemaFromOpenApi(raw: unknown): CanonicalRequestSchema | null {
   const source = asRecord(raw)
   if (!source) {
     return null

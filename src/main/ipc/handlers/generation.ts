@@ -15,8 +15,8 @@ export function registerGenerationHandlers(generationService: GenerationService)
     generationService.cancel(jobId)
   })
 
-  ipcMain.handle(IPC_CHANNELS.GENERATION_LIST_ENDPOINTS, async () => {
-    return generationService.listEndpoints({ outputType: 'image' })
+  ipcMain.handle(IPC_CHANNELS.GENERATION_LIST_ENDPOINTS, async (_event, filter) => {
+    return generationService.listEndpoints(filter)
   })
 
   ipcMain.handle(IPC_CHANNELS.GENERATION_GET_ENDPOINT_SCHEMA, async (_event, endpointKey: string) => {

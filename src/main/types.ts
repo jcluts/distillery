@@ -263,6 +263,7 @@ export interface CanonicalGenerationParams {
 
 export interface GenerationSubmitInput {
   endpointKey: string
+  mode: GenerationMode
   params: CanonicalGenerationParams
 }
 

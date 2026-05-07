@@ -48,12 +48,12 @@ export class GenerationService extends EventEmitter {
     }
 
     const params = withResolvedSeed(input.params)
-    this.validateParams(endpoint, params)
+    this.validateParams(endpoint, input.mode, params)
 
     const generationId = uuidv4()
     const now = new Date().toISOString()
 
-    const paramsForStorage = this.buildStorageParams(endpoint, params)
+    const paramsForStorage = this.buildStorageParams(endpoint, input.mode, params)
     const { inputRecords } = await this.mediaIngestionService.prepareInputs(
       generationId,
       params,
@@ -76,6 +76,7 @@ export class GenerationService extends EventEmitter {
     const payload = {
       generationId,
       endpointKey: endpoint.endpointKey,
+      mode: input.mode,
       params,
       executionMode: endpoint.executionMode
     }
@@ -153,9 +154,25 @@ export class GenerationService extends EventEmitter {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  private validateParams(_endpoint: CanonicalEndpointDef, params: CanonicalGenerationParams): void {
+  private validateParams(
+    endpoint: CanonicalEndpointDef,
+    mode: GenerationSubmitInput['mode'],
+    params: CanonicalGenerationParams
+  ): void {
+    if (!endpoint.modes.includes(mode)) {
+      throw new Error(`Endpoint ${endpoint.endpointKey} does not support mode: ${mode}`)
+    }
+
     if (!asString(params.prompt).trim()) {
       throw new Error('Prompt is required')
+    }
+
+    if (mode === 'image-to-image' || mode === 'image-to-video') {
+      const refImageIds = Array.isArray(params.ref_image_ids) ? params.ref_image_ids : []
+      const refImagePaths = Array.isArray(params.ref_image_paths) ? params.ref_image_paths : []
+      if (refImageIds.length === 0 && refImagePaths.length === 0) {
+        throw new Error('A reference image is required for this generation mode')
+      }
     }
   }
 
@@ -165,6 +182,7 @@ export class GenerationService extends EventEmitter {
    */
   private buildStorageParams(
     endpoint: CanonicalEndpointDef,
+    mode: GenerationSubmitInput['mode'],
     params: CanonicalGenerationParams
   ): Record<string, unknown> {
     const modelIdentityId = endpoint.modelIdentityId ?? endpoint.providerModelId
@@ -175,7 +193,8 @@ export class GenerationService extends EventEmitter {
         id: modelIdentityId,
         providerModelId: endpoint.providerModelId,
         providerId: endpoint.providerId
-      }
+      },
+      mode
     }
 
     // Ref image fields live in generation_inputs — don't duplicate them here.

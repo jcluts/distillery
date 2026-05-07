@@ -123,7 +123,8 @@ const api: DistilleryAPI = {
   submitGeneration: (params: GenerationSubmitInput) =>
     ipcRenderer.invoke(CH.GENERATION_SUBMIT, params),
   cancelGeneration: (jobId: string) => ipcRenderer.invoke(CH.GENERATION_CANCEL, jobId),
-  listGenerationEndpoints: () => ipcRenderer.invoke(CH.GENERATION_LIST_ENDPOINTS),
+  listGenerationEndpoints: (filter?: { providerId?: string; outputType?: 'image' | 'video' }) =>
+    ipcRenderer.invoke(CH.GENERATION_LIST_ENDPOINTS, filter),
   getGenerationEndpointSchema: (endpointKey: string) =>
     ipcRenderer.invoke(CH.GENERATION_GET_ENDPOINT_SCHEMA, endpointKey),
 

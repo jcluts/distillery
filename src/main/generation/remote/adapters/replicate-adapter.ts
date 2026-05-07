@@ -1,7 +1,18 @@
-import { asRecord, asOptionalNumber, coerceGenerationMode, getString } from '../../param-utils'
+import {
+  asRecord,
+  asOptionalNumber,
+  coerceGenerationMode,
+  getString,
+  inferModeInfo
+} from '../../param-utils'
 import type { SearchResultModel, ProviderModel } from '../../management/types'
 import type { ProviderConfig } from '../../catalog/provider-config'
-import { fallbackRequestSchema, normalizeObjectSchema, resolveSchemaReference } from './schema-utils'
+import type { CanonicalRequestSchema } from '../../../types'
+import {
+  fallbackRequestSchema,
+  normalizeObjectSchema,
+  resolveSchemaReference
+} from './schema-utils'
 import type { ProviderAdapter } from './types'
 
 export function normalizeReplicateSearchResult(
@@ -13,12 +24,22 @@ export function normalizeReplicateSearchResult(
   const name = getString(source.name)
   const slashId = owner && name ? `${owner}/${name}` : null
   const modelId = getString(source.slug) || slashId || getString(source.id) || ''
+  const displayName = getString(source.title) || getString(source.name) || modelId
+  const description = getString(source.description) || undefined
+  const rawType = getString(source.type) || getString(source.category)
+  const type = coerceGenerationMode(rawType)
+  const capability = inferModeInfo(rawType ?? undefined, modelId, {
+    name: displayName,
+    description
+  })
 
   return {
     modelId,
-    name: getString(source.title) || getString(source.name) || modelId,
-    description: getString(source.description) || undefined,
-    type: coerceGenerationMode(getString(source.type) || getString(source.category)),
+    name: displayName,
+    description,
+    type,
+    modes: capability.modes,
+    outputType: capability.outputType,
     runCount: asOptionalNumber(source.run_count) ?? undefined,
     raw
   }
@@ -42,18 +63,32 @@ export function normalizeReplicateModelDetail(
     asRecord(latestVersion?.openapiSchema)
 
   const inputSchema = extractReplicateInputSchema(openApiSchema)
+  const requestSchema = inputSchema ?? fallbackRequestSchema()
+  const capability = inferModeInfo(
+    searchResult.outputType === 'video' ? 'video' : searchResult.type,
+    searchResult.modelId,
+    {
+      name: searchResult.name,
+      description: searchResult.description,
+      requestSchema
+    }
+  )
 
   return {
     modelId: searchResult.modelId,
     name: searchResult.name,
     description: searchResult.description,
     type: searchResult.type,
+    modes: capability.modes,
+    outputType: capability.outputType,
     providerId: config.providerId,
-    requestSchema: inputSchema ?? fallbackRequestSchema()
+    requestSchema
   }
 }
 
-function extractReplicateInputSchema(openApiSchema: Record<string, unknown> | null) {
+function extractReplicateInputSchema(
+  openApiSchema: Record<string, unknown> | null
+): CanonicalRequestSchema | null {
   if (!openApiSchema) return null
 
   const components = asRecord(openApiSchema.components)

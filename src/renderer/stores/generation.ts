@@ -155,6 +155,7 @@ export const useGenerationStore = defineStore('generation', () => {
 
     return {
       endpointKey: endpointKey.value,
+      mode: generationMode.value,
       params: values as GenerationSubmitInput['params']
     }
   }

@@ -148,6 +148,12 @@ const providerOptions = computed(() =>
   }))
 )
 
+const emptyMessage = computed(() =>
+  generationStore.generationMode.includes('video')
+    ? 'Add an API video model in Provider Manager to use this mode.'
+    : 'No compatible models are available for this mode.'
+)
+
 // ---------------------------------------------------------------------------
 // Auto-select
 // ---------------------------------------------------------------------------
@@ -193,7 +199,14 @@ function handleProviderChange(endpointKey: string): void {
 <template>
   <div class="space-y-2">
     <PaneSection title="Model">
+      <div
+        v-if="modelOptions.length === 0"
+        class="rounded-md border border-default bg-elevated px-3 py-3 text-xs text-muted"
+      >
+        {{ emptyMessage }}
+      </div>
       <Select
+        v-else
         :model-value="currentIdentityId"
         :options="modelOptions"
         option-label="label"

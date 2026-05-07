@@ -1,5 +1,5 @@
 import type { CanonicalEndpointDef } from '../../types'
-import { inferModeInfo } from '../param-utils'
+import { inferModeInfo, normalizeGenerationModes } from '../param-utils'
 import type { ProviderModel } from '../management/types'
 import type { ProviderConfig, ProviderEndpointConfig } from './provider-config'
 import { ProviderConfigService } from './provider-config'
@@ -114,7 +114,15 @@ export class EndpointCatalog {
   private mapUserModel(provider: ProviderConfig, model: ProviderModel): CanonicalEndpointDef | null {
     if (!model.modelId?.trim()) return null
 
-    const modeInfo = inferModeInfo(model.type, model.modelId)
+    const explicitModes = normalizeGenerationModes(model.modes)
+    const modeInfo =
+      explicitModes.length > 0 && model.outputType
+        ? { modes: explicitModes, outputType: model.outputType }
+        : inferModeInfo(model.type, model.modelId, {
+            name: model.name,
+            description: model.description,
+            requestSchema: model.requestSchema
+          })
     const modelIdentityId =
       model.modelIdentityId ??
       this.resolveIdentityId?.(provider.providerId, model.modelId) ??

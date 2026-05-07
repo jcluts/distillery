@@ -71,8 +71,16 @@ const hasAnyModels = computed(() => hasLocalModels.value || hasRemoteModels.valu
 const prompt = computed(() => generationStore.prompt)
 const requiresLocalEngine = computed(() => endpoint.value?.providerId === 'local')
 const engineCanGenerate = computed(() => engineStore.status.state === 'ready' || engineStore.status.state === 'idle')
+const requiresRefImage = computed(
+  () =>
+    generationStore.generationMode === 'image-to-image' ||
+    generationStore.generationMode === 'image-to-video'
+)
 const generateDisabled = computed(
-  () => !prompt.value.trim() || (requiresLocalEngine.value && !engineCanGenerate.value)
+  () =>
+    !prompt.value.trim() ||
+    (requiresLocalEngine.value && !engineCanGenerate.value) ||
+    (requiresRefImage.value && generationStore.refImages.length === 0)
 )
 
 const isRemoteEndpoint = computed(() => endpoint.value?.executionMode === 'remote-async')
@@ -80,9 +88,7 @@ const isGenerating = computed(
   () => !!queueStore.activePhase || queueStore.items.some((q) => q.status === 'processing')
 )
 
-const showRefImages = computed(
-  () => generationStore.generationMode === 'image-to-image' || generationStore.generationMode === 'image-to-video'
-)
+const showRefImages = computed(() => requiresRefImage.value)
 
 // ---------------------------------------------------------------------------
 // Fetch endpoint schema on key change
@@ -129,15 +135,30 @@ async function handleSubmit(): Promise<void> {
     return
   }
 
+  if (requiresRefImage.value && generationStore.refImages.length === 0) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Reference image required',
+      detail: 'Add a reference image before submitting this generation mode.',
+      life: 3000
+    })
+    return
+  }
+
   const built = generationStore.buildParams()
   if (!built.params.prompt?.trim()) return
 
-  const genId = await window.api.submitGeneration(built)
   try {
+    const genId = await window.api.submitGeneration(built)
     const gen = await window.api.timeline.get(genId)
     if (gen) generationStore.addGeneration(gen)
-  } catch {
-    // ignore
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Generation failed',
+      detail: error instanceof Error ? error.message : String(error),
+      life: 4000
+    })
   }
 }
 

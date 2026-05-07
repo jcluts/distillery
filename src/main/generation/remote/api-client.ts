@@ -3,7 +3,13 @@ import * as path from 'path'
 import type { CanonicalRequestSchema } from '../../types'
 import type { ProviderConfig } from '../catalog/provider-config'
 import type { ProviderModel, SearchResult, SearchResultModel } from '../management/types'
-import { asRecord, asOptionalNumber, coerceGenerationMode, getString } from '../param-utils'
+import {
+  asRecord,
+  asOptionalNumber,
+  coerceGenerationMode,
+  getString,
+  inferModeInfo
+} from '../param-utils'
 import { getProviderAdapter } from './adapters/adapter-registry'
 import {
   extractHasMore,
@@ -207,6 +213,8 @@ export class ApiClient {
       name: normalized.name,
       description: normalized.description,
       type: normalized.type,
+      modes: normalized.modes,
+      outputType: normalized.outputType,
       providerId: this.config.providerId,
       requestSchema: {
         properties: {
@@ -254,6 +262,8 @@ export class ApiClient {
           name: model.name,
           description: model.description,
           type: model.type,
+          modes: model.modes,
+          outputType: model.outputType,
           providerId: this.config.providerId,
           requestSchema: {
             properties: {
@@ -735,12 +745,19 @@ export class ApiClient {
       getString(source.slug) ||
       getString(source.id) ||
       ''
+    const name = getString(source.name) || getString(source.title) || modelId
+    const description = getString(source.description) || undefined
+    const rawType = getString(source.type)
+    const type = coerceGenerationMode(rawType)
+    const capability = inferModeInfo(rawType ?? undefined, modelId, { name, description })
 
     return {
       modelId,
-      name: getString(source.name) || getString(source.title) || modelId,
-      description: getString(source.description) || undefined,
-      type: coerceGenerationMode(getString(source.type)),
+      name,
+      description,
+      type,
+      modes: capability.modes,
+      outputType: capability.outputType,
       runCount: asOptionalNumber(source.run_count) ?? undefined,
       raw
     }

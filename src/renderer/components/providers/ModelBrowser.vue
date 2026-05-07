@@ -31,6 +31,8 @@ function toPlainProviderModel(model: ProviderModel): ProviderModel {
     name: rawModel.name,
     description: rawModel.description,
     type: rawModel.type,
+    modes: rawModel.modes,
+    outputType: rawModel.outputType,
     providerId: rawModel.providerId,
     requestSchema: structuredClone(toRaw(rawModel.requestSchema)),
     modelIdentityId: rawModel.modelIdentityId
@@ -153,6 +155,8 @@ async function handleAdd(model: SearchResultModel | ProviderModel): Promise<void
         name: sourceModel.name,
         description: sourceModel.description,
         type: sourceModel.type,
+        modes: sourceModel.modes,
+        outputType: sourceModel.outputType,
         providerId: props.providerId,
         requestSchema: {
           properties: { prompt: { type: 'string', title: 'Prompt' } },
@@ -230,10 +234,11 @@ async function handleAdd(model: SearchResultModel | ProviderModel): Promise<void
               <span class="truncate text-muted">{{ model.modelId }}</span>
             </template>
             <Tag
-              v-if="model.type"
+              v-for="mode in model.modes ?? (model.type ? [model.type] : [])"
+              :key="mode"
               severity="secondary"
               class="ml-0.5 shrink-0 text-[10px]"
-              :value="model.type"
+              :value="mode"
             />
           </div>
 

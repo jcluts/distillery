@@ -34,7 +34,9 @@ export class RemoteApiProvider implements GenerationProvider {
       name: request.endpoint.displayName,
       providerId: request.endpoint.providerId,
       requestSchema: request.endpoint.requestSchema,
-      modelIdentityId: request.endpoint.modelIdentityId
+      modelIdentityId: request.endpoint.modelIdentityId,
+      modes: request.endpoint.modes,
+      outputType: request.endpoint.outputType
     }
 
     const generationResult = await apiClient.generate(
@@ -53,10 +55,9 @@ export class RemoteApiProvider implements GenerationProvider {
     }
 
     const outputs = await Promise.all(
-      (generationResult.outputs ?? []).map(async (output) => ({
-        localPath: await this.ensureLocalOutput(output.providerPath, request.outputDir),
-        mimeType: output.mimeType
-      }))
+      (generationResult.outputs ?? []).map(async (output) =>
+        this.ensureLocalOutput(output.providerPath, output.mimeType, request.outputDir)
+      )
     )
 
     return {
@@ -66,11 +67,19 @@ export class RemoteApiProvider implements GenerationProvider {
     }
   }
 
-  private async ensureLocalOutput(providerPath: string, outputDir: string): Promise<string> {
+  private async ensureLocalOutput(
+    providerPath: string,
+    mimeType: string | undefined,
+    outputDir: string
+  ): Promise<{ localPath: string; mimeType?: string }> {
     if (/^https?:\/\//i.test(providerPath)) {
-      return await downloadRemoteOutput(providerPath, outputDir)
+      const downloaded = await downloadRemoteOutput(providerPath, outputDir)
+      return {
+        localPath: downloaded.localPath,
+        mimeType: downloaded.mimeType ?? mimeType
+      }
     }
 
-    return providerPath
+    return { localPath: providerPath, mimeType }
   }
 }

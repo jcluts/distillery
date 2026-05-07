@@ -10,6 +10,8 @@ export interface SearchResultModel {
   name: string
   description?: string
   type?: GenerationMode
+  modes?: GenerationMode[]
+  outputType?: 'image' | 'video'
   runCount?: number
   raw?: unknown
 }
@@ -19,6 +21,8 @@ export interface ProviderModel {
   name: string
   description?: string
   type?: GenerationMode
+  modes?: GenerationMode[]
+  outputType?: 'image' | 'video'
   providerId: string
   requestSchema: CanonicalRequestSchema
   modelIdentityId?: string
