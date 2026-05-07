@@ -3,7 +3,14 @@ import { ref, watch } from 'vue'
 
 import { GRID_PAGE_SIZE } from '@/lib/constants'
 import { useCollectionStore } from '@/stores/collection'
-import type { MediaPage, MediaQuery, MediaRecord, MediaSortField, MediaStatus, MediaType } from '@/types'
+import type {
+  MediaPage,
+  MediaQuery,
+  MediaRecord,
+  MediaSortField,
+  MediaStatus,
+  MediaType
+} from '@/types'
 
 function normalizeSelection(items: MediaRecord[], selectedIds: Set<string>): Set<string> {
   if (selectedIds.size === 0) return selectedIds
@@ -60,6 +67,14 @@ export const useLibraryStore = defineStore('library', () => {
     selectedIds.value = normalizeSelection(items.value, selectedIds.value)
     if (focusedId.value && !items.value.some((item) => item.id === focusedId.value)) {
       focusedId.value = selectedIds.value.values().next().value ?? null
+    }
+  }
+
+  function prepareForGeneratedMedia(mediaType: MediaType | null): void {
+    page.value = 1
+
+    if (mediaType && mediaTypeFilter.value !== 'all' && mediaTypeFilter.value !== mediaType) {
+      mediaTypeFilter.value = 'all'
     }
   }
 
@@ -166,6 +181,7 @@ export const useLibraryStore = defineStore('library', () => {
     sortDirection,
     buildQuery,
     setItems,
+    prepareForGeneratedMedia,
     loadMedia,
     selectSingle,
     toggleSelect,

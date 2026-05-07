@@ -25,6 +25,20 @@ import { useRemovalStore } from '@/stores/removal'
 import { useUpscaleStore } from '@/stores/upscale'
 import { useUIStore } from '@/stores/ui'
 
+function inferGeneratedMediaType(event: GenerationResultEvent): 'image' | 'video' | null {
+  for (const output of event.outputs ?? []) {
+    const mimeType = output.mimeType?.toLowerCase() ?? ''
+    if (mimeType.startsWith('video/')) return 'video'
+    if (mimeType.startsWith('image/')) return 'image'
+
+    const providerPath = output.providerPath.toLowerCase()
+    if (/\.(mp4|webm|mov)(?:$|[?#])/.test(providerPath)) return 'video'
+    if (/\.(png|jpe?g|webp)(?:$|[?#])/.test(providerPath)) return 'image'
+  }
+
+  return null
+}
+
 export function useIpcSubscriptions(): void {
   const collectionStore = useCollectionStore()
   const engineStore = useEngineStore()
@@ -126,6 +140,9 @@ export function useIpcSubscriptions(): void {
       window.api.on('generation:result', (payload: unknown) => {
         const evt = payload as GenerationResultEvent
         if (!evt?.generationId) return
+        if (evt.success) {
+          libraryStore.prepareForGeneratedMedia(inferGeneratedMediaType(evt))
+        }
         void queueStore.loadQueue()
         void libraryStore.loadMedia()
         void generationStore.loadTimeline()
