@@ -4,6 +4,7 @@ import { getDatabase } from '../../db/connection'
 import * as generationRepo from '../../db/repositories/generations'
 import * as generationInputRepo from '../../db/repositories/generation-inputs'
 import * as mediaRepo from '../../db/repositories/media'
+import * as path from 'path'
 
 function toLibraryUrl(relativePath: string): string {
   const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '')
@@ -13,6 +14,15 @@ function toLibraryUrl(relativePath: string): string {
     .map((seg) => encodeURIComponent(seg))
     .join('/')
   return `distillery://library/${encoded}`
+}
+
+function toExternalUrl(absolutePath: string): string {
+  return `distillery://external/${encodeURIComponent(absolutePath)}`
+}
+
+function toPreviewUrl(filePath: string | null): string | null {
+  if (!filePath) return null
+  return path.isAbsolute(filePath) ? toExternalUrl(filePath) : toLibraryUrl(filePath)
 }
 
 export function registerTimelineHandlers(): void {
@@ -46,28 +56,22 @@ export function registerTimelineHandlers(): void {
     return toLibraryUrl(media.thumb_path)
   })
 
-  ipcMain.handle(
-    IPC_CHANNELS.TIMELINE_GET_THUMBNAILS_BATCH,
-    (_event, _genIds: string[]) => {
-      const result: Record<string, string> = {}
-      for (const genId of _genIds) {
-        const media = mediaRepo.getMediaByGenerationId(db, genId)
-        if (media?.thumb_path) {
-          result[genId] = toLibraryUrl(media.thumb_path)
-        }
+  ipcMain.handle(IPC_CHANNELS.TIMELINE_GET_THUMBNAILS_BATCH, (_event, _genIds: string[]) => {
+    const result: Record<string, string> = {}
+    for (const genId of _genIds) {
+      const media = mediaRepo.getMediaByGenerationId(db, genId)
+      if (media?.thumb_path) {
+        result[genId] = toLibraryUrl(media.thumb_path)
       }
-      return result
     }
-  )
+    return result
+  })
 
-  ipcMain.handle(
-    IPC_CHANNELS.TIMELINE_GET_INPUT_THUMBNAIL,
-    (_event, _inputId: string) => {
-      const input = generationInputRepo.getGenerationInputById(db, _inputId)
-      if (!input) return null
-      return toLibraryUrl(input.thumb_path)
-    }
-  )
+  ipcMain.handle(IPC_CHANNELS.TIMELINE_GET_INPUT_THUMBNAIL, (_event, _inputId: string) => {
+    const input = generationInputRepo.getGenerationInputById(db, _inputId)
+    if (!input) return null
+    return toLibraryUrl(input.thumb_path)
+  })
 
   ipcMain.handle(
     IPC_CHANNELS.TIMELINE_GET_INPUT_THUMBNAILS_BATCH,
@@ -83,18 +87,22 @@ export function registerTimelineHandlers(): void {
     }
   )
 
-  ipcMain.handle(
-    IPC_CHANNELS.TIMELINE_GET_GENERATION_INPUTS,
-    (_event, genId: string) => {
-      const inputs = generationInputRepo.getGenerationInputs(db, genId)
-      return inputs.map((i) => ({
+  ipcMain.handle(IPC_CHANNELS.TIMELINE_GET_GENERATION_INPUTS, (_event, genId: string) => {
+    const inputs = generationInputRepo.getGenerationInputs(db, genId)
+    return inputs.map((i) => {
+      const fallbackMediaPath = i.media_id
+        ? (mediaRepo.getMediaById(db, i.media_id)?.file_path ?? null)
+        : null
+
+      // ref_cache_path is intentionally left as a raw relative path.
+      // It is an internal main-process implementation detail used only by
+      // the generation pipeline. The renderer does not need it and must not
+      // pass it back as a ref_image_path.
+      return {
         ...i,
-        thumb_path: toLibraryUrl(i.thumb_path)
-        // ref_cache_path is intentionally left as a raw relative path.
-        // It is an internal main-process implementation detail used only by
-        // the generation pipeline.  The renderer does not need it and must
-        // not pass it back as a ref_image_path.
-      }))
-    }
-  )
+        thumb_path: toLibraryUrl(i.thumb_path),
+        preview_file_path: toPreviewUrl(i.original_path) ?? toPreviewUrl(fallbackMediaPath)
+      }
+    })
+  })
 }

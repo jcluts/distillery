@@ -206,6 +206,7 @@ export const useGenerationStore = defineStore('generation', () => {
               kind: 'id',
               id: input.media_id,
               thumbSrc: input.thumb_path,
+              fileSrc: input.preview_file_path ?? null,
               label: input.original_filename
             }
           ]
@@ -216,6 +217,7 @@ export const useGenerationStore = defineStore('generation', () => {
               kind: 'path',
               path: input.original_path,
               thumbSrc: input.thumb_path,
+              fileSrc: input.preview_file_path ?? null,
               label: input.original_filename
             }
           ]
