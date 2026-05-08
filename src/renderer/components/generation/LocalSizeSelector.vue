@@ -145,10 +145,10 @@ function handleAspect(ar: AspectRatioPreset) {
             :outlined="resolution.mp !== preset.mp"
             :severity="resolution.mp === preset.mp ? undefined : 'secondary'"
             :disabled="disabled"
-            class="w-full px-0"
+            class="w-full whitespace-nowrap px-0"
             @click="handleResolution(preset)"
           >
-            {{ formatMP(preset.mp) }} MP
+            {{ formatMP(preset.mp) }}
           </Button>
         </div>
       </PaneSection>

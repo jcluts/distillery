@@ -1,0 +1,82 @@
+{
+  "providerId": "gptproto",
+  "displayName": "GPTProto",
+  "enabled": true,
+  "executionMode": "remote-async",
+  "baseUrl": "https://gptproto.com",
+  "auth": {
+    "type": "key",
+    "header": "Authorization",
+    "prefix": "",
+    "settingsKey": "gptproto_api_key"
+  },
+  "browse": { "mode": "list" },
+  "request": {
+    "endpointTemplate": "/api/v3/images/generations"
+  },
+  "staticModels": [
+    {
+      "modelId": "doubao-seedream-5-0-260128",
+      "name": "Seedream 5",
+      "description": "Doubao Seedream 5 text-to-image generation through GPTProto.",
+      "modes": ["text-to-image"],
+      "outputType": "image",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "doubao-seedream-5-0-260128",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "response_format": {
+            "type": "string",
+            "title": "Response Format",
+            "default": "url",
+            "enum": ["url"],
+            "ui": { "hidden": true }
+          },
+          "size": {
+            "type": "string",
+            "title": "Size",
+            "default": "adaptive",
+            "enum": ["adaptive", "1024x1024", "2k", "4k"]
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed"
+          },
+          "guidance_scale": {
+            "type": "number",
+            "title": "Guidance Scale",
+            "default": 5.5,
+            "minimum": 1,
+            "maximum": 10,
+            "step": 0.1,
+            "ui": { "component": "slider" }
+          },
+          "watermark": {
+            "type": "boolean",
+            "title": "Watermark",
+            "default": true,
+            "ui": { "hidden": true }
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": [
+          "model",
+          "prompt",
+          "size",
+          "seed",
+          "guidance_scale",
+          "response_format",
+          "watermark"
+        ]
+      }
+    }
+  ]
+}

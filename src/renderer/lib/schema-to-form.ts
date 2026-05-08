@@ -49,6 +49,9 @@ const INTERNAL_FIELDS = new Set([
   'init_image_url',
   'input_image',
   'input_image_url',
+  'input_urls',
+  'first_frame_url',
+  'last_frame_url',
   'reference_image',
   'reference_images',
   'ref_images',
@@ -73,7 +76,11 @@ export function schemaToFormFields(
   const fields: FormFieldConfig[] = []
 
   for (const [name, prop] of Object.entries(properties)) {
-    if (prop.ui?.component === 'internal' || INTERNAL_FIELDS.has(name) || PANE_MANAGED_FIELDS.has(name)) {
+    if (
+      prop.ui?.component === 'internal' ||
+      INTERNAL_FIELDS.has(name) ||
+      PANE_MANAGED_FIELDS.has(name)
+    ) {
       continue
     }
     const field = propertyToField(name, prop, required.includes(name))

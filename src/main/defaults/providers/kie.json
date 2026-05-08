@@ -1,0 +1,191 @@
+{
+  "providerId": "kie",
+  "displayName": "KIE",
+  "enabled": true,
+  "executionMode": "remote-async",
+  "baseUrl": "https://api.kie.ai",
+  "auth": {
+    "type": "bearer",
+    "settingsKey": "kie_api_key"
+  },
+  "browse": { "mode": "list" },
+  "upload": {
+    "endpoint": "https://kieai.redpandaai.co/api/file-stream-upload",
+    "method": "multipart",
+    "fileField": "file",
+    "extraFields": {
+      "uploadPath": "images/user-uploads"
+    },
+    "responseField": "data.downloadUrl"
+  },
+  "async": {
+    "enabled": true,
+    "requestIdPath": "data.taskId",
+    "pollEndpoint": "/api/v1/jobs/recordInfo?taskId={requestId}",
+    "pollInterval": 3000,
+    "maxPollTime": 900000,
+    "statusPath": "data.state",
+    "completedValue": "success",
+    "failedValue": "fail",
+    "errorPath": "data.failMsg",
+    "outputsPath": "data.resultJson"
+  },
+  "request": {
+    "endpointTemplate": "/api/v1/jobs/createTask",
+    "payloadStyle": "nested-input",
+    "modelField": "model",
+    "inputField": "input"
+  },
+  "staticModels": [
+    {
+      "modelId": "bytedance/seedance-2-fast",
+      "name": "Seedance 2 Fast",
+      "description": "Bytedance Seedance 2.0 Fast text-to-video and image-to-video through KIE.",
+      "modes": ["text-to-video", "image-to-video"],
+      "outputType": "video",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "bytedance/seedance-2-fast",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "first_frame_url": {
+            "type": "string",
+            "title": "First Frame",
+            "ui": { "hidden": true }
+          },
+          "last_frame_url": {
+            "type": "string",
+            "title": "Last Frame",
+            "ui": { "hidden": true }
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution",
+            "default": "720p",
+            "enum": ["720p", "1080p"]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "title": "Aspect Ratio",
+            "default": "16:9",
+            "enum": ["16:9", "9:16", "1:1", "4:3", "3:4"]
+          },
+          "duration": {
+            "type": "integer",
+            "title": "Duration",
+            "default": 5,
+            "enum": [5, 10, 15]
+          },
+          "return_last_frame": {
+            "type": "boolean",
+            "title": "Return Last Frame",
+            "default": false
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "title": "Generate Audio",
+            "default": false
+          },
+          "web_search": {
+            "type": "boolean",
+            "title": "Web Search",
+            "default": false,
+            "ui": { "hidden": true }
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": [
+          "model",
+          "prompt",
+          "first_frame_url",
+          "last_frame_url",
+          "resolution",
+          "aspect_ratio",
+          "duration",
+          "return_last_frame",
+          "generate_audio",
+          "web_search"
+        ]
+      }
+    },
+    {
+      "modelId": "wan/2-7-image",
+      "name": "Wan 2.7 Image",
+      "description": "Wan 2.7 image generation and editing through KIE.",
+      "modes": ["text-to-image", "image-to-image"],
+      "outputType": "image",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "wan/2-7-image",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "input_urls": {
+            "type": "array",
+            "title": "Input Images",
+            "items": { "type": "string" },
+            "ui": { "hidden": true }
+          },
+          "n": {
+            "type": "integer",
+            "title": "Images",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 4
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution",
+            "default": "2K",
+            "enum": ["1K", "2K", "4K"]
+          },
+          "enable_sequential": {
+            "type": "boolean",
+            "title": "Sequential Generation",
+            "default": false
+          },
+          "thinking_mode": {
+            "type": "boolean",
+            "title": "Thinking Mode",
+            "default": false
+          },
+          "watermark": {
+            "type": "boolean",
+            "title": "Watermark",
+            "default": false,
+            "ui": { "hidden": true }
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed"
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": [
+          "model",
+          "prompt",
+          "input_urls",
+          "n",
+          "resolution",
+          "enable_sequential",
+          "thinking_mode",
+          "watermark",
+          "seed"
+        ]
+      }
+    }
+  ]
+}

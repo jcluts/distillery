@@ -6,11 +6,7 @@ export interface ProviderOutputArtifact {
   mimeType?: string
 }
 
-export function getByPath(
-  value: unknown,
-  pathExpression: string,
-  asRecord: AsRecord
-): unknown {
+export function getByPath(value: unknown, pathExpression: string, asRecord: AsRecord): unknown {
   if (!pathExpression) return value
 
   const parts = pathExpression.split('.').filter(Boolean)
@@ -107,6 +103,7 @@ export function normalizeOutputs(
     record.image ??
     record.videos ??
     record.video ??
+    record.resultUrls ??
     record.data ??
     record.response_url ??
     record.url ??

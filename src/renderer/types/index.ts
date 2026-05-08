@@ -380,6 +380,16 @@ export interface ProviderConfig {
   executionMode?: 'queued-local' | 'remote-async'
   adapter?: 'wavespeed' | 'fal' | 'replicate'
   feedFile?: string
+  staticModels?: Array<{
+    modelId: string
+    name: string
+    description?: string
+    type?: GenerationMode
+    modes?: GenerationMode[]
+    outputType?: 'image' | 'video'
+    requestSchema: unknown
+    modelIdentityId?: string
+  }>
   endpoints?: Array<{
     endpointKey: string
     providerModelId: string
@@ -417,6 +427,7 @@ export interface ProviderConfig {
     endpoint: string
     method: 'multipart' | 'json'
     fileField?: string
+    extraFields?: Record<string, string>
     responseField: string
   }
   async?: {
@@ -434,6 +445,9 @@ export interface ProviderConfig {
   }
   request?: {
     endpointTemplate?: string
+    payloadStyle?: 'flat' | 'nested-input'
+    modelField?: string
+    inputField?: string
   }
 }
 
@@ -601,6 +615,8 @@ export interface AppSettings {
   fal_api_key: string
   replicate_api_key: string
   wavespeed_api_key: string
+  gptproto_api_key: string
+  kie_api_key: string
 
   // Window
   window_x?: number

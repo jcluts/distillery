@@ -1,17 +1,37 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 
 import type {
+  CanonicalEndpointDef,
   GenerationMode,
   GenerationRecord,
-  GenerationSubmitInput
+  GenerationSubmitInput,
+  MediaRecord
 } from '@/types'
+import { useModelStore } from '@/stores/model'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type RefImage = { kind: 'id'; id: string } | { kind: 'path'; path: string }
+interface RefImagePreview {
+  thumbSrc?: string | null
+  fileSrc?: string | null
+  label?: string | null
+}
+
+export type RefImage =
+  | ({ kind: 'id'; id: string } & RefImagePreview)
+  | ({ kind: 'path'; path: string } & RefImagePreview)
+
+type StoredGenerationParams = Record<string, unknown> & {
+  mode?: unknown
+  model?: {
+    providerId?: unknown
+    providerModelId?: unknown
+    id?: unknown
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Store
@@ -82,6 +102,65 @@ export const useGenerationStore = defineStore('generation', () => {
     generationMode.value = mode
   }
 
+  function refImageFromMedia(media: MediaRecord): RefImage {
+    return {
+      kind: 'id',
+      id: media.id,
+      thumbSrc: media.thumb_path,
+      fileSrc: media.file_path,
+      label: media.file_name
+    }
+  }
+
+  function parseStoredParams(gen: GenerationRecord): StoredGenerationParams {
+    if (!gen.params_json) return {}
+    try {
+      const parsed = JSON.parse(gen.params_json) as unknown
+      return parsed && typeof parsed === 'object' ? (parsed as StoredGenerationParams) : {}
+    } catch {
+      return {}
+    }
+  }
+
+  function isGenerationMode(value: unknown): value is GenerationMode {
+    return (
+      value === 'text-to-image' ||
+      value === 'image-to-image' ||
+      value === 'text-to-video' ||
+      value === 'image-to-video'
+    )
+  }
+
+  function findEndpointForGeneration(
+    endpoints: CanonicalEndpointDef[],
+    gen: GenerationRecord,
+    stored: StoredGenerationParams,
+    mode: GenerationMode
+  ): CanonicalEndpointDef | null {
+    const providerId =
+      typeof stored.model?.providerId === 'string' ? stored.model.providerId : gen.provider
+    const providerModelId =
+      typeof stored.model?.providerModelId === 'string'
+        ? stored.model.providerModelId
+        : gen.model_file
+
+    return (
+      endpoints.find(
+        (ep) =>
+          ep.providerId === providerId &&
+          ep.providerModelId === providerModelId &&
+          ep.modes.includes(mode)
+      ) ??
+      endpoints.find(
+        (ep) =>
+          ep.providerId === providerId &&
+          ep.modelIdentityId === gen.model_identity_id &&
+          ep.modes.includes(mode)
+      ) ??
+      null
+    )
+  }
+
   // -- Reload form from a previous generation --
   async function reloadFromGeneration(id: string): Promise<void> {
     const [gen, inputs] = await Promise.all([
@@ -90,22 +169,56 @@ export const useGenerationStore = defineStore('generation', () => {
     ])
     if (!gen) return
 
-    const vals: Record<string, unknown> = {}
+    const stored = parseStoredParams(gen)
+    const restoredMode = isGenerationMode(stored.mode) ? stored.mode : generationMode.value
+    const endpoints = await window.api.listGenerationEndpoints()
+    const restoredEndpoint = findEndpointForGeneration(endpoints, gen, stored, restoredMode)
+
+    generationMode.value = restoredMode
+    if (restoredEndpoint) {
+      endpointKey.value = restoredEndpoint.endpointKey
+      if (restoredEndpoint.providerId === 'local') {
+        void useModelStore().setActiveModel(restoredEndpoint.providerModelId)
+      }
+    }
+
+    await nextTick()
+
+    const vals: Record<string, unknown> = { ...stored }
+    delete vals.model
+    delete vals.mode
+
     if (gen.prompt != null) vals.prompt = gen.prompt
-    if (gen.width && gen.height) vals.size = `${gen.width}*${gen.height}`
-    if (gen.steps != null) vals.steps = gen.steps
-    if (gen.guidance != null) vals.guidance = gen.guidance
-    if (gen.sampling_method != null) vals.sampling_method = gen.sampling_method
+    if (gen.width && gen.height && vals.size == null) vals.size = `${gen.width}*${gen.height}`
+    if (gen.steps != null && vals.steps == null) vals.steps = gen.steps
+    if (gen.guidance != null && vals.guidance == null) vals.guidance = gen.guidance
+    if (gen.sampling_method != null && vals.sampling_method == null) {
+      vals.sampling_method = gen.sampling_method
+    }
 
     const restored: RefImage[] = inputs
       .slice()
       .sort((a, b) => a.position - b.position)
       .flatMap((input): RefImage[] => {
         if (input.source_type === 'library' && input.media_id) {
-          return [{ kind: 'id', id: input.media_id }]
+          return [
+            {
+              kind: 'id',
+              id: input.media_id,
+              thumbSrc: input.thumb_path,
+              label: input.original_filename
+            }
+          ]
         }
         if (input.source_type === 'external' && input.original_path) {
-          return [{ kind: 'path', path: input.original_path }]
+          return [
+            {
+              kind: 'path',
+              path: input.original_path,
+              thumbSrc: input.thumb_path,
+              label: input.original_filename
+            }
+          ]
         }
         return []
       })
@@ -177,6 +290,7 @@ export const useGenerationStore = defineStore('generation', () => {
     setFormValues,
     resetFormValues,
     addRefImage,
+    refImageFromMedia,
     removeRefImageAt,
     replaceRefImageAt,
     reorderRefImages,

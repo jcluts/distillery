@@ -431,6 +431,8 @@ export interface AppSettings {
   fal_api_key: string
   replicate_api_key: string
   wavespeed_api_key: string
+  gptproto_api_key: string
+  kie_api_key: string
   window_x?: number
   window_y?: number
   window_width?: number

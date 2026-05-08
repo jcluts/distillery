@@ -6,6 +6,17 @@ import {
 } from '../../config/config-file-utils'
 import type { GenerationMode } from '../../types'
 
+export interface ProviderStaticModelConfig {
+  modelId: string
+  name: string
+  description?: string
+  type?: GenerationMode
+  modes?: GenerationMode[]
+  outputType?: 'image' | 'video'
+  requestSchema: unknown
+  modelIdentityId?: string
+}
+
 export interface ProviderEndpointConfig {
   endpointKey: string
   providerModelId: string
@@ -26,6 +37,7 @@ export interface ProviderConfig {
   executionMode?: 'queued-local' | 'remote-async'
   adapter?: 'wavespeed' | 'fal' | 'replicate'
   feedFile?: string
+  staticModels?: ProviderStaticModelConfig[]
   endpoints?: ProviderEndpointConfig[]
   baseUrl?: string
   auth?: {
@@ -52,6 +64,7 @@ export interface ProviderConfig {
     endpoint: string
     method: 'multipart' | 'json'
     fileField?: string
+    extraFields?: Record<string, string>
     responseField: string
   }
   async?: {
@@ -69,6 +82,9 @@ export interface ProviderConfig {
   }
   request?: {
     endpointTemplate?: string
+    payloadStyle?: 'flat' | 'nested-input'
+    modelField?: string
+    inputField?: string
   }
 }
 
@@ -111,6 +127,7 @@ function mergeProviderConfig(base: ProviderConfig, override: ProviderConfig): Pr
       ...(base.request ?? {}),
       ...(override.request ?? {})
     } as ProviderConfig['request'],
+    staticModels: override.staticModels ?? base.staticModels,
     endpoints: override.endpoints ?? base.endpoints
   }
 }

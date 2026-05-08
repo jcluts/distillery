@@ -17,6 +17,9 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'init_image_url',
   'input_image',
   'input_image_url',
+  'input_urls',
+  'first_frame_url',
+  'last_frame_url',
   'reference_image',
   'reference_images',
   'ref_images'

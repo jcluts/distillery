@@ -95,16 +95,30 @@ const requiresRefImage = computed(
     generationStore.generationMode === 'image-to-image' ||
     generationStore.generationMode === 'image-to-video'
 )
+const isRemoteEndpoint = computed(() => endpoint.value?.executionMode === 'remote-async')
+const apiProvider = computed(() => {
+  const pid = endpoint.value?.providerId
+  if (!pid) return null
+  return providerStore.providers.find((p) => p.providerId === pid) ?? null
+})
+const apiKeyPresent = computed(() => {
+  const pid = endpoint.value?.providerId
+  return pid ? (providerStore.hasApiKey[pid] ?? false) : false
+})
+const apiConnStatus = computed(() => {
+  const pid = endpoint.value?.providerId
+  return pid ? providerStore.connectionStatus[pid] : undefined
+})
 const generateDisabled = computed(
   () =>
     !prompt.value.trim() ||
     (requiresLocalEngine.value && !engineCanGenerate.value) ||
     (isLocalEndpoint.value && !localModelReady.value) ||
     !sdCppCanGenerate.value ||
+    (isRemoteEndpoint.value && !apiKeyPresent.value) ||
     (requiresRefImage.value && generationStore.refImages.length === 0)
 )
 
-const isRemoteEndpoint = computed(() => endpoint.value?.executionMode === 'remote-async')
 const isGenerating = computed(
   () => !!queueStore.activePhase || queueStore.items.some((q) => q.status === 'processing')
 )
@@ -229,24 +243,7 @@ async function handleSavePrompt(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// API status (inline for remote endpoints)
-// ---------------------------------------------------------------------------
-
-const apiProvider = computed(() => {
-  const pid = endpoint.value?.providerId
-  if (!pid) return null
-  return providerStore.providers.find((p) => p.providerId === pid) ?? null
-})
-
-const apiKeyPresent = computed(() => {
-  const pid = endpoint.value?.providerId
-  return pid ? (providerStore.hasApiKey[pid] ?? false) : false
-})
-
-const apiConnStatus = computed(() => {
-  const pid = endpoint.value?.providerId
-  return pid ? providerStore.connectionStatus[pid] : undefined
-})
+// API status is rendered inline for remote endpoints.
 </script>
 
 <template>

@@ -38,17 +38,25 @@ function openPreview(src: string | null, alt: string): void {
 // Image resolution
 // ---------------------------------------------------------------------------
 
-function resolveImage(img: RefImage): { thumbSrc: string | null; fileSrc: string | null; label: string } {
+function resolveImage(img: RefImage): {
+  thumbSrc: string | null
+  fileSrc: string | null
+  label: string
+} {
   if (img.kind === 'id') {
     const media = libraryStore.items.find((m) => m.id === img.id) ?? null
     return {
-      thumbSrc: media?.thumb_path ?? null,
-      fileSrc: media?.file_path ?? null,
-      label: media?.file_name ?? 'Reference'
+      thumbSrc: media?.thumb_path ?? img.thumbSrc ?? null,
+      fileSrc: media?.file_path ?? img.fileSrc ?? null,
+      label: media?.file_name ?? img.label ?? 'Reference'
     }
   }
   const fileName = img.path.split(/[\\/]/).pop() ?? 'File'
-  return { thumbSrc: null, fileSrc: null, label: fileName }
+  return {
+    thumbSrc: img.thumbSrc ?? null,
+    fileSrc: img.fileSrc ?? null,
+    label: img.label ?? fileName
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -63,7 +71,7 @@ async function openFilePicker(): Promise<void> {
   })
   if (!paths || paths.length === 0) return
   const imported = await window.api.importMedia(paths)
-  for (const m of imported) generationStore.addRefImage({ kind: 'id', id: m.id })
+  for (const m of imported) generationStore.addRefImage(generationStore.refImageFromMedia(m))
 }
 
 // ---------------------------------------------------------------------------
@@ -78,18 +86,25 @@ function extractDroppedFilePaths(e: DragEvent): string[] {
 }
 
 async function handleMediaDrop(e: DragEvent, replaceIndex?: number): Promise<void> {
+  const toRefImage = (id: string): RefImage => {
+    const media = libraryStore.items.find((m) => m.id === id)
+    return media ? generationStore.refImageFromMedia(media) : { kind: 'id', id }
+  }
+
   // Multi-media drop
   const multiIds = e.dataTransfer?.getData('application/x-distillery-media-ids')
   if (multiIds) {
     try {
       const ids = JSON.parse(multiIds) as string[]
       if (replaceIndex !== undefined && ids[0]) {
-        generationStore.replaceRefImageAt(replaceIndex, { kind: 'id', id: ids[0] })
-        for (let i = 1; i < ids.length; i++) generationStore.addRefImage({ kind: 'id', id: ids[i] })
+        generationStore.replaceRefImageAt(replaceIndex, toRefImage(ids[0]))
+        for (let i = 1; i < ids.length; i++) generationStore.addRefImage(toRefImage(ids[i]))
       } else {
-        for (const id of ids) generationStore.addRefImage({ kind: 'id', id })
+        for (const id of ids) generationStore.addRefImage(toRefImage(id))
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return
   }
 
@@ -97,9 +112,9 @@ async function handleMediaDrop(e: DragEvent, replaceIndex?: number): Promise<voi
   const mediaId = e.dataTransfer?.getData('application/x-distillery-media-id')
   if (mediaId) {
     if (replaceIndex !== undefined) {
-      generationStore.replaceRefImageAt(replaceIndex, { kind: 'id', id: mediaId })
+      generationStore.replaceRefImageAt(replaceIndex, toRefImage(mediaId))
     } else {
-      generationStore.addRefImage({ kind: 'id', id: mediaId })
+      generationStore.addRefImage(toRefImage(mediaId))
     }
     return
   }
@@ -109,10 +124,15 @@ async function handleMediaDrop(e: DragEvent, replaceIndex?: number): Promise<voi
   if (filePaths.length > 0) {
     const imported = await window.api.importMedia(filePaths)
     if (replaceIndex !== undefined && imported[0]) {
-      generationStore.replaceRefImageAt(replaceIndex, { kind: 'id', id: imported[0].id })
-      for (let i = 1; i < imported.length; i++) generationStore.addRefImage({ kind: 'id', id: imported[i].id })
+      generationStore.replaceRefImageAt(
+        replaceIndex,
+        generationStore.refImageFromMedia(imported[0])
+      )
+      for (let i = 1; i < imported.length; i++) {
+        generationStore.addRefImage(generationStore.refImageFromMedia(imported[i]))
+      }
     } else {
-      for (const m of imported) generationStore.addRefImage({ kind: 'id', id: m.id })
+      for (const m of imported) generationStore.addRefImage(generationStore.refImageFromMedia(m))
     }
   }
 }
@@ -257,7 +277,12 @@ const isExternalDrag = computed(() => draggingIndex.value === null)
         @dragover="onThumbDragOver(idx, $event)"
         @dragleave="onThumbDragLeave(idx, $event)"
         @drop="onThumbDrop(idx, $event)"
-        @click.stop="openPreview(resolveImage(img).fileSrc ?? resolveImage(img).thumbSrc, resolveImage(img).label)"
+        @click.stop="
+          openPreview(
+            resolveImage(img).fileSrc ?? resolveImage(img).thumbSrc,
+            resolveImage(img).label
+          )
+        "
       >
         <img
           v-if="resolveImage(img).thumbSrc"
@@ -271,7 +296,9 @@ const isExternalDrag = computed(() => draggingIndex.value === null)
         </div>
 
         <!-- Hover overlay -->
-        <div class="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+        <div
+          class="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20"
+        />
 
         <!-- Remove button -->
         <Button
@@ -279,11 +306,12 @@ const isExternalDrag = computed(() => draggingIndex.value === null)
           text
           rounded
           severity="secondary"
-          class="!absolute -right-1.5 -top-1.5 !h-5 !w-5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+          class="!absolute right-1 top-1 z-10 !h-6 !w-6 !bg-black/70 !p-0 !text-white opacity-0 shadow-sm transition-opacity hover:!bg-black/85 focus:opacity-100 group-hover:opacity-100"
           :aria-label="`Remove ${resolveImage(img).label}`"
+          :title="`Remove ${resolveImage(img).label}`"
           @click.stop="generationStore.removeRefImageAt(idx)"
         >
-          <Icon icon="lucide:x" class="size-2.5" />
+          <Icon icon="lucide:x" class="size-3.5" />
         </Button>
       </div>
 

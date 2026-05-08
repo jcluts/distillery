@@ -7,6 +7,7 @@ import { useUIStore } from '@/stores/ui'
 
 const uiStore = useUIStore()
 const isMaximized = ref(false)
+const isMac = navigator.platform.toLowerCase().includes('mac')
 
 const dragStyle = { WebkitAppRegion: 'drag' as const }
 const noDragStyle = { WebkitAppRegion: 'no-drag' as const }
@@ -50,7 +51,7 @@ onBeforeUnmount(() => {
     @dblclick="handleToggleMaximize"
   >
     <div class="min-w-0 flex-1">
-      <span class="text-sm font-medium">Distillery</span>
+      <span v-if="!isMac" class="text-sm font-medium">Distillery</span>
     </div>
 
     <!-- Actions (Models, Settings) -->

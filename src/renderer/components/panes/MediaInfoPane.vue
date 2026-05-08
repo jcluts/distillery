@@ -243,7 +243,7 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
           <Button
             v-tooltip="'Selected'"
             text
-            plain
+            :plain="currentStatus !== 'selected'"
             :severity="currentStatus === 'selected' ? undefined : 'secondary'"
             size="small"
             aria-label="Selected"
@@ -254,7 +254,7 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
           <Button
             v-tooltip="'Rejected'"
             text
-            plain
+            :plain="currentStatus !== 'rejected'"
             :severity="currentStatus === 'rejected' ? 'danger' : 'secondary'"
             size="small"
             aria-label="Rejected"
@@ -265,7 +265,7 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
           <Button
             v-tooltip="'Clear'"
             text
-            plain
+            :plain="currentStatus !== 'unmarked'"
             severity="secondary"
             size="small"
             aria-label="Clear status"
@@ -360,12 +360,7 @@ const hasSelection = computed(() => media.value !== null || isMulti.value)
       </p>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <Button
-            label="Cancel"
-            outlined
-            severity="secondary"
-            @click="deleteDialogOpen = false"
-          />
+          <Button label="Cancel" outlined severity="secondary" @click="deleteDialogOpen = false" />
           <Button label="Delete" severity="danger" @click="executeDelete" />
         </div>
       </template>

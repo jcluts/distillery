@@ -6,6 +6,7 @@ import * as settingsRepo from '../../db/repositories/settings'
 import type { AppSettings } from '../../types'
 import type { ModelIdentityService } from '../catalog/model-identity-service'
 import type { ProviderConfigService, ProviderConfig } from '../catalog/provider-config'
+import { normalizeRequestSchema } from '../catalog/schema-normalizer'
 import { ApiClient } from '../remote/api-client'
 import type { ProviderModel, SearchResult } from './types'
 
@@ -70,7 +71,10 @@ export class ProviderManager {
   getApiKey(providerId: string): string {
     const provider = this.getProviderConfig(providerId)
     if (!provider?.auth?.settingsKey) return ''
-    return settingsRepo.getSetting(this.db, provider.auth.settingsKey as keyof AppSettings) as string
+    return settingsRepo.getSetting(
+      this.db,
+      provider.auth.settingsKey as keyof AppSettings
+    ) as string
   }
 
   isProviderConfigured(providerId: string): boolean {
@@ -78,6 +82,30 @@ export class ProviderManager {
   }
 
   async searchModels(providerId: string, query: string): Promise<SearchResult> {
+    const staticModels = this.getStaticModels(providerId)
+    if (staticModels.length > 0) {
+      const normalizedQuery = query.trim().toLowerCase()
+      return {
+        models: staticModels
+          .filter((model) => {
+            if (!normalizedQuery) return true
+            return (
+              model.name.toLowerCase().includes(normalizedQuery) ||
+              model.modelId.toLowerCase().includes(normalizedQuery) ||
+              model.description?.toLowerCase().includes(normalizedQuery)
+            )
+          })
+          .map((model) => ({
+            modelId: model.modelId,
+            name: model.name,
+            description: model.description,
+            type: model.type,
+            modes: model.modes,
+            outputType: model.outputType
+          }))
+      }
+    }
+
     if (this.isAuthMissing(providerId)) {
       return { models: [] }
     }
@@ -86,6 +114,11 @@ export class ProviderManager {
   }
 
   async listModels(providerId: string): Promise<ProviderModel[]> {
+    const staticModels = this.getStaticModels(providerId)
+    if (staticModels.length > 0) {
+      return staticModels.map((model) => this.attachIdentity(model))
+    }
+
     if (this.isAuthMissing(providerId)) {
       return []
     }
@@ -95,6 +128,11 @@ export class ProviderManager {
   }
 
   async fetchModelDetail(providerId: string, modelId: string): Promise<ProviderModel | null> {
+    const staticModel = this.getStaticModels(providerId).find((model) => model.modelId === modelId)
+    if (staticModel) {
+      return this.attachIdentity(staticModel)
+    }
+
     if (this.isAuthMissing(providerId)) {
       return null
     }
@@ -133,7 +171,9 @@ export class ProviderManager {
       if (!provider) return { valid: false, error: `Unknown provider: ${providerId}` }
 
       const client = this.createApiClient(providerId)
-      if (provider.browse?.mode === 'list') {
+      if (this.getStaticModels(providerId).length > 0) {
+        this.getApiKey(providerId)
+      } else if (provider.browse?.mode === 'list') {
         await client.fetchModelList()
       } else {
         await client.searchModels('flux')
@@ -171,6 +211,23 @@ export class ProviderManager {
     if (model.modelIdentityId) return model
     const identityId = this.identityService.findIdentityId(model.modelId, model.providerId)
     return identityId ? { ...model, modelIdentityId: identityId } : model
+  }
+
+  private getStaticModels(providerId: string): ProviderModel[] {
+    const provider = this.getProviderConfig(providerId)
+    if (!provider?.staticModels?.length) return []
+
+    return provider.staticModels.map((model) => ({
+      modelId: model.modelId,
+      name: model.name,
+      description: model.description,
+      type: model.type,
+      modes: model.modes,
+      outputType: model.outputType,
+      providerId,
+      requestSchema: normalizeRequestSchema(model.requestSchema),
+      modelIdentityId: model.modelIdentityId
+    }))
   }
 
   private getProviderModelsDir(): string {

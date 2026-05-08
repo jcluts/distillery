@@ -31,6 +31,9 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'init_image_url',
   'input_image',
   'input_image_url',
+  'input_urls',
+  'first_frame_url',
+  'last_frame_url',
   'reference_image',
   'reference_images',
   'ref_images'
@@ -64,7 +67,7 @@ export class ApiClient {
 
     const headerName = this.config.auth.header || 'Authorization'
     const authPrefix =
-      this.config.auth.prefix || (this.config.auth.type === 'key' ? 'Key' : 'Bearer')
+      this.config.auth.prefix ?? (this.config.auth.type === 'key' ? 'Key' : 'Bearer')
     const token = authPrefix ? `${authPrefix} ${this.apiKey}` : this.apiKey
 
     return {
@@ -293,6 +296,11 @@ export class ApiClient {
     const endpointUrl = this.buildUrl(uploadConfig.endpoint)
 
     if (uploadConfig.method === 'json') {
+      const body = {
+        filePath,
+        ...(uploadConfig.extraFields ?? {})
+      }
+
       const response = await fetch(endpointUrl, {
         method: 'POST',
         headers: {
@@ -300,7 +308,7 @@ export class ApiClient {
           'Content-Type': 'application/json',
           ...this.buildAuthHeaders()
         },
-        body: JSON.stringify({ filePath })
+        body: JSON.stringify(body)
       })
 
       if (!response.ok) {
@@ -319,6 +327,9 @@ export class ApiClient {
     const fileBuffer = await fs.promises.readFile(filePath)
     const fileName = path.basename(filePath)
     form.append(uploadConfig.fileField || 'file', new Blob([fileBuffer]), fileName)
+    for (const [key, value] of Object.entries(uploadConfig.extraFields ?? {})) {
+      form.append(key, value)
+    }
 
     const response = await fetch(endpointUrl, {
       method: 'POST',
@@ -367,7 +378,7 @@ export class ApiClient {
 
       if (imageFields.length > 0) {
         for (const { name, isArray } of imageFields) {
-          preparedParams[name] = isArray ? uploadedUrls : uploadedUrls[0]
+          preparedParams[name] = this.resolveUploadedImageValue(name, isArray, uploadedUrls)
         }
       } else {
         preparedParams.image_urls = uploadedUrls
@@ -389,12 +400,13 @@ export class ApiClient {
     }
 
     const endpoint = this.buildUrl(requestEndpointTemplate.replace('{model_id}', model.modelId))
+    const requestPayload = this.buildRequestPayload(model, preparedParams)
 
     this.logInfo('generate:request', {
       endpoint,
       providerId: this.config.providerId,
       modelId: model.modelId,
-      payloadSummary: this.summarizeParams(preparedParams)
+      payloadSummary: this.summarizeParams(requestPayload)
     })
 
     const response = await fetch(endpoint, {
@@ -404,7 +416,7 @@ export class ApiClient {
         'Content-Type': 'application/json',
         ...this.buildAuthHeaders()
       },
-      body: JSON.stringify(preparedParams)
+      body: JSON.stringify(requestPayload)
     })
 
     if (!response.ok) {
@@ -416,7 +428,7 @@ export class ApiClient {
         status: response.status,
         statusText: response.statusText,
         responseBody: this.truncate(errorBody, MAX_LOG_BODY_CHARS),
-        payloadSummary: this.summarizeParams(preparedParams)
+        payloadSummary: this.summarizeParams(requestPayload)
       })
       throw new Error(
         `Generation request failed: ${response.status} ${response.statusText} ${errorBody}`.trim()
@@ -589,8 +601,16 @@ export class ApiClient {
   }
 
   private async resolveAsyncOutputs(value: unknown): Promise<unknown> {
-    if (typeof value !== 'string' || !/^https?:\/\//i.test(value)) {
+    if (typeof value !== 'string') {
       return value
+    }
+
+    if (!/^https?:\/\//i.test(value)) {
+      try {
+        return JSON.parse(value) as unknown
+      } catch {
+        return value
+      }
     }
 
     try {
@@ -653,6 +673,48 @@ export class ApiClient {
     }
 
     return result
+  }
+
+  private resolveUploadedImageValue(
+    fieldName: string,
+    isArray: boolean,
+    uploadedUrls: string[]
+  ): string | string[] {
+    if (isArray) return uploadedUrls
+    if (fieldName === 'last_frame_url') {
+      return uploadedUrls[uploadedUrls.length - 1] ?? uploadedUrls[0]
+    }
+    return uploadedUrls[0]
+  }
+
+  private buildRequestPayload(
+    model: ProviderModel,
+    params: Record<string, unknown>
+  ): Record<string, unknown> {
+    if (this.config.request?.payloadStyle !== 'nested-input') {
+      return params
+    }
+
+    const modelField = this.config.request.modelField ?? 'model'
+    const inputField = this.config.request.inputField ?? 'input'
+    const { [modelField]: configuredModel, callBackUrl, ...inputParams } = params
+    const allowedInputKeys = new Set(Object.keys(model.requestSchema.properties ?? {}))
+    const filteredInputParams =
+      allowedInputKeys.size > 0
+        ? Object.fromEntries(
+            Object.entries(inputParams).filter(([key]) => allowedInputKeys.has(key))
+          )
+        : inputParams
+    const payload: Record<string, unknown> = {
+      [modelField]: configuredModel || model.modelId,
+      [inputField]: filteredInputParams
+    }
+
+    if (typeof callBackUrl === 'string' && callBackUrl.trim()) {
+      payload.callBackUrl = callBackUrl.trim()
+    }
+
+    return payload
   }
 
   private logInfo(event: string, details?: Record<string, unknown>): void {

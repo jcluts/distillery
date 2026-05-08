@@ -7,5 +7,4 @@ out
 auto-imports.d.ts
 components.d.ts
 agent_docs
-/resources/
 .claude

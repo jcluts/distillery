@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import Tag from 'primevue/tag'
 
 import { formatDuration } from '@/lib/media'
 import type { MediaRecord } from '@/types'
@@ -75,20 +76,25 @@ const ringClass = computed(() => {
         draggable="false"
       />
 
-      <div v-else class="absolute inset-0 flex items-center justify-center text-xs text-muted-color">
+      <div
+        v-else
+        class="absolute inset-0 flex items-center justify-center text-xs text-muted-color"
+      >
         {{ index + 1 }}
       </div>
 
-      <div
+      <Tag
         v-if="media.status"
-        class="absolute flex items-center justify-center rounded-full shadow-sm bg-primary text-primary-contrast"
+        rounded
+        :severity="media.status === 'rejected' ? 'danger' : undefined"
+        class="absolute flex items-center justify-center shadow-sm !p-0"
         :class="[overlayClasses.statusPosition, overlayClasses.statusBadgeSize]"
       >
         <Icon
           :icon="media.status === 'selected' ? 'lucide:check' : 'lucide:x'"
           :class="overlayClasses.statusIconSize"
         />
-      </div>
+      </Tag>
 
       <div
         v-if="starCount > 0"

@@ -5,6 +5,7 @@ import InputText from 'primevue/inputtext'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import SelectButton from 'primevue/selectbutton'
+import StarRating from '@/components/shared/StarRating.vue'
 import { useLibraryStore } from '@/stores/library'
 import type { MediaStatus, MediaType } from '@/types'
 
@@ -16,9 +17,9 @@ const mediaTypeOptions: { label: string; value: 'all' | MediaType; icon: string 
   { label: 'Video', value: 'video', icon: 'lucide:video' }
 ]
 
-function toggleRating(value: number): void {
-  libraryStore.ratingFilter = libraryStore.ratingFilter === value ? 0 : value
-  libraryStore.loadMedia()
+function setRatingFilter(value: number): void {
+  libraryStore.ratingFilter = value
+  void libraryStore.loadMedia()
 }
 
 function toggleStatus(status: MediaStatus | 'unmarked' | 'all'): void {
@@ -41,21 +42,14 @@ function setMediaTypeFilter(value: 'all' | MediaType): void {
 <template>
   <div class="flex items-center gap-10 px-3 h-10 bg-surface-950">
     <!-- Rating filter -->
-    <div class="flex items-center gap-0.5">
-      <Button
-        v-for="value in 5"
-        :key="value"
-        v-tooltip="`${value}+ stars`"
-        text
-        plain
-        :severity="value <= libraryStore.ratingFilter ? undefined : 'secondary'"
-        size="small"
-        :aria-label="`Filter ${value}+ stars`"
-        @click="toggleRating(value)"
-      >
-        <Icon icon="lucide:star" class="size-4" />
-      </Button>
-    </div>
+    <StarRating
+      v-tooltip="
+        libraryStore.ratingFilter > 0 ? `${libraryStore.ratingFilter}+ stars` : 'All ratings'
+      "
+      :rating="libraryStore.ratingFilter"
+      :show-clear="false"
+      @change="setRatingFilter"
+    />
 
     <!-- Status filter -->
     <div class="flex items-center gap-0.5">

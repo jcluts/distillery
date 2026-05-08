@@ -14,7 +14,9 @@ import { useModelBrowsingStore } from '@/stores/model-browsing'
 const KEY_URLS: Record<string, string> = {
   fal: 'https://fal.ai/dashboard/keys',
   replicate: 'https://replicate.com/account/api-tokens',
-  wavespeed: 'https://wavespeed.ai/account/api-keys'
+  wavespeed: 'https://wavespeed.ai/account/api-keys',
+  gptproto: 'https://gptproto.com/dashboard',
+  kie: 'https://kie.ai/api-key'
 }
 
 const props = defineProps<{ providerId: string }>()
@@ -32,6 +34,8 @@ const hasStoredKey = computed(() => providerStore.hasApiKey[props.providerId] ??
 const addedModelIds = computed(() => new Set(userModels.value.map((m) => m.modelId)))
 const keyUrl = computed(() => KEY_URLS[props.providerId])
 const browseMode = computed(() => provider.value?.browse?.mode ?? 'search')
+const hasStaticModels = computed(() => (provider.value?.staticModels?.length ?? 0) > 0)
+const canBrowseModels = computed(() => hasStoredKey.value || hasStaticModels.value)
 
 // Local editing state
 const apiKey = ref('')
@@ -197,7 +201,7 @@ async function handleRemoveModel(modelId: string): Promise<void> {
           :provider-id="providerId"
           :browse-mode="browseMode"
           :added-model-ids="addedModelIds"
-          :has-api-key="hasStoredKey"
+          :has-api-key="canBrowseModels"
         />
       </div>
 

@@ -1,33 +1,32 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
+import Rating from 'primevue/rating'
 
-defineProps<{
-  rating: number
-}>()
+withDefaults(
+  defineProps<{
+    rating: number
+    showClear?: boolean
+  }>(),
+  {
+    showClear: true
+  }
+)
 
 const emit = defineEmits<{
   change: [rating: number]
 }>()
+
+function handleRatingUpdate(value: number | null): void {
+  emit('change', value ?? 0)
+}
 </script>
 
 <template>
-  <div class="flex items-center gap-0.5">
+  <div class="flex items-center gap-1">
+    <Rating :model-value="rating" :stars="5" @update:model-value="handleRatingUpdate" />
     <Button
-      v-for="value in 5"
-      :key="value"
-      v-tooltip="`Rate ${value}`"
-      text
-      plain
-      :severity="value <= rating ? undefined : 'secondary'"
-      size="small"
-      :aria-label="`Set rating ${value}`"
-      @click="emit('change', value)"
-    >
-      <Icon icon="lucide:star" class="size-4" />
-    </Button>
-    <Button
-      v-if="rating > 0"
+      v-if="showClear && rating > 0"
       v-tooltip="'Clear rating'"
       text
       plain

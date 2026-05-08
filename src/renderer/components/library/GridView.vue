@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { GRID_BUFFER_ROWS } from '@/lib/constants'
 import { useGridSelection } from '@/composables/useGridSelection'
+import { useLibraryMediaDrag } from '@/composables/useLibraryMediaDrag'
 import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
 import MediaThumbnail from '@/components/library/MediaThumbnail.vue'
@@ -14,6 +15,7 @@ const GRID_GAP = 12
 const libraryStore = useLibraryStore()
 const uiStore = useUIStore()
 const { handleClick, handleDoubleClick } = useGridSelection()
+const { handleDragStart } = useLibraryMediaDrag()
 
 const scrollRef = ref<HTMLDivElement | null>(null)
 const contentWidth = ref(0)
@@ -142,7 +144,9 @@ async function onDropImport(event: DragEvent): Promise<void> {
           :index="virtualRow.index * columnCount + columnIndex"
           :selected="libraryStore.selectedIds.has(media.id)"
           :focused="media.id === libraryStore.focusedId"
+          draggable="true"
           @click="(event: MouseEvent) => handleClick(event, media.id)"
+          @dragstart="(event: DragEvent) => handleDragStart(event, media.id)"
           @dblclick="
             () => {
               handleDoubleClick(media.id)
