@@ -50,6 +50,7 @@ export const useUIStore = defineStore('ui', () => {
 
   const viewMode = ref<ViewMode>('grid')
   const loupeZoom = ref<ZoomLevel>('fit')
+  const loupeFilmstripVisible = ref(true)
   const thumbnailSize = ref(THUMBNAIL_SIZE_DEFAULT)
   const settingsLoaded = ref(false)
 
@@ -144,6 +145,10 @@ export const useUIStore = defineStore('ui', () => {
     loupeZoom.value = loupeZoom.value === 'fit' ? 'actual' : 'fit'
   }
 
+  function setLoupeFilmstripVisible(visible: boolean): void {
+    loupeFilmstripVisible.value = visible
+  }
+
   function setThumbnailSize(size: number): void {
     thumbnailSize.value = clampThumbnailSize(size)
     void persistSettings()
@@ -166,6 +171,7 @@ export const useUIStore = defineStore('ui', () => {
     rightPanelTab,
     viewMode,
     loupeZoom,
+    loupeFilmstripVisible,
     thumbnailSize,
     settingsLoaded,
     applySettings,
@@ -178,6 +184,7 @@ export const useUIStore = defineStore('ui', () => {
     setViewMode,
     setLoupeZoom,
     cycleZoom,
+    setLoupeFilmstripVisible,
     setThumbnailSize,
     activeModals,
     openModal,

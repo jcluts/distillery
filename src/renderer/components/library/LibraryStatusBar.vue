@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import Select from 'primevue/select'
 import Slider from 'primevue/slider'
 import SelectButton from 'primevue/selectbutton'
+import ToggleButton from 'primevue/togglebutton'
 
 import { THUMBNAIL_SIZE_MAX, THUMBNAIL_SIZE_MIN } from '@/lib/constants'
 import { useLibraryStore } from '@/stores/library'
@@ -105,6 +106,13 @@ const zoomModel = computed({
   }
 })
 
+const filmstripModel = computed({
+  get: () => uiStore.loupeFilmstripVisible,
+  set: (value: boolean) => {
+    uiStore.setLoupeFilmstripVisible(value)
+  }
+})
+
 const sortModel = computed({
   get: () => `${libraryStore.sortField}:${libraryStore.sortDirection}`,
   set: (value: string) => {
@@ -163,9 +171,23 @@ function handleThumbnailSizeUpdate(value: number | number[]): void {
         size="small"
       />
 
+      <ToggleButton
+        v-if="uiStore.viewMode === 'loupe'"
+        v-model="filmstripModel"
+        on-label="Filmstrip"
+        off-label="Filmstrip"
+        aria-label="Toggle filmstrip"
+        size="small"
+      >
+        <template #icon="slotProps">
+          <Icon icon="lucide:panel-bottom" :class="[slotProps.class, 'size-4']" />
+        </template>
+      </ToggleButton>
+
       <SelectButton
         v-model="viewModeModel"
         :options="viewModeOptions"
+        :allow-empty="false"
         option-value="value"
         size="small"
       >

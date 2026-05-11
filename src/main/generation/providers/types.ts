@@ -1,12 +1,14 @@
 import type {
   CanonicalEndpointDef,
   CanonicalGenerationParams,
+  GenerationMode,
   GenerationProgressEvent
 } from '../../types'
 
 export interface GenerationRequest {
   generationId: string
   endpoint: CanonicalEndpointDef
+  mode: GenerationMode
   params: CanonicalGenerationParams
   refImagePaths: string[]
   outputDir: string

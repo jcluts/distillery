@@ -84,16 +84,23 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
   }
   // 'all' and undefined = no filter
 
-  if (params.search) {
+  const search = params.search?.trim()
+  if (search) {
     conditions.push(
       `(media.file_name LIKE ? OR media.id IN (
         SELECT mk.media_id FROM media_keywords mk
         JOIN keywords k ON k.id = mk.keyword_id
         WHERE k.keyword LIKE ?
+      ) OR media.generation_id IN (
+        SELECT g.id FROM generations g
+        LEFT JOIN model_identities mi ON mi.id = g.model_identity_id
+        WHERE g.model_file LIKE ?
+          OR g.model_identity_id LIKE ?
+          OR mi.name LIKE ?
       ))`
     )
-    const like = `%${params.search}%`
-    values.push(like, like)
+    const like = `%${search}%`
+    values.push(like, like, like, like, like)
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''

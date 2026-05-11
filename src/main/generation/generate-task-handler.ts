@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import type { CanonicalGenerationParams, WorkItem, WorkTaskResult } from '../types'
+import type { CanonicalGenerationParams, GenerationMode, WorkItem, WorkTaskResult } from '../types'
 import * as generationRepo from '../db/repositories/generations'
 import type { WorkTaskHandler } from '../queue/work-handler-registry'
 import { EndpointCatalog } from './catalog/endpoint-catalog'
@@ -10,6 +10,7 @@ import { ProviderRegistry } from './providers/provider-registry'
 interface TaskPayload {
   generationId: string
   endpointKey: string
+  mode: GenerationMode
   params: CanonicalGenerationParams
 }
 
@@ -25,10 +26,11 @@ function parseTaskPayload(item: WorkItem): TaskPayload {
   if (
     !payload.generationId ||
     !payload.endpointKey ||
+    !payload.mode ||
     !payload.params ||
     typeof payload.params !== 'object'
   ) {
-    throw new Error('Malformed payload: requires generationId, endpointKey, and params')
+    throw new Error('Malformed payload: requires generationId, endpointKey, mode, and params')
   }
 
   return payload as TaskPayload
@@ -63,7 +65,7 @@ export class GenerateTaskHandler implements WorkTaskHandler {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
-    const { generationId, endpointKey, params } = payload
+    const { generationId, endpointKey, mode, params } = payload
 
     try {
       const endpoint = await this.endpointCatalog.getEndpoint(endpointKey)
@@ -84,6 +86,7 @@ export class GenerateTaskHandler implements WorkTaskHandler {
       const request = {
         generationId,
         endpoint,
+        mode,
         params,
         refImagePaths,
         outputDir

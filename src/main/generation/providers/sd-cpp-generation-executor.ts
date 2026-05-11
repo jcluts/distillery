@@ -17,10 +17,28 @@ interface SdCppGenerationExecutorArgs {
   onProgress: (event: GenerationProgressEvent) => void
 }
 
-interface SdApiImageResponse {
-  images?: string[]
+interface SdCppJobSubmitResponse {
+  id?: string
+  status?: string
+  poll_url?: string
   error?: string
   message?: string
+}
+
+interface SdCppJobStatusResponse {
+  id?: string
+  status?: 'queued' | 'generating' | 'completed' | 'failed' | 'cancelled'
+  result?: {
+    output_format?: string
+    images?: Array<{
+      index?: number
+      b64_json?: string
+    }>
+  } | null
+  error?: {
+    code?: string
+    message?: string
+  } | null
 }
 
 export class SdCppGenerationExecutor {
@@ -56,9 +74,7 @@ export class SdCppGenerationExecutor {
 
     this.emitProgress(request.generationId, 'generating', 'Generating with stable-diffusion.cpp')
 
-    const img2img = request.refImagePaths.length > 0
-    const body = await this.buildRequestBody(request, asNumber(width), asNumber(height), img2img)
-    const endpoint = img2img ? '/sdapi/v1/img2img' : '/sdapi/v1/txt2img'
+    const body = await this.buildRequestBody(request, asNumber(width), asNumber(height))
     const stopListening = this.serverManager.onProgress(({ step, totalSteps }) => {
       this.emitProgress(
         request.generationId,
@@ -69,26 +85,48 @@ export class SdCppGenerationExecutor {
       )
     })
 
-    let response: SdApiImageResponse
+    let job: SdCppJobStatusResponse
     try {
-      response = await requestJson<SdApiImageResponse>(`${baseUrl}${endpoint}`, {
+      const response = await requestJson<SdCppJobSubmitResponse>(`${baseUrl}/sdcpp/v1/img_gen`, {
         method: 'POST',
         body,
-        timeoutMs: 600_000
+        timeoutMs: 30_000
       })
+
+      if (response.error) {
+        return {
+          success: false,
+          outputs: [],
+          error: response.message ?? response.error
+        }
+      }
+
+      if (!response.id) {
+        return {
+          success: false,
+          outputs: [],
+          error: 'stable-diffusion.cpp did not return a job id'
+        }
+      }
+
+      job = await this.pollJob(baseUrl, response.id, request.generationId)
     } finally {
       stopListening()
     }
 
-    if (response.error) {
+    if (job.status === 'failed' || job.status === 'cancelled') {
       return {
         success: false,
         outputs: [],
-        error: response.message ?? response.error
+        error:
+          job.error?.message ??
+          (job.status === 'cancelled'
+            ? 'stable-diffusion.cpp generation was cancelled'
+            : 'stable-diffusion.cpp generation failed')
       }
     }
 
-    const images = Array.isArray(response.images) ? response.images : []
+    const images = Array.isArray(job.result?.images) ? job.result.images : []
     if (images.length === 0) {
       return {
         success: false,
@@ -101,12 +139,23 @@ export class SdCppGenerationExecutor {
 
     const outputs: Array<{ localPath: string; mimeType?: string }> = []
     for (let index = 0; index < images.length; index++) {
+      const image = images[index]
+      if (!image?.b64_json) continue
+
       const outputPath =
         index === 0
           ? path.join(request.outputDir, `gen-${request.generationId}.png`)
           : path.join(request.outputDir, `gen-${request.generationId}-${index + 1}.png`)
-      await fs.promises.writeFile(outputPath, decodeBase64Image(images[index]))
+      await fs.promises.writeFile(outputPath, decodeBase64Image(image.b64_json))
       outputs.push({ localPath: outputPath, mimeType: 'image/png' })
+    }
+
+    if (outputs.length === 0) {
+      return {
+        success: false,
+        outputs: [],
+        error: 'stable-diffusion.cpp returned empty image payloads'
+      }
     }
 
     return {
@@ -162,33 +211,89 @@ export class SdCppGenerationExecutor {
   private async buildRequestBody(
     request: GenerationRequest,
     width: number,
-    height: number,
-    img2img: boolean
+    height: number
   ): Promise<Record<string, unknown>> {
     const params = request.params
+    const sampleMethod =
+      typeof params.sampling_method === 'string' && params.sampling_method.trim()
+        ? params.sampling_method
+        : 'euler'
+
     const body: Record<string, unknown> = {
       prompt: asString(params.prompt),
+      negative_prompt: '',
       width,
       height,
-      steps: asOptionalNumber(params.steps) ?? 4,
+      strength: asOptionalNumber(params.strength) ?? 0.75,
       seed: asOptionalNumber(params.seed) ?? -1,
-      cfg_scale: asOptionalNumber(params.guidance) ?? 1.0,
-      sampler_name: typeof params.sampling_method === 'string' ? params.sampling_method : 'euler',
-      batch_size: 1
+      batch_count: 1,
+      auto_resize_ref_image: true,
+      increase_ref_index: false,
+      embed_image_metadata: true,
+      output_format: 'png',
+      output_compression: 100,
+      sample_params: {
+        sample_method: sampleMethod,
+        sample_steps: asOptionalNumber(params.steps) ?? 4,
+        guidance: {
+          txt_cfg: 1.0,
+          distilled_guidance: asOptionalNumber(params.guidance) ?? 3.5
+        }
+      }
     }
 
-    if (img2img) {
+    if (request.refImagePaths.length > 0) {
       const images = await Promise.all(
         request.refImagePaths.map(async (imagePath) =>
           (await fs.promises.readFile(imagePath)).toString('base64')
         )
       )
-      body.init_images = [images[0]]
-      body.extra_images = images
-      body.denoising_strength = asOptionalNumber(params.strength) ?? 0.75
+      body.ref_images = images
     }
 
     return body
+  }
+
+  private async pollJob(
+    baseUrl: string,
+    jobId: string,
+    generationId: string
+  ): Promise<SdCppJobStatusResponse> {
+    const deadline = Date.now() + 600_000
+    let lastStatus: SdCppJobStatusResponse | null = null
+
+    while (Date.now() < deadline) {
+      const status = await requestJson<SdCppJobStatusResponse>(
+        `${baseUrl}/sdcpp/v1/jobs/${encodeURIComponent(jobId)}`,
+        {
+          method: 'GET',
+          timeoutMs: 5000
+        }
+      )
+
+      lastStatus = status
+      if (
+        status.status === 'completed' ||
+        status.status === 'failed' ||
+        status.status === 'cancelled'
+      ) {
+        return status
+      }
+
+      if (status.status === 'queued') {
+        this.emitProgress(generationId, 'queued', 'Queued in stable-diffusion.cpp')
+      } else {
+        this.emitProgress(generationId, 'generating', 'Generating with stable-diffusion.cpp')
+      }
+
+      await delay(1000)
+    }
+
+    throw new Error(
+      `stable-diffusion.cpp job ${jobId} did not complete within 600s${
+        lastStatus?.status ? ` (last status: ${lastStatus.status})` : ''
+      }`
+    )
   }
 
   private emitProgress(
@@ -213,4 +318,8 @@ function decodeBase64Image(value: string): Buffer {
   const commaIndex = value.indexOf(',')
   const raw = commaIndex >= 0 ? value.slice(commaIndex + 1) : value
   return Buffer.from(raw, 'base64')
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

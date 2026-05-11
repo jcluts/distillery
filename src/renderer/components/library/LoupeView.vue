@@ -81,7 +81,11 @@ function onSelect(id: string): void {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <div class="relative min-h-0 flex-1 overflow-hidden px-4 pt-4 pb-2">
-      <VideoPlayer v-if="currentItem?.media_type === 'video'" :media="currentItem" :zoom="uiStore.loupeZoom" />
+      <VideoPlayer
+        v-if="currentItem?.media_type === 'video'"
+        :media="currentItem"
+        :zoom="uiStore.loupeZoom"
+      />
       <template v-else>
         <CanvasViewer :media="currentItem" :zoom="uiStore.loupeZoom" />
         <CropOverlay />
@@ -89,6 +93,11 @@ function onSelect(id: string): void {
       </template>
     </div>
 
-    <LoupeFilmstrip :items="libraryStore.items" :current-index="currentIndex" @select="onSelect" />
+    <LoupeFilmstrip
+      v-if="uiStore.loupeFilmstripVisible"
+      :items="libraryStore.items"
+      :current-index="currentIndex"
+      @select="onSelect"
+    />
   </div>
 </template>
