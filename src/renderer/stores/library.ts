@@ -1,5 +1,5 @@
 import { defineStore, storeToRefs } from 'pinia'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { GRID_PAGE_SIZE } from '@/lib/constants'
 import { useCollectionStore } from '@/stores/collection'
@@ -25,6 +25,7 @@ export const useLibraryStore = defineStore('library', () => {
   const page = ref(1)
   const pageSize = ref(GRID_PAGE_SIZE)
   const isLoading = ref(false)
+  const isLoadingMore = ref(false)
 
   const selectedIds = ref(new Set<string>())
   const focusedId = ref<string | null>(null)
@@ -38,6 +39,9 @@ export const useLibraryStore = defineStore('library', () => {
 
   const collectionStore = useCollectionStore()
   const { activeCollectionId } = storeToRefs(collectionStore)
+
+  const hasMore = computed(() => items.value.length < total.value)
+  let queryRevision = 0
 
   function buildQuery(): MediaQuery {
     return {
@@ -58,8 +62,14 @@ export const useLibraryStore = defineStore('library', () => {
     void loadMedia()
   })
 
-  function setItems(mediaPage: MediaPage): void {
-    items.value = mediaPage.items
+  function applyMediaPage(mediaPage: MediaPage, append = false): void {
+    if (append) {
+      const seen = new Set(items.value.map((item) => item.id))
+      items.value = [...items.value, ...mediaPage.items.filter((item) => !seen.has(item.id))]
+    } else {
+      items.value = mediaPage.items
+    }
+
     total.value = mediaPage.total
     page.value = mediaPage.page
     pageSize.value = mediaPage.pageSize
@@ -79,12 +89,34 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   async function loadMedia(): Promise<void> {
+    page.value = 1
+    const revision = ++queryRevision
     isLoading.value = true
     try {
       const mediaPage = await window.api.getMedia(buildQuery())
-      setItems(mediaPage)
+      if (revision !== queryRevision) return
+      applyMediaPage(mediaPage)
     } finally {
-      isLoading.value = false
+      if (revision === queryRevision) {
+        isLoading.value = false
+      }
+    }
+  }
+
+  async function loadNextPage(): Promise<void> {
+    if (isLoading.value || isLoadingMore.value || !hasMore.value) return
+
+    const revision = queryRevision
+    isLoadingMore.value = true
+    try {
+      const mediaPage = await window.api.getMedia({
+        ...buildQuery(),
+        page: page.value + 1
+      })
+      if (revision !== queryRevision) return
+      applyMediaPage(mediaPage, true)
+    } finally {
+      isLoadingMore.value = false
     }
   }
 
@@ -171,6 +203,8 @@ export const useLibraryStore = defineStore('library', () => {
     page,
     pageSize,
     isLoading,
+    isLoadingMore,
+    hasMore,
     selectedIds,
     focusedId,
     ratingFilter,
@@ -180,9 +214,9 @@ export const useLibraryStore = defineStore('library', () => {
     sortField,
     sortDirection,
     buildQuery,
-    setItems,
     prepareForGeneratedMedia,
     loadMedia,
+    loadNextPage,
     selectSingle,
     toggleSelect,
     rangeSelect,

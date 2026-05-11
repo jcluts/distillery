@@ -60,6 +60,15 @@ watch(rowHeight, () => {
   virtualizer.value.measure()
 })
 
+watch([virtualRows, rowCount], ([rows, rowsLoaded]) => {
+  const lastRow = rows[rows.length - 1]
+  if (!lastRow || rowsLoaded === 0) return
+
+  if (lastRow.index >= rowsLoaded - GRID_BUFFER_ROWS) {
+    void libraryStore.loadNextPage()
+  }
+})
+
 watch([() => libraryStore.focusedId, columnCount, () => libraryStore.items.length], async () => {
   if (initialScrollRestored.value) return
   if (!libraryStore.focusedId || columnCount.value === 0) return

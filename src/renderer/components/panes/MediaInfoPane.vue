@@ -104,16 +104,14 @@ async function handleAddKeyword(keyword: string): Promise<void> {
     await window.api.keywords.addToMedia(media.value.id, keyword)
   }
   if (media.value) await fetchKeywords(media.value.id)
-  const page = await window.api.getMedia(libraryStore.buildQuery())
-  libraryStore.setItems(page)
+  await libraryStore.loadMedia()
 }
 
 async function handleRemoveKeyword(keyword: string): Promise<void> {
   if (!media.value) return
   await window.api.keywords.removeFromMedia(media.value.id, keyword)
   await fetchKeywords(media.value.id)
-  const page = await window.api.getMedia(libraryStore.buildQuery())
-  libraryStore.setItems(page)
+  await libraryStore.loadMedia()
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +123,7 @@ async function persistUpdate(id: string, updates: MediaUpdate): Promise<void> {
   try {
     await window.api.updateMedia(id, updates)
   } finally {
-    const page = await window.api.getMedia(libraryStore.buildQuery())
-    libraryStore.setItems(page)
+    await libraryStore.loadMedia()
   }
 }
 
@@ -135,8 +132,7 @@ async function persistUpdateBulk(ids: string[], updates: MediaUpdate): Promise<v
   try {
     await Promise.all(ids.map((id) => window.api.updateMedia(id, updates)))
   } finally {
-    const page = await window.api.getMedia(libraryStore.buildQuery())
-    libraryStore.setItems(page)
+    await libraryStore.loadMedia()
   }
 }
 
@@ -204,8 +200,7 @@ async function executeDelete(): Promise<void> {
     libraryStore.setSelection(new Set())
   }
 
-  const page = await window.api.getMedia(libraryStore.buildQuery())
-  libraryStore.setItems(page)
+  await libraryStore.loadMedia()
   deleteDialogOpen.value = false
 }
 
