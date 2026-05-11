@@ -24,10 +24,10 @@
     "searchOnly": true
   },
   "upload": {
-    "endpoint": "/storage/upload/initiate",
-    "method": "multipart",
-    "fileField": "file",
-    "responseField": "file_url"
+    "endpoint": "https://rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3",
+    "method": "signed-url-put",
+    "responseField": "file_url",
+    "uploadUrlField": "upload_url"
   },
   "async": {
     "enabled": true,

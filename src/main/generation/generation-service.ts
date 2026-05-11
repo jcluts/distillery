@@ -17,6 +17,8 @@ import {
   asString,
   asOptionalNumber,
   extractDimensions,
+  filterParamsForRequestSchema,
+  requestSchemaHasParam,
   withResolvedSeed
 } from './param-utils'
 
@@ -47,7 +49,7 @@ export class GenerationService extends EventEmitter {
       throw new Error(`Unknown endpointKey: ${input.endpointKey}`)
     }
 
-    const params = withResolvedSeed(input.params)
+    const params = this.buildSubmissionParams(endpoint, input.params)
     this.validateParams(endpoint, input.mode, params)
 
     const generationId = uuidv4()
@@ -153,6 +155,24 @@ export class GenerationService extends EventEmitter {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  private buildSubmissionParams(
+    endpoint: CanonicalEndpointDef,
+    inputParams: CanonicalGenerationParams
+  ): CanonicalGenerationParams {
+    const params = filterParamsForRequestSchema(inputParams, endpoint.requestSchema, [
+      'prompt',
+      'ref_image_ids',
+      'ref_image_paths'
+    ])
+
+    if (requestSchemaHasParam(endpoint.requestSchema, 'seed')) {
+      return withResolvedSeed(params)
+    }
+
+    delete params.seed
+    return params
+  }
 
   private validateParams(
     endpoint: CanonicalEndpointDef,

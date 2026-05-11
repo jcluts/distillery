@@ -16,6 +16,7 @@ export type FormFieldType =
   | 'boolean'
   | 'select'
   | 'size'
+  | 'size-object'
   | 'local-size'
 
 export interface FormFieldConfig {
@@ -49,6 +50,7 @@ const INTERNAL_FIELDS = new Set([
   'init_image_url',
   'input_image',
   'input_image_url',
+  'image_input',
   'input_urls',
   'first_frame_url',
   'last_frame_url',
@@ -137,15 +139,13 @@ export function validateFormValues(
       }
     }
 
-    if (field.type === 'size' || field.type === 'local-size') {
-      const parts = String(value).split('*')
-      const w = Number(parts[0])
-      const h = Number(parts[1])
-      if (parts.length !== 2 || Number.isNaN(w) || Number.isNaN(h)) {
-        errors[field.name] = `${field.label} must be in WIDTH*HEIGHT format`
+    if (field.type === 'size' || field.type === 'local-size' || field.type === 'size-object') {
+      const parsed = parseFieldDimensions(value)
+      if (!parsed) {
+        errors[field.name] = `${field.label} must include width and height`
       } else if (
-        (field.min !== undefined && (w < field.min || h < field.min)) ||
-        (field.max !== undefined && (w > field.max || h > field.max))
+        (field.min !== undefined && (parsed.w < field.min || parsed.h < field.min)) ||
+        (field.max !== undefined && (parsed.w > field.max || parsed.h > field.max))
       ) {
         errors[field.name] = `Dimensions must be between ${field.min} and ${field.max}`
       }
@@ -178,6 +178,10 @@ function propertyToField(
     return { ...base, type: 'local-size', min: prop.minimum, max: prop.maximum }
   }
 
+  if (prop.ui?.component === 'size-object') {
+    return { ...base, type: 'size-object', min: prop.minimum, max: prop.maximum }
+  }
+
   if (prop.ui?.component === 'size' || (name === 'size' && prop.type === 'string')) {
     return { ...base, type: 'size', min: prop.minimum, max: prop.maximum }
   }
@@ -202,9 +206,29 @@ function propertyToField(
       return { ...base, type: 'number', min: prop.minimum, max: prop.maximum, step: prop.step }
     case 'boolean':
       return { ...base, type: 'boolean' }
+    case 'object':
+      return { ...base, type: 'text' }
     default:
       return { ...base, type: 'text' }
   }
+}
+
+function parseFieldDimensions(value: unknown): { w: number; h: number } | null {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const w = Number(record.width)
+    const h = Number(record.height)
+    return Number.isFinite(w) && Number.isFinite(h) ? { w, h } : null
+  }
+
+  if (typeof value === 'string') {
+    const parts = value.includes('*') ? value.split('*') : value.toLowerCase().split('x')
+    const w = Number(parts[0])
+    const h = Number(parts[1])
+    return parts.length === 2 && Number.isFinite(w) && Number.isFinite(h) ? { w, h } : null
+  }
+
+  return null
 }
 
 function formatLabel(name: string): string {

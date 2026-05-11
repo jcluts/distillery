@@ -1,4 +1,8 @@
-import type { CanonicalEndpointDef } from '../../types'
+import type {
+  CanonicalEndpointDef,
+  CanonicalRequestSchema,
+  CanonicalSchemaProperty
+} from '../../types'
 import { inferModeInfo, normalizeGenerationModes } from '../param-utils'
 import type { ProviderModel } from '../management/types'
 import type { ProviderConfig, ProviderEndpointConfig } from './provider-config'
@@ -106,12 +110,18 @@ export class EndpointCatalog {
       modes: endpoint.modes,
       outputType: endpoint.outputType,
       executionMode: endpoint.executionMode,
-      requestSchema: normalizeRequestSchema(endpoint.requestSchema),
+      requestSchema: this.normalizeProviderRequestSchema(
+        provider.providerId,
+        endpoint.requestSchema
+      ),
       uiSchema: normalizeUiSchema(endpoint.uiSchema)
     }
   }
 
-  private mapUserModel(provider: ProviderConfig, model: ProviderModel): CanonicalEndpointDef | null {
+  private mapUserModel(
+    provider: ProviderConfig,
+    model: ProviderModel
+  ): CanonicalEndpointDef | null {
     if (!model.modelId?.trim()) return null
 
     const explicitModes = normalizeGenerationModes(model.modes)
@@ -137,7 +147,66 @@ export class EndpointCatalog {
       modes: modeInfo.modes,
       outputType: modeInfo.outputType,
       executionMode: provider.executionMode ?? 'remote-async',
-      requestSchema: normalizeRequestSchema(model.requestSchema)
+      requestSchema: this.normalizeProviderRequestSchema(provider.providerId, model.requestSchema)
+    }
+  }
+
+  private normalizeProviderRequestSchema(
+    providerId: string,
+    input: unknown
+  ): CanonicalRequestSchema {
+    const schema = normalizeRequestSchema(input)
+    if (providerId !== 'fal') return schema
+    return this.repairFalImageSizeSchema(schema)
+  }
+
+  private repairFalImageSizeSchema(schema: CanonicalRequestSchema): CanonicalRequestSchema {
+    const properties = Object.fromEntries(
+      Object.entries(schema.properties).map(([key, property]) => [
+        key,
+        this.isFalImageSizeField(key, property) ? this.toSizeObjectProperty(property) : property
+      ])
+    )
+
+    return { ...schema, properties }
+  }
+
+  private isFalImageSizeField(key: string, property: CanonicalSchemaProperty): boolean {
+    const normalizedKey = key.toLowerCase()
+    if (normalizedKey !== 'image_size' && normalizedKey !== 'size') return false
+    if (property.ui?.component === 'size-object') return false
+    if (property.enum?.length) return false
+    if (property.type === 'object' && property.properties?.width && property.properties?.height) {
+      return false
+    }
+
+    return property.type === 'string'
+  }
+
+  private toSizeObjectProperty(property: CanonicalSchemaProperty): CanonicalSchemaProperty {
+    return {
+      ...property,
+      type: 'object',
+      minimum: property.minimum ?? 1,
+      maximum: property.maximum ?? 14142,
+      properties: {
+        width: {
+          type: 'integer',
+          title: 'Width',
+          minimum: 1,
+          maximum: property.maximum ?? 14142
+        },
+        height: {
+          type: 'integer',
+          title: 'Height',
+          minimum: 1,
+          maximum: property.maximum ?? 14142
+        }
+      },
+      ui: {
+        ...property.ui,
+        component: 'size-object'
+      }
     }
   }
 }

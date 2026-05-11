@@ -313,7 +313,7 @@ export interface CanonicalRequestSchema {
 }
 
 export interface CanonicalSchemaProperty {
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'array'
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object'
   title?: string
   description?: string
   default?: unknown
@@ -322,6 +322,7 @@ export interface CanonicalSchemaProperty {
   step?: number
   enum?: Array<string | number>
   items?: { type: string; minItems?: number; maxItems?: number }
+  properties?: Record<string, CanonicalSchemaProperty>
   ui?: {
     component?: string
     placeholder?: string
@@ -426,10 +427,11 @@ export interface ProviderConfig {
   }
   upload?: {
     endpoint: string
-    method: 'multipart' | 'json'
+    method: 'multipart' | 'json' | 'signed-url-put'
     fileField?: string
     extraFields?: Record<string, string>
     responseField: string
+    uploadUrlField?: string
   }
   async?: {
     enabled: boolean

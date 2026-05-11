@@ -17,6 +17,7 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'init_image_url',
   'input_image',
   'input_image_url',
+  'image_input',
   'input_urls',
   'first_frame_url',
   'last_frame_url',
@@ -66,8 +67,8 @@ export function asOptionalNumber(value: unknown): number | null {
 export const toOptionalNumber = asOptionalNumber
 
 /**
- * Parse width and height from params. Handles both separate width/height
- * fields and combined "size" strings (e.g. "2048*2048").
+ * Parse width and height from params. Handles separate width/height fields,
+ * combined "size" strings (e.g. "2048*2048"), and provider object sizes.
  */
 export function extractDimensions(params: CanonicalGenerationParams): {
   width: number | null
@@ -77,17 +78,34 @@ export function extractDimensions(params: CanonicalGenerationParams): {
   let height = asOptionalNumber(params.height)
 
   if (width == null || height == null) {
-    const sizeStr = typeof params.size === 'string' ? params.size : ''
-    if (sizeStr.includes('*')) {
-      const [w, h] = sizeStr.split('*').map(Number)
-      if (Number.isFinite(w) && Number.isFinite(h)) {
-        width = w
-        height = h
-      }
+    const fromSize = extractWidthHeight(params.size) ?? extractWidthHeight(params.image_size)
+    if (fromSize) {
+      width = fromSize.width
+      height = fromSize.height
     }
   }
 
   return { width, height }
+}
+
+function extractWidthHeight(value: unknown): { width: number; height: number } | null {
+  const record = asRecord(value)
+  if (record) {
+    const width = asOptionalNumber(record.width)
+    const height = asOptionalNumber(record.height)
+    return width != null && height != null ? { width, height } : null
+  }
+
+  if (typeof value === 'string') {
+    const parts = value.includes('*') ? value.split('*') : value.toLowerCase().split('x')
+    const width = Number(parts[0])
+    const height = Number(parts[1])
+    if (parts.length === 2 && Number.isFinite(width) && Number.isFinite(height)) {
+      return { width, height }
+    }
+  }
+
+  return null
 }
 
 /**
@@ -110,6 +128,28 @@ export function resolveOrGenerateSeed(value: unknown): number {
  */
 export function withResolvedSeed(params: CanonicalGenerationParams): CanonicalGenerationParams {
   return { ...params, seed: resolveOrGenerateSeed(params.seed) }
+}
+
+export function requestSchemaHasParam(
+  schema: CanonicalRequestSchema | undefined,
+  paramName: string
+): boolean {
+  return !!schema?.properties && Object.prototype.hasOwnProperty.call(schema.properties, paramName)
+}
+
+export function filterParamsForRequestSchema(
+  params: CanonicalGenerationParams,
+  schema: CanonicalRequestSchema | undefined,
+  alwaysKeep: string[] = []
+): CanonicalGenerationParams {
+  if (!schema?.properties) {
+    return { ...params }
+  }
+
+  const allowed = new Set([...Object.keys(schema.properties), ...alwaysKeep])
+  return Object.fromEntries(
+    Object.entries(params).filter(([key]) => allowed.has(key))
+  ) as CanonicalGenerationParams
 }
 
 export function coerceGenerationMode(raw: string | null | undefined): GenerationMode | undefined {

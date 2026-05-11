@@ -116,6 +116,69 @@
       }
     },
     {
+      "modelId": "nano-banana-2",
+      "name": "Nano Banana 2",
+      "description": "Google Nano Banana 2 image generation and editing through KIE.",
+      "modes": ["text-to-image", "image-to-image"],
+      "outputType": "image",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "nano-banana-2",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "image_input": {
+            "type": "array",
+            "title": "Input Images",
+            "items": { "type": "string" },
+            "ui": { "hidden": true }
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "title": "Aspect Ratio",
+            "default": "auto",
+            "enum": [
+              "auto",
+              "1:1",
+              "1:4",
+              "1:8",
+              "2:3",
+              "3:2",
+              "3:4",
+              "4:1",
+              "4:3",
+              "4:5",
+              "5:4",
+              "8:1",
+              "9:16",
+              "16:9",
+              "21:9"
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution",
+            "default": "1K",
+            "enum": ["1K", "2K", "4K"]
+          },
+          "output_format": {
+            "type": "string",
+            "title": "Output Format",
+            "default": "png",
+            "enum": ["png", "jpg"]
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": ["model", "prompt", "image_input", "aspect_ratio", "resolution", "output_format"]
+      }
+    },
+    {
       "modelId": "wan/2-7-image",
       "name": "Wan 2.7 Image",
       "description": "Wan 2.7 image generation and editing through KIE.",

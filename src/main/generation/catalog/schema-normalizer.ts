@@ -9,7 +9,7 @@ function normalizeProperty(key: string, input: unknown): CanonicalSchemaProperty
   const type = typeof source.type === 'string' ? source.type : 'string'
 
   const normalized: CanonicalSchemaProperty = {
-    type: ['string', 'number', 'integer', 'boolean', 'array'].includes(type)
+    type: ['string', 'number', 'integer', 'boolean', 'array', 'object'].includes(type)
       ? (type as CanonicalSchemaProperty['type'])
       : 'string'
   }
@@ -34,6 +34,15 @@ function normalizeProperty(key: string, input: unknown): CanonicalSchemaProperty
       minItems: typeof items?.minItems === 'number' ? items.minItems : undefined,
       maxItems: typeof items?.maxItems === 'number' ? items.maxItems : undefined
     }
+  }
+
+  if (type === 'object' && source.properties && typeof source.properties === 'object') {
+    normalized.properties = Object.entries(source.properties as Record<string, unknown>).reduce<
+      Record<string, CanonicalSchemaProperty>
+    >((acc, [propertyKey, value]) => {
+      acc[propertyKey] = normalizeProperty(propertyKey, value)
+      return acc
+    }, {})
   }
 
   const ui = source.ui as Record<string, unknown> | undefined
@@ -64,13 +73,12 @@ export function normalizeRequestSchema(input: unknown): CanonicalRequestSchema {
   const source = (input ?? {}) as Record<string, unknown>
   const propertiesSource = (source.properties ?? {}) as Record<string, unknown>
 
-  const properties = Object.entries(propertiesSource).reduce<Record<string, CanonicalSchemaProperty>>(
-    (acc, [key, value]) => {
-      acc[key] = normalizeProperty(key, value)
-      return acc
-    },
-    {}
-  )
+  const properties = Object.entries(propertiesSource).reduce<
+    Record<string, CanonicalSchemaProperty>
+  >((acc, [key, value]) => {
+    acc[key] = normalizeProperty(key, value)
+    return acc
+  }, {})
 
   const required = Array.isArray(source.required)
     ? source.required.filter((value): value is string => typeof value === 'string')
@@ -96,17 +104,17 @@ export function normalizeUiSchema(input: unknown): CanonicalUiSchema | undefined
 
   const groups = groupsSource
     ? groupsSource.reduce<Array<{ id: string; label: string; order?: number }>>((acc, group) => {
-      const item = group as Record<string, unknown>
-      if (typeof item.id !== 'string' || typeof item.label !== 'string') return acc
+        const item = group as Record<string, unknown>
+        if (typeof item.id !== 'string' || typeof item.label !== 'string') return acc
 
-      acc.push({
-        id: item.id,
-        label: item.label,
-        order: typeof item.order === 'number' ? item.order : undefined
-      })
+        acc.push({
+          id: item.id,
+          label: item.label,
+          order: typeof item.order === 'number' ? item.order : undefined
+        })
 
-      return acc
-    }, [])
+        return acc
+      }, [])
     : undefined
 
   const controls = controlsSource

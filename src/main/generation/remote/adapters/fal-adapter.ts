@@ -130,7 +130,7 @@ function extractCanonicalSchemaFromOpenApi(raw: unknown): CanonicalRequestSchema
     return null
   }
 
-  return normalizeObjectSchema(selected)
+  return normalizeObjectSchema(selected, schemas)
 }
 
 export const falAdapter: ProviderAdapter = {

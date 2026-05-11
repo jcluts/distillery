@@ -323,7 +323,7 @@ export interface CanonicalRequestSchema {
 }
 
 export interface CanonicalSchemaProperty {
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'array'
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object'
   title?: string
   description?: string
   default?: unknown
@@ -332,6 +332,7 @@ export interface CanonicalSchemaProperty {
   step?: number
   enum?: Array<string | number>
   items?: { type: string; minItems?: number; maxItems?: number }
+  properties?: Record<string, CanonicalSchemaProperty>
   ui?: {
     component?: string
     placeholder?: string

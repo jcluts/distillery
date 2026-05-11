@@ -62,10 +62,11 @@ export interface ProviderConfig {
   }
   upload?: {
     endpoint: string
-    method: 'multipart' | 'json'
+    method: 'multipart' | 'json' | 'signed-url-put'
     fileField?: string
     extraFields?: Record<string, string>
     responseField: string
+    uploadUrlField?: string
   }
   async?: {
     enabled: boolean

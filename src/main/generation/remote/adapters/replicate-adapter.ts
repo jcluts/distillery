@@ -113,7 +113,7 @@ function extractReplicateInputSchema(
     return null
   }
 
-  return normalizeObjectSchema(objectSchema)
+  return normalizeObjectSchema(objectSchema, schemas)
 }
 
 export const replicateAdapter: ProviderAdapter = {

@@ -25,7 +25,7 @@ const props = withDefaults(
     error?: string
     hideLabel?: boolean
   }>(),
-  { disabled: false, hideLabel: false }
+  { disabled: false, error: undefined, hideLabel: false }
 )
 
 const emit = defineEmits<{
@@ -36,7 +36,7 @@ const emit = defineEmits<{
 // Helpers
 // ---------------------------------------------------------------------------
 
-const generateRandomSeed = () => Math.floor(Math.random() * 2147483648)
+const generateRandomSeed = (): number => Math.floor(Math.random() * 2147483648)
 
 const isSeedField = computed(() => props.field.name.toLowerCase() === 'seed')
 const hasSliderRange = computed(
@@ -50,11 +50,14 @@ const showRange = computed(
     props.field.min !== undefined &&
     props.field.max !== undefined &&
     props.field.type !== 'size' &&
+    props.field.type !== 'size-object' &&
     props.field.type !== 'local-size'
 )
 
 // For numeric fields, we track a local string/number to support in-progress editing
-const isNumericField = computed(() => props.field.type === 'number' || props.field.type === 'slider')
+const isNumericField = computed(
+  () => props.field.type === 'number' || props.field.type === 'slider'
+)
 const allowEmptyNumber = computed(
   () => props.field.type === 'number' && !props.field.required && props.field.default === undefined
 )
@@ -82,9 +85,10 @@ watch(
     if (allowEmptyNumber.value && (val === undefined || val === null)) {
       numberInput.value = null
     } else {
-      numberInput.value = val !== undefined && val !== null
-        ? Number(val)
-        : ((props.field.default as number | undefined) ?? props.field.min ?? 0)
+      numberInput.value =
+        val !== undefined && val !== null
+          ? Number(val)
+          : ((props.field.default as number | undefined) ?? props.field.min ?? 0)
     }
   }
 )
@@ -135,12 +139,46 @@ const sizeValue = computed({
   set: (v: string) => emit('update:modelValue', v)
 })
 
+const objectSizeValue = computed({
+  get: () => {
+    const parsed = parseDimensions(props.modelValue) ?? parseDimensions(props.field.default)
+    return parsed ? `${parsed.w}*${parsed.h}` : '1024*1024'
+  },
+  set: (v: string) => {
+    const parsed = parseDimensions(v)
+    if (!parsed) return
+    emit('update:modelValue', { width: parsed.w, height: parsed.h })
+  }
+})
+
+const objectSizeIsAuto = computed(
+  () => props.modelValue === undefined || props.modelValue === null || props.modelValue === ''
+)
+
+function parseDimensions(value: unknown): { w: number; h: number } | null {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const w = Number(record.width)
+    const h = Number(record.height)
+    return Number.isFinite(w) && Number.isFinite(h) ? { w, h } : null
+  }
+
+  if (typeof value === 'string') {
+    const parts = value.includes('*') ? value.split('*') : value.toLowerCase().split('x')
+    const w = Number(parts[0])
+    const h = Number(parts[1])
+    return parts.length === 2 && Number.isFinite(w) && Number.isFinite(h) ? { w, h } : null
+  }
+
+  return null
+}
+
 // Description visible?
 const showDescription = computed(
   () =>
     !props.error &&
     props.field.description &&
-    !['text', 'textarea', 'size', 'local-size'].includes(props.field.type)
+    !['text', 'textarea', 'size', 'size-object', 'local-size'].includes(props.field.type)
 )
 </script>
 
@@ -152,9 +190,7 @@ const showDescription = computed(
         {{ field.label }}
         <span v-if="field.required" class="text-red-400 ml-0.5">*</span>
       </label>
-      <span v-if="showRange" class="text-xs text-muted">
-        ({{ field.min }}–{{ field.max }})
-      </span>
+      <span v-if="showRange" class="text-xs text-muted"> ({{ field.min }}–{{ field.max }}) </span>
     </div>
 
     <!-- Text -->
@@ -192,7 +228,9 @@ const showDescription = computed(
         :step="field.step ?? 1"
         :disabled="disabled"
         class="flex-1"
-        @update:model-value="(v: number | number[]) => handleSliderChange(Array.isArray(v) ? v[0] : v)"
+        @update:model-value="
+          (v: number | number[]) => handleSliderChange(Array.isArray(v) ? v[0] : v)
+        "
       />
       <InputNumber
         v-model="numberInput"
@@ -227,7 +265,13 @@ const showDescription = computed(
         severity="secondary"
         size="small"
         :disabled="disabled"
-        @click="() => { const s = generateRandomSeed(); numberInput = s; emit('update:modelValue', s) }"
+        @click="
+          () => {
+            const s = generateRandomSeed()
+            numberInput = s
+            emit('update:modelValue', s)
+          }
+        "
       >
         <Icon icon="lucide:dices" class="size-4" />
       </Button>
@@ -242,7 +286,9 @@ const showDescription = computed(
         :step="field.step ?? 1"
         :disabled="disabled"
         class="flex-1"
-        @update:model-value="(v: number | number[]) => handleSliderChange(Array.isArray(v) ? v[0] : v)"
+        @update:model-value="
+          (v: number | number[]) => handleSliderChange(Array.isArray(v) ? v[0] : v)
+        "
       />
       <InputNumber
         v-model="numberInput"
@@ -298,6 +344,26 @@ const showDescription = computed(
       :min="field.min"
       :max="field.max"
     />
+    <div v-else-if="field.type === 'size-object'" class="space-y-3">
+      <div v-if="!field.required" class="flex">
+        <Button
+          size="small"
+          :outlined="!objectSizeIsAuto"
+          :severity="objectSizeIsAuto ? undefined : 'secondary'"
+          :disabled="disabled"
+          @click="emit('update:modelValue', undefined)"
+        >
+          Auto
+        </Button>
+      </div>
+      <LocalSizeSelector
+        v-model="objectSizeValue"
+        :disabled="disabled"
+        :min="field.min"
+        :max="field.max"
+        show-computed
+      />
+    </div>
 
     <!-- Fallback -->
     <InputText

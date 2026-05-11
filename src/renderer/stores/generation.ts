@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, toRaw } from 'vue'
 
 import type {
   CanonicalEndpointDef,
@@ -32,6 +32,14 @@ type StoredGenerationParams = Record<string, unknown> & {
     id?: unknown
   }
 }
+
+type SerializableValue =
+  | string
+  | number
+  | boolean
+  | null
+  | SerializableValue[]
+  | { [key: string]: SerializableValue }
 
 // ---------------------------------------------------------------------------
 // Store
@@ -161,6 +169,16 @@ export const useGenerationStore = defineStore('generation', () => {
     )
   }
 
+  function filterReloadedValuesForEndpoint(
+    values: Record<string, unknown>,
+    endpoint: CanonicalEndpointDef | null
+  ): Record<string, unknown> {
+    if (!endpoint?.requestSchema?.properties) return values
+
+    const allowed = new Set([...Object.keys(endpoint.requestSchema.properties), 'prompt'])
+    return Object.fromEntries(Object.entries(values).filter(([key]) => allowed.has(key)))
+  }
+
   // -- Reload form from a previous generation --
   async function reloadFromGeneration(id: string): Promise<void> {
     const [gen, inputs] = await Promise.all([
@@ -225,7 +243,7 @@ export const useGenerationStore = defineStore('generation', () => {
         return []
       })
 
-    formValues.value = vals
+    formValues.value = filterReloadedValuesForEndpoint(vals, restoredEndpoint)
     refImages.value = restored
   }
 
@@ -261,7 +279,7 @@ export const useGenerationStore = defineStore('generation', () => {
 
   // -- Build params for submission --
   function buildParams(): GenerationSubmitInput {
-    const values = { ...formValues.value }
+    const values = toPlainRecord(formValues.value)
 
     const refImageIds = refImages.value.filter((r) => r.kind === 'id').map((r) => r.id)
     const refImagePaths = refImages.value.filter((r) => r.kind === 'path').map((r) => r.path)
@@ -273,6 +291,46 @@ export const useGenerationStore = defineStore('generation', () => {
       mode: generationMode.value,
       params: values as GenerationSubmitInput['params']
     }
+  }
+
+  function toPlainRecord(value: Record<string, unknown>): Record<string, unknown> {
+    const result: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(toRaw(value))) {
+      const plain = toSerializableValue(item)
+      if (plain !== undefined) result[key] = plain
+    }
+    return result
+  }
+
+  function toSerializableValue(value: unknown): SerializableValue | undefined {
+    const raw = toRaw(value)
+
+    if (raw === undefined) return undefined
+    if (
+      raw === null ||
+      typeof raw === 'string' ||
+      typeof raw === 'number' ||
+      typeof raw === 'boolean'
+    ) {
+      return raw
+    }
+
+    if (Array.isArray(raw)) {
+      return raw
+        .map((item) => toSerializableValue(item))
+        .filter((item): item is SerializableValue => item !== undefined)
+    }
+
+    if (typeof raw === 'object') {
+      const result: { [key: string]: SerializableValue } = {}
+      for (const [key, item] of Object.entries(raw as Record<string, unknown>)) {
+        const plain = toSerializableValue(item)
+        if (plain !== undefined) result[key] = plain
+      }
+      return result
+    }
+
+    return undefined
   }
 
   return {

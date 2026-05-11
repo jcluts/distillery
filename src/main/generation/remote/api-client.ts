@@ -31,6 +31,7 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'init_image_url',
   'input_image',
   'input_image_url',
+  'image_input',
   'input_urls',
   'first_frame_url',
   'last_frame_url',
@@ -293,6 +294,10 @@ export class ApiClient {
       throw new Error(`Provider ${this.config.providerId} does not support uploads`)
     }
 
+    if (this.shouldUseSignedUrlUpload(uploadConfig)) {
+      return this.uploadFileWithSignedUrl(filePath, uploadConfig)
+    }
+
     const endpointUrl = this.buildUrl(uploadConfig.endpoint)
 
     if (uploadConfig.method === 'json') {
@@ -351,6 +356,101 @@ export class ApiClient {
     }
 
     return extracted
+  }
+
+  private shouldUseSignedUrlUpload(uploadConfig: ProviderConfig['upload']): boolean {
+    return (
+      uploadConfig?.method === 'signed-url-put' ||
+      uploadConfig?.endpoint.includes('/storage/upload/initiate') === true
+    )
+  }
+
+  private async uploadFileWithSignedUrl(
+    filePath: string,
+    uploadConfig: NonNullable<ProviderConfig['upload']>
+  ): Promise<string> {
+    const fileBuffer = await fs.promises.readFile(filePath)
+    const fileName = path.basename(filePath)
+    const contentType = inferMimeType(filePath)
+    const endpointUrl = this.resolveSignedUploadInitiateUrl(uploadConfig.endpoint)
+
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...this.buildAuthHeaders()
+      },
+      body: JSON.stringify({
+        content_type: contentType,
+        file_name: fileName,
+        ...(uploadConfig.extraFields ?? {})
+      })
+    })
+
+    if (!response.ok) {
+      const responseBody = await response.text()
+      this.logError('upload:initiate-http-error', {
+        providerId: this.config.providerId,
+        endpoint: endpointUrl,
+        status: response.status,
+        statusText: response.statusText,
+        responseBody: this.truncate(responseBody, MAX_LOG_BODY_CHARS)
+      })
+      throw new Error(
+        `Upload failed: ${response.status} ${response.statusText} ${responseBody}`.trim()
+      )
+    }
+
+    const payload = (await response.json()) as unknown
+    const uploadUrlField = uploadConfig.uploadUrlField ?? 'upload_url'
+    const uploadUrl = getByPath(payload, uploadUrlField, asRecord)
+    const fileUrl = getByPath(payload, uploadConfig.responseField, asRecord)
+
+    if (typeof uploadUrl !== 'string' || !uploadUrl.trim()) {
+      throw new Error('Upload response did not contain a valid signed upload URL')
+    }
+
+    if (typeof fileUrl !== 'string' || !fileUrl.trim()) {
+      throw new Error('Upload response did not contain a valid file URL')
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType
+      },
+      body: new Blob([fileBuffer], { type: contentType })
+    })
+
+    if (!uploadResponse.ok) {
+      const responseBody = await uploadResponse.text()
+      this.logError('upload:put-http-error', {
+        providerId: this.config.providerId,
+        status: uploadResponse.status,
+        statusText: uploadResponse.statusText,
+        responseBody: this.truncate(responseBody, MAX_LOG_BODY_CHARS)
+      })
+      throw new Error(
+        `Upload failed: ${uploadResponse.status} ${uploadResponse.statusText} ${responseBody}`.trim()
+      )
+    }
+
+    return fileUrl
+  }
+
+  private resolveSignedUploadInitiateUrl(endpoint: string): string {
+    const url = new URL(this.buildUrl(endpoint))
+
+    if (this.config.providerId === 'fal' && url.pathname.endsWith('/storage/upload/initiate')) {
+      url.protocol = 'https:'
+      url.host = 'rest.fal.ai'
+      if (!url.searchParams.has('storage_type')) {
+        url.searchParams.set('storage_type', 'fal-cdn-v3')
+      }
+    }
+
+    return url.toString()
   }
 
   async generate(
@@ -631,6 +731,11 @@ export class ApiClient {
           statusText: response.statusText,
           responseBody: this.truncate(responseBody, MAX_LOG_BODY_CHARS)
         })
+        if (this.isPrivateQueueResultUrl(value)) {
+          throw new Error(
+            `Failed to fetch provider result: ${response.status} ${response.statusText} ${responseBody}`.trim()
+          )
+        }
         return value
       }
 
@@ -645,6 +750,19 @@ export class ApiClient {
         return payload
       }
 
+      if (contentType.startsWith('text/') || contentType.includes('json') || contentType === '') {
+        const responseBody = await response.text()
+        const parsed = parseJsonIfPossible(responseBody)
+        const resolvedValue = parsed ?? responseBody.trim()
+        this.logInfo('poll:outputs-fetched-text', {
+          providerId: this.config.providerId,
+          url: value,
+          contentType,
+          payloadPreview: this.previewUnknown(resolvedValue)
+        })
+        return resolvedValue || value
+      }
+
       this.logInfo('poll:outputs-fetched-non-json', {
         providerId: this.config.providerId,
         url: value,
@@ -657,7 +775,21 @@ export class ApiClient {
         url: value,
         error: error instanceof Error ? error.message : String(error)
       })
+      if (this.isPrivateQueueResultUrl(value)) {
+        throw error
+      }
       return value
+    }
+  }
+
+  private isPrivateQueueResultUrl(value: string): boolean {
+    if (this.config.providerId !== 'fal') return false
+
+    try {
+      const url = new URL(value)
+      return url.hostname === 'queue.fal.run' && /\/requests\/[^/]+$/.test(url.pathname)
+    } catch {
+      return false
     }
   }
 
@@ -828,4 +960,40 @@ export class ApiClient {
 
 async function wait(durationMs: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, durationMs))
+}
+
+function inferMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase()
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.webp':
+      return 'image/webp'
+    case '.gif':
+      return 'image/gif'
+    case '.avif':
+      return 'image/avif'
+    case '.mp4':
+      return 'video/mp4'
+    case '.mov':
+      return 'video/quicktime'
+    case '.webm':
+      return 'video/webm'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+function parseJsonIfPossible(value: string): unknown | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  try {
+    return JSON.parse(trimmed) as unknown
+  } catch {
+    return null
+  }
 }

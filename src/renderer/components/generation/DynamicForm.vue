@@ -50,13 +50,16 @@ watch(
   ([currentFields, key]) => {
     emit('fieldsChange', currentFields)
 
-    const hasExistingValues = Object.keys(props.values).some((k) => {
-      const v = props.values[k]
-      return v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)
-    })
+    const defaults = getDefaultValues(currentFields)
+    const missingDefaults = Object.fromEntries(
+      Object.entries(defaults).filter(([defaultKey]) => {
+        const value = props.values[defaultKey]
+        return value === undefined || value === null || value === ''
+      })
+    )
 
-    if (initializedKey.value !== key && !hasExistingValues) {
-      emit('setDefaults', getDefaultValues(currentFields))
+    if (initializedKey.value !== key && Object.keys(missingDefaults).length > 0) {
+      emit('setDefaults', missingDefaults)
     }
     initializedKey.value = key
   },
