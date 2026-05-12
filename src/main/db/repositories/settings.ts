@@ -57,6 +57,7 @@ function getDefaults(): AppSettings {
     flash_attn: true,
     vae_on_cpu: false,
     llm_on_cpu: false,
+    sd_cpp_max_vram_gb: null,
     confirm_before_delete: true,
     left_panel_open: true,
     left_panel_tab: 'generation',
@@ -114,11 +115,19 @@ function normalizeSettings(settings: AppSettings, defaults: AppSettings): AppSet
       settings.local_generation_backend,
       defaults.local_generation_backend
     ),
+    sd_cpp_max_vram_gb: normalizeSdCppMaxVramGb(settings.sd_cpp_max_vram_gb),
     model_quant_selections:
       settings.model_quant_selections && typeof settings.model_quant_selections === 'object'
         ? settings.model_quant_selections
         : defaults.model_quant_selections
   }
+}
+
+function normalizeSdCppMaxVramGb(value: unknown): number | null {
+  if (value === null || value === undefined || value === 'auto') return null
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return null
+  return Math.max(0, Math.min(64, parsed))
 }
 
 /**

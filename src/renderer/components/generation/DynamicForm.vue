@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { schemaToFormFields, getDefaultValues, type FormFieldConfig } from '@/lib/schema-to-form'
 import FormField from './FormField.vue'
+import AspectMegapixelsSelector from './AspectMegapixelsSelector.vue'
 import type { CanonicalEndpointDef } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,27 @@ const fields = computed<FormFieldConfig[]>(() => {
 
 const visibleFields = computed(() => fields.value.filter((f) => !f.hidden))
 const advancedFields = computed(() => fields.value.filter((f) => f.hidden))
+const aspectMegapixelsControl = computed(() => {
+  const aspectRatio = fields.value.find((field) => !field.hidden && field.name === 'aspect_ratio')
+  const megapixels = fields.value.find(
+    (field) => !field.hidden && (field.name === 'megapixels' || field.name === 'output_megapixels')
+  )
+
+  if (!aspectRatio || !megapixels) return null
+  return { aspectRatio, megapixels }
+})
+const visibleFormFields = computed(() => {
+  const bundledNames = new Set(
+    aspectMegapixelsControl.value
+      ? [
+          aspectMegapixelsControl.value.aspectRatio.name,
+          aspectMegapixelsControl.value.megapixels.name
+        ]
+      : []
+  )
+
+  return visibleFields.value.filter((field) => !bundledNames.has(field.name))
+})
 
 // ---------------------------------------------------------------------------
 // Initialize defaults when endpoint changes
@@ -81,9 +103,20 @@ function handleChange(key: string, value: unknown): void {
   </div>
 
   <div v-else class="space-y-4">
+    <AspectMegapixelsSelector
+      v-if="aspectMegapixelsControl"
+      :aspect-ratio="values[aspectMegapixelsControl.aspectRatio.name]"
+      :megapixels="values[aspectMegapixelsControl.megapixels.name]"
+      :aspect-options="aspectMegapixelsControl.aspectRatio.options"
+      :megapixel-options="aspectMegapixelsControl.megapixels.options"
+      :disabled="disabled"
+      @update:aspect-ratio="(v) => handleChange(aspectMegapixelsControl!.aspectRatio.name, v)"
+      @update:megapixels="(v) => handleChange(aspectMegapixelsControl!.megapixels.name, v)"
+    />
+
     <!-- Visible fields -->
     <FormField
-      v-for="field in visibleFields"
+      v-for="field in visibleFormFields"
       :key="field.name"
       :field="field"
       :model-value="values[field.name]"

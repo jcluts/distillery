@@ -125,27 +125,30 @@ export class EndpointCatalog {
     if (!model.modelId?.trim()) return null
 
     const explicitModes = normalizeGenerationModes(model.modes)
-    const modeInfo =
-      explicitModes.length > 0 && model.outputType
-        ? { modes: explicitModes, outputType: model.outputType }
-        : inferModeInfo(model.type, model.modelId, {
-            name: model.name,
-            description: model.description,
-            requestSchema: model.requestSchema
-          })
+    const inferredModeInfo = inferModeInfo(model.type, model.modelId, {
+      name: model.name,
+      description: model.description,
+      requestSchema: model.requestSchema
+    })
+    const outputType = model.outputType ?? inferredModeInfo.outputType
+    const modesForOutput = (mode: (typeof inferredModeInfo.modes)[number]): boolean =>
+      outputType === 'video' ? mode.endsWith('-video') : mode.endsWith('-image')
+    const modes = [...new Set([...explicitModes, ...inferredModeInfo.modes])].filter(
+      modesForOutput
+    )
     const modelIdentityId =
       model.modelIdentityId ??
       this.resolveIdentityId?.(provider.providerId, model.modelId) ??
       undefined
 
     return {
-      endpointKey: `${provider.providerId}.${model.modelId}.${modeInfo.outputType}`,
+      endpointKey: `${provider.providerId}.${model.modelId}.${outputType}`,
       providerId: provider.providerId,
       providerModelId: model.modelId,
       modelIdentityId,
       displayName: model.name?.trim() || model.modelId,
-      modes: modeInfo.modes,
-      outputType: modeInfo.outputType,
+      modes: modes.length > 0 ? modes : inferredModeInfo.modes,
+      outputType,
       executionMode: provider.executionMode ?? 'remote-async',
       requestSchema: this.normalizeProviderRequestSchema(provider.providerId, model.requestSchema)
     }

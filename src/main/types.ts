@@ -421,6 +421,7 @@ export interface AppSettings {
   flash_attn: boolean
   vae_on_cpu: boolean
   llm_on_cpu: boolean
+  sd_cpp_max_vram_gb: number | null
   confirm_before_delete: boolean
   left_panel_open: boolean
   left_panel_tab: string

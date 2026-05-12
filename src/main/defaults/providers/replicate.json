@@ -30,6 +30,8 @@
     "outputsPath": "output"
   },
   "request": {
-    "endpointTemplate": "/v1/models/{model_id}/predictions"
+    "endpointTemplate": "/v1/models/{model_id}/predictions",
+    "payloadStyle": "input-only",
+    "inputField": "input"
   }
 }

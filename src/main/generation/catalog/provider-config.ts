@@ -83,7 +83,7 @@ export interface ProviderConfig {
   }
   request?: {
     endpointTemplate?: string
-    payloadStyle?: 'flat' | 'nested-input'
+    payloadStyle?: 'flat' | 'nested-input' | 'input-only'
     modelField?: string
     inputField?: string
   }
@@ -100,34 +100,27 @@ function isProviderConfig(value: unknown): value is ProviderConfig {
   return typeof maybe.providerId === 'string' && maybe.providerId.trim().length > 0
 }
 
+function mergeOptionalObject<T extends object>(
+  base: T | undefined,
+  override: T | undefined
+): T | undefined {
+  if (!base && !override) return undefined
+  return {
+    ...(base ?? {}),
+    ...(override ?? {})
+  } as T
+}
+
 function mergeProviderConfig(base: ProviderConfig, override: ProviderConfig): ProviderConfig {
   return {
     ...base,
     ...override,
-    auth: {
-      ...(base.auth ?? {}),
-      ...(override.auth ?? {})
-    } as ProviderConfig['auth'],
-    search: {
-      ...(base.search ?? {}),
-      ...(override.search ?? {})
-    } as ProviderConfig['search'],
-    browse: {
-      ...(base.browse ?? {}),
-      ...(override.browse ?? {})
-    } as ProviderConfig['browse'],
-    upload: {
-      ...(base.upload ?? {}),
-      ...(override.upload ?? {})
-    } as ProviderConfig['upload'],
-    async: {
-      ...(base.async ?? {}),
-      ...(override.async ?? {})
-    } as ProviderConfig['async'],
-    request: {
-      ...(base.request ?? {}),
-      ...(override.request ?? {})
-    } as ProviderConfig['request'],
+    auth: mergeOptionalObject(base.auth, override.auth),
+    search: mergeOptionalObject(base.search, override.search),
+    browse: mergeOptionalObject(base.browse, override.browse),
+    upload: mergeOptionalObject(base.upload, override.upload),
+    async: mergeOptionalObject(base.async, override.async),
+    request: mergeOptionalObject(base.request, override.request),
     staticModels: override.staticModels ?? base.staticModels,
     endpoints: override.endpoints ?? base.endpoints
   }

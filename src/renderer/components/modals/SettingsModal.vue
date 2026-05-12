@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
+import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Divider from 'primevue/divider'
 import SelectButton from 'primevue/selectbutton'
@@ -35,10 +36,31 @@ const onOffOptions = [
   { label: 'Off', value: false }
 ]
 
+type MaxVramMode = 'auto' | 'off' | 'custom'
+
+const maxVramOptions: Array<{ label: string; value: MaxVramMode }> = [
+  { label: 'Auto', value: 'auto' },
+  { label: 'Off', value: 'off' },
+  { label: 'Custom', value: 'custom' }
+]
+
 const upscaleBackendOptions = [
   { label: 'Auto', value: 'auto' },
   { label: 'ONNX', value: 'onnx' }
 ]
+
+const maxVramMode = computed<MaxVramMode>({
+  get: () => {
+    const value = draft.value?.sd_cpp_max_vram_gb
+    if (value == null) return 'auto'
+    return value > 0 ? 'custom' : 'off'
+  },
+  set: (value) => {
+    if (value === 'auto') update('sd_cpp_max_vram_gb', null)
+    else if (value === 'off') update('sd_cpp_max_vram_gb', 0)
+    else update('sd_cpp_max_vram_gb', draft.value?.sd_cpp_max_vram_gb || 18)
+  }
+})
 
 // Load settings when modal opens, reset when it closes
 watch(open, async (isOpen) => {
@@ -98,6 +120,7 @@ async function onSave(): Promise<void> {
       flash_attn: draft.value.flash_attn,
       vae_on_cpu: draft.value.vae_on_cpu,
       llm_on_cpu: draft.value.llm_on_cpu,
+      sd_cpp_max_vram_gb: draft.value.sd_cpp_max_vram_gb,
       confirm_before_delete: draft.value.confirm_before_delete
     }
 
@@ -256,6 +279,28 @@ async function onSave(): Promise<void> {
               option-value="value"
               @update:model-value="update('llm_on_cpu', Boolean($event))"
             />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted">Max VRAM</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <SelectButton
+                v-model="maxVramMode"
+                :options="maxVramOptions"
+                option-label="label"
+                option-value="value"
+              />
+              <InputNumber
+                v-if="maxVramMode === 'custom'"
+                :model-value="draft?.sd_cpp_max_vram_gb ?? 18"
+                suffix=" GiB"
+                :min="1"
+                :max="64"
+                :step="1"
+                input-class="w-24"
+                @update:model-value="update('sd_cpp_max_vram_gb', Number($event ?? 18))"
+              />
+            </div>
           </div>
         </div>
 

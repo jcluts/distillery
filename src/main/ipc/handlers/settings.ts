@@ -93,7 +93,8 @@ export function registerSettingsHandlers(options?: {
         updates.offload_to_cpu !== undefined ||
         updates.flash_attn !== undefined ||
         updates.vae_on_cpu !== undefined ||
-        updates.llm_on_cpu !== undefined
+        updates.llm_on_cpu !== undefined ||
+        updates.sd_cpp_max_vram_gb !== undefined
 
       if (sdCppSettingsChanged) {
         try {

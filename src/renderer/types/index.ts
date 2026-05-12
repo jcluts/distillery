@@ -448,7 +448,7 @@ export interface ProviderConfig {
   }
   request?: {
     endpointTemplate?: string
-    payloadStyle?: 'flat' | 'nested-input'
+    payloadStyle?: 'flat' | 'nested-input' | 'input-only'
     modelField?: string
     inputField?: string
   }
@@ -600,6 +600,7 @@ export interface AppSettings {
   flash_attn: boolean
   vae_on_cpu: boolean
   llm_on_cpu: boolean
+  sd_cpp_max_vram_gb: number | null
 
   // Behavior
   confirm_before_delete: boolean

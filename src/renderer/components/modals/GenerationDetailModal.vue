@@ -83,6 +83,8 @@ const paramRows = computed<InfoRow[]>(() => {
   return rows
 })
 
+const fullError = computed(() => gen.value?.error?.trim() ?? '')
+
 // ---------------------------------------------------------------------------
 // Image preview modal
 // ---------------------------------------------------------------------------
@@ -116,6 +118,11 @@ async function removeFromTimeline(): Promise<void> {
   await window.api.timeline.remove(generationStore.detailGenerationId)
   await generationStore.loadTimeline()
   close()
+}
+
+async function copyError(): Promise<void> {
+  if (!fullError.value) return
+  await navigator.clipboard.writeText(fullError.value)
 }
 </script>
 
@@ -174,6 +181,18 @@ async function removeFromTimeline(): Promise<void> {
 
       <!-- Right column: Prompt + Parameters -->
       <div class="space-y-4">
+        <div v-if="fullError">
+          <div class="mb-1.5 flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-muted">Error</span>
+            <Button label="Copy" size="small" severity="secondary" text @click="copyError" />
+          </div>
+          <div
+            class="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-red-500/40 bg-red-950/20 p-2 font-mono text-xs text-red-200"
+          >
+            {{ fullError }}
+          </div>
+        </div>
+
         <div>
           <div class="mb-1.5 text-xs font-medium text-muted">Prompt</div>
           <div

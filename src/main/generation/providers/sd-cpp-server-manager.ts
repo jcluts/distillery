@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'child_process'
 import http from 'http'
 import net from 'net'
+import os from 'os'
 import * as path from 'path'
 
 export interface SdCppServerConfig {
@@ -11,6 +12,7 @@ export interface SdCppServerConfig {
   offloadToCpu: boolean
   flashAttention: boolean
   vaeOnCpu: boolean
+  maxVramGb: number | null
 }
 
 export interface SdCppServerProgress {
@@ -113,6 +115,9 @@ export class SdCppServerManager {
     if (config.offloadToCpu) args.push('--offload-to-cpu')
     if (config.flashAttention) args.push('--diffusion-fa')
     if (config.vaeOnCpu) args.push('--vae-on-cpu')
+
+    const maxVramGb = resolveMaxVramGb(config.maxVramGb)
+    if (maxVramGb > 0) args.push('--max-vram', formatMaxVram(maxVramGb))
 
     this.process = spawn(config.serverPath, args, {
       cwd: serverDir,
@@ -279,4 +284,20 @@ function getFreePort(): Promise<number> {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function resolveMaxVramGb(configured: number | null): number {
+  if (typeof configured === 'number') return configured
+  if (process.platform !== 'darwin' || process.arch !== 'arm64') return 0
+
+  const totalMemoryGb = os.totalmem() / 1024 ** 3
+  if (totalMemoryGb < 16) return 0
+
+  const reserveForSystemGb = totalMemoryGb >= 24 ? 6 : 5
+  const budget = Math.min(totalMemoryGb * 0.75, totalMemoryGb - reserveForSystemGb)
+  return Math.max(8, Math.min(32, Math.floor(budget)))
+}
+
+function formatMaxVram(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }

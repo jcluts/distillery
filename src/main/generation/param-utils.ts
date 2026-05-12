@@ -267,17 +267,18 @@ export function inferModeInfo(
   outputType: 'image' | 'video'
 } {
   const coerced = coerceExplicitGenerationMode(type)
-  if (coerced) {
-    const isVideo = coerced === 'text-to-video' || coerced === 'image-to-video'
-    return { modes: [coerced], outputType: isVideo ? 'video' : 'image' }
-  }
-
   const haystack = [type, modelId, options?.name, options?.description]
     .filter((value): value is string => typeof value === 'string')
     .join(' ')
     .toLowerCase()
 
-  if (haystack.includes('video')) {
+  const hasImageInput = schemaHasImageInput(options?.requestSchema)
+  const hasPromptInput = schemaHasPromptInput(options?.requestSchema)
+  const requiresOnlyImageInput = schemaRequiresOnlyImageInput(options?.requestSchema)
+  const isVideo =
+    coerced === 'text-to-video' || coerced === 'image-to-video' || haystack.includes('video')
+
+  if (isVideo) {
     const hasImageInput =
       schemaHasImageInput(options?.requestSchema) ||
       haystack.includes('image-to-video') ||
@@ -291,8 +292,8 @@ export function inferModeInfo(
         !haystack.includes('i2v'))
     const modes: GenerationMode[] = []
 
-    if (supportsPromptOnly) modes.push('text-to-video')
-    if (hasImageInput) modes.push('image-to-video')
+    if (coerced === 'text-to-video' || supportsPromptOnly) modes.push('text-to-video')
+    if (coerced === 'image-to-video' || hasImageInput) modes.push('image-to-video')
 
     return {
       modes: modes.length > 0 ? modes : ['text-to-video'],
@@ -300,11 +301,23 @@ export function inferModeInfo(
     }
   }
 
+  const supportsPromptOnly =
+    coerced === 'text-to-image' ||
+    hasPromptInput ||
+    (!coerced && !requiresOnlyImageInput && !haystack.includes('image-to-image'))
+  const supportsImageInput =
+    coerced === 'image-to-image' ||
+    hasImageInput ||
+    haystack.includes('edit') ||
+    haystack.includes('img2img') ||
+    haystack.includes('image-to-image')
+  const modes: GenerationMode[] = []
+
+  if (supportsPromptOnly) modes.push('text-to-image')
+  if (supportsImageInput) modes.push('image-to-image')
+
   return {
-    modes:
-      haystack.includes('edit') || haystack.includes('image-to-image')
-        ? ['image-to-image']
-        : ['text-to-image'],
+    modes: modes.length > 0 ? modes : ['text-to-image'],
     outputType: 'image'
   }
 }

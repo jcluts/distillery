@@ -204,7 +204,8 @@ export class SdCppGenerationExecutor {
       llm: paths.llm,
       offloadToCpu: settings.offload_to_cpu,
       flashAttention: settings.flash_attn,
-      vaeOnCpu: settings.vae_on_cpu
+      vaeOnCpu: settings.vae_on_cpu,
+      maxVramGb: settings.sd_cpp_max_vram_gb
     })
   }
 

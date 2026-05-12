@@ -162,9 +162,10 @@ export class ApiClient {
 
       return this.defaultNormalizeSearch(item)
     })
+    const withModelIds = normalized.filter((item) => item.modelId)
 
     return {
-      models: normalized.filter((item) => item.modelId),
+      models: await this.enrichSearchResults(withModelIds),
       hasMore: extractHasMore(payload, asRecord)
     }
   }
@@ -233,6 +234,36 @@ export class ApiClient {
     }
   }
 
+  private async enrichSearchResults(models: SearchResultModel[]): Promise<SearchResultModel[]> {
+    if (!this.config.search?.detailEndpoint || !this.config.search.searchOnly) {
+      return models
+    }
+
+    const details = await Promise.all(
+      models.map(async (model) => {
+        try {
+          return await this.fetchModelDetail(model.modelId)
+        } catch {
+          return null
+        }
+      })
+    )
+
+    return models.map((model, index) => {
+      const detail = details[index]
+      if (!detail) return model
+
+      return {
+        ...model,
+        name: detail.name || model.name,
+        description: detail.description ?? model.description,
+        type: detail.type ?? model.type,
+        modes: detail.modes ?? model.modes,
+        outputType: detail.outputType ?? model.outputType
+      }
+    })
+  }
+
   async fetchModelList(): Promise<ProviderModel[]> {
     const search = this.config.search
     if (!search?.endpoint) {
@@ -288,12 +319,10 @@ export class ApiClient {
     return details.filter((entry): entry is ProviderModel => !!entry)
   }
 
-  async uploadFile(filePath: string): Promise<string> {
-    const uploadConfig = this.config.upload
-    if (!uploadConfig) {
-      throw new Error(`Provider ${this.config.providerId} does not support uploads`)
-    }
-
+  async uploadFile(
+    filePath: string,
+    uploadConfig: NonNullable<ProviderConfig['upload']>
+  ): Promise<string> {
     if (this.shouldUseSignedUrlUpload(uploadConfig)) {
       return this.uploadFileWithSignedUrl(filePath, uploadConfig)
     }
@@ -361,8 +390,16 @@ export class ApiClient {
   private shouldUseSignedUrlUpload(uploadConfig: ProviderConfig['upload']): boolean {
     return (
       uploadConfig?.method === 'signed-url-put' ||
-      uploadConfig?.endpoint.includes('/storage/upload/initiate') === true
+      uploadConfig?.endpoint?.includes('/storage/upload/initiate') === true
     )
+  }
+
+  private getUsableUploadConfig(): NonNullable<ProviderConfig['upload']> | null {
+    const uploadConfig = this.config.upload
+    if (!uploadConfig?.endpoint || !uploadConfig.method || !uploadConfig.responseField) {
+      return null
+    }
+    return uploadConfig
   }
 
   private async uploadFileWithSignedUrl(
@@ -462,7 +499,7 @@ export class ApiClient {
       providerId: this.config.providerId,
       modelId: model.modelId,
       endpointTemplate: this.config.request?.endpointTemplate,
-      hasUploadConfig: !!this.config.upload,
+      hasUploadConfig: !!this.getUsableUploadConfig(),
       hasAsyncConfig: !!this.config.async?.enabled,
       paramSummary: this.summarizeParams(params),
       refImageCount: Array.isArray(filePaths) ? filePaths.length : 0
@@ -472,24 +509,27 @@ export class ApiClient {
     delete preparedParams.ref_image_ids
     delete preparedParams.ref_image_paths
 
-    if (Array.isArray(filePaths) && filePaths.length > 0 && this.config.upload) {
-      const uploadedUrls = await Promise.all(filePaths.map((filePath) => this.uploadFile(filePath)))
+    if (Array.isArray(filePaths) && filePaths.length > 0) {
+      const uploadConfig = this.getUsableUploadConfig()
+      const imageUrls = uploadConfig
+        ? await Promise.all(filePaths.map((filePath) => this.uploadFile(filePath, uploadConfig)))
+        : await Promise.all(filePaths.map((filePath) => this.fileToDataUrl(filePath)))
       const imageFields = this.detectImageFields(model.requestSchema)
 
       if (imageFields.length > 0) {
         for (const { name, isArray } of imageFields) {
-          preparedParams[name] = this.resolveUploadedImageValue(name, isArray, uploadedUrls)
+          preparedParams[name] = this.resolvePreparedImageValue(name, isArray, imageUrls)
         }
       } else {
-        preparedParams.image_urls = uploadedUrls
-        if (uploadedUrls.length === 1) {
-          preparedParams.image_url = uploadedUrls[0]
+        preparedParams.image_urls = imageUrls
+        if (imageUrls.length === 1) {
+          preparedParams.image_url = imageUrls[0]
         }
       }
 
       this.logInfo('generate:uploads-prepared', {
-        uploadedUrlCount: uploadedUrls.length,
-        uploadedUrls,
+        uploadedUrlCount: imageUrls.length,
+        uploadedUrls: imageUrls.map((value) => `${this.truncate(value, 80)} (len=${value.length})`),
         targetFields: imageFields.map((field) => field.name)
       })
     }
@@ -800,35 +840,37 @@ export class ApiClient {
     if (!schema?.properties) return result
 
     for (const [key, prop] of Object.entries(schema.properties)) {
-      if (!IMAGE_INPUT_FIELD_NAMES.has(key)) continue
+      if (!IMAGE_INPUT_FIELD_NAMES.has(key.toLowerCase())) continue
       result.push({ name: key, isArray: prop.type === 'array' })
     }
 
     return result
   }
 
-  private resolveUploadedImageValue(
+  private resolvePreparedImageValue(
     fieldName: string,
     isArray: boolean,
-    uploadedUrls: string[]
+    imageUrls: string[]
   ): string | string[] {
-    if (isArray) return uploadedUrls
+    if (isArray) return imageUrls
     if (fieldName === 'last_frame_url') {
-      return uploadedUrls[uploadedUrls.length - 1] ?? uploadedUrls[0]
+      return imageUrls[imageUrls.length - 1] ?? imageUrls[0]
     }
-    return uploadedUrls[0]
+    return imageUrls[0]
   }
 
   private buildRequestPayload(
     model: ProviderModel,
     params: Record<string, unknown>
   ): Record<string, unknown> {
-    if (this.config.request?.payloadStyle !== 'nested-input') {
+    const requestConfig = this.config.request
+    const payloadStyle = requestConfig?.payloadStyle
+    if (!requestConfig || (payloadStyle !== 'nested-input' && payloadStyle !== 'input-only')) {
       return params
     }
 
-    const modelField = this.config.request.modelField ?? 'model'
-    const inputField = this.config.request.inputField ?? 'input'
+    const modelField = requestConfig.modelField ?? 'model'
+    const inputField = requestConfig.inputField ?? 'input'
     const { [modelField]: configuredModel, callBackUrl, ...inputParams } = params
     const allowedInputKeys = new Set(Object.keys(model.requestSchema.properties ?? {}))
     const filteredInputParams =
@@ -837,16 +879,27 @@ export class ApiClient {
             Object.entries(inputParams).filter(([key]) => allowedInputKeys.has(key))
           )
         : inputParams
-    const payload: Record<string, unknown> = {
-      [modelField]: configuredModel || model.modelId,
-      [inputField]: filteredInputParams
-    }
+    const payload: Record<string, unknown> =
+      payloadStyle === 'nested-input'
+        ? {
+            [modelField]: configuredModel || model.modelId,
+            [inputField]: filteredInputParams
+          }
+        : {
+            [inputField]: filteredInputParams
+          }
 
     if (typeof callBackUrl === 'string' && callBackUrl.trim()) {
       payload.callBackUrl = callBackUrl.trim()
     }
 
     return payload
+  }
+
+  private async fileToDataUrl(filePath: string): Promise<string> {
+    const fileBuffer = await fs.promises.readFile(filePath)
+    const contentType = inferMimeType(filePath)
+    return `data:${contentType};base64,${fileBuffer.toString('base64')}`
   }
 
   private logInfo(event: string, details?: Record<string, unknown>): void {
