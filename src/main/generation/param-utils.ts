@@ -1,4 +1,3 @@
-import { randomInt } from 'crypto'
 import type { CanonicalGenerationParams, CanonicalRequestSchema, GenerationMode } from '../types'
 
 const GENERATION_MODES: GenerationMode[] = [
@@ -106,28 +105,6 @@ function extractWidthHeight(value: unknown): { width: number; height: number } |
   }
 
   return null
-}
-
-/**
- * If seed is null/undefined/empty, generate a random seed.
- * Uses the range 0–2^31-1 for broad engine compatibility.
- */
-export function resolveOrGenerateSeed(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
-    return value
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed) && parsed >= 0) return parsed
-  }
-  return randomInt(0, 2_147_483_647)
-}
-
-/**
- * Return params with a resolved seed (random if blank/missing).
- */
-export function withResolvedSeed(params: CanonicalGenerationParams): CanonicalGenerationParams {
-  return { ...params, seed: resolveOrGenerateSeed(params.seed) }
 }
 
 export function requestSchemaHasParam(

@@ -18,8 +18,7 @@ import {
   asOptionalNumber,
   extractDimensions,
   filterParamsForRequestSchema,
-  requestSchemaHasParam,
-  withResolvedSeed
+  requestSchemaHasParam
 } from './param-utils'
 
 interface GenerationServiceDeps {
@@ -166,12 +165,20 @@ export class GenerationService extends EventEmitter {
       'ref_image_paths'
     ])
 
-    if (requestSchemaHasParam(endpoint.requestSchema, 'seed')) {
-      return withResolvedSeed(params)
+    if (
+      !requestSchemaHasParam(endpoint.requestSchema, 'seed') ||
+      !this.hasExplicitSeed(params.seed)
+    ) {
+      delete params.seed
     }
 
-    delete params.seed
     return params
+  }
+
+  private hasExplicitSeed(value: unknown): boolean {
+    if (typeof value === 'number') return Number.isFinite(value)
+    if (typeof value !== 'string') return false
+    return value.trim().length > 0 && Number.isFinite(Number(value))
   }
 
   private validateParams(

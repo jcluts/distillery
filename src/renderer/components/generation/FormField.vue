@@ -68,6 +68,14 @@ const numericValue = computed(() => {
   return (props.field.default as number | undefined) ?? props.field.min ?? 0
 })
 
+function getNumberInputValue(value: unknown): number | null {
+  if (allowEmptyNumber.value && (value === undefined || value === null || value === '')) {
+    return null
+  }
+  if (value !== undefined && value !== null && value !== '') return Number(value)
+  return (props.field.default as number | undefined) ?? props.field.min ?? 0
+}
+
 function clamp(n: number): number {
   let next = n
   if (props.field.min !== undefined) next = Math.max(props.field.min, next)
@@ -76,22 +84,34 @@ function clamp(n: number): number {
 }
 
 // -- Number input local state --
-const numberInput = ref<number | null>(numericValue.value)
+const numberInput = ref<number | null>(getNumberInputValue(props.modelValue))
 
 watch(
-  () => props.modelValue,
-  (val) => {
+  () => [
+    props.modelValue,
+    props.field.name,
+    props.field.type,
+    props.field.required,
+    props.field.default,
+    props.field.min
+  ],
+  ([val]) => {
     if (!isNumericField.value) return
-    if (allowEmptyNumber.value && (val === undefined || val === null)) {
-      numberInput.value = null
-    } else {
-      numberInput.value =
-        val !== undefined && val !== null
-          ? Number(val)
-          : ((props.field.default as number | undefined) ?? props.field.min ?? 0)
-    }
-  }
+    numberInput.value = getNumberInputValue(val)
+  },
+  { immediate: true }
 )
+
+function handleNumberInput(value: number | null | undefined): void {
+  numberInput.value = value ?? null
+  if (allowEmptyNumber.value && (value === null || value === undefined)) {
+    emit('update:modelValue', undefined)
+    return
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    emit('update:modelValue', value)
+  }
+}
 
 function commitNumber(): void {
   if (numberInput.value === null || numberInput.value === undefined) {
@@ -233,12 +253,14 @@ const showDescription = computed(
         "
       />
       <InputNumber
-        v-model="numberInput"
+        :model-value="numberInput"
         :min="field.min"
         :max="field.max"
         :step="field.step"
+        :use-grouping="false"
         :disabled="disabled"
         input-class="w-16 text-sm"
+        @update:model-value="handleNumberInput"
         @blur="commitNumber"
       />
     </div>
@@ -246,15 +268,17 @@ const showDescription = computed(
     <!-- Number without slider (e.g. seed) -->
     <div v-else-if="field.type === 'number'" class="flex items-center gap-2">
       <InputNumber
-        v-model="numberInput"
+        :model-value="numberInput"
         :min="field.min"
         :max="field.max"
         :step="field.step"
+        :use-grouping="false"
         :placeholder="field.default !== undefined ? `Default: ${field.default}` : 'Random'"
         :disabled="disabled"
         :invalid="!!error"
         :input-class="isSeedField ? 'w-full' : undefined"
         :class="isSeedField ? 'flex-1' : undefined"
+        @update:model-value="handleNumberInput"
         @blur="commitNumber"
       />
       <Button
@@ -295,8 +319,10 @@ const showDescription = computed(
         :min="field.min"
         :max="field.max"
         :step="field.step"
+        :use-grouping="false"
         :disabled="disabled"
         input-class="w-16 text-sm"
+        @update:model-value="handleNumberInput"
         @blur="commitNumber"
       />
     </div>

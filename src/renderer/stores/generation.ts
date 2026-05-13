@@ -205,6 +205,7 @@ export const useGenerationStore = defineStore('generation', () => {
     const vals: Record<string, unknown> = { ...stored }
     delete vals.model
     delete vals.mode
+    delete vals.seed
 
     if (gen.prompt != null) vals.prompt = gen.prompt
     if (gen.width && gen.height && vals.size == null) vals.size = `${gen.width}*${gen.height}`
