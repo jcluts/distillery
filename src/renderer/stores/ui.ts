@@ -8,8 +8,7 @@ export type ViewMode = 'grid' | 'loupe'
 export type ZoomLevel = 'fit' | 'actual'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
 export type RightPanelTab =
-  | 'info'
-  | 'generation'
+  | 'details'
   | 'collections'
   | 'transform'
   | 'adjustments'
@@ -19,8 +18,7 @@ export type RightPanelTab =
 
 const LEFT_PANEL_TABS: LeftPanelTab[] = ['generation', 'timeline', 'import']
 const RIGHT_PANEL_TABS: RightPanelTab[] = [
-  'info',
-  'generation',
+  'details',
   'collections',
   'transform',
   'adjustments',
@@ -46,7 +44,7 @@ export const useUIStore = defineStore('ui', () => {
   const leftPanelTab = ref<LeftPanelTab>('generation')
 
   const rightPanelOpen = ref(true)
-  const rightPanelTab = ref<RightPanelTab>('info')
+  const rightPanelTab = ref<RightPanelTab>('details')
 
   const viewMode = ref<ViewMode>('grid')
   const loupeZoom = ref<ZoomLevel>('fit')
@@ -81,7 +79,7 @@ export const useUIStore = defineStore('ui', () => {
     rightPanelOpen.value = settings.right_panel_open
     rightPanelTab.value = isRightPanelTab(settings.right_panel_tab)
       ? settings.right_panel_tab
-      : 'info'
+      : 'details'
 
     viewMode.value = 'grid'
     loupeZoom.value = 'fit'

@@ -91,9 +91,12 @@ const fullError = computed(() => gen.value?.error?.trim() ?? '')
 
 const previewOpen = ref(false)
 const previewSrc = ref<string | null>(null)
+const previewAlt = ref('Image preview')
 
-function openPreview(src: string): void {
+function openPreview(src: string | null, alt: string): void {
+  if (!src) return
   previewSrc.value = src
+  previewAlt.value = alt
   previewOpen.value = true
 }
 
@@ -142,7 +145,7 @@ async function copyError(): Promise<void> {
           <div
             class="aspect-square w-full overflow-hidden rounded-lg border border-default bg-surface-100/30"
             :class="{ 'cursor-pointer': outputThumb }"
-            @click="outputThumb ? openPreview(outputThumb) : undefined"
+            @click="openPreview(outputThumb, 'Generation output')"
           >
             <img
               v-if="outputThumb"
@@ -161,11 +164,18 @@ async function copyError(): Promise<void> {
           <div class="mb-1.5 text-xs font-medium text-muted">Reference Images</div>
           <div v-if="inputs.length === 0" class="text-xs text-muted">None</div>
           <div v-else class="flex items-center gap-2 overflow-x-auto">
-            <div
+            <button
               v-for="input in inputs"
               :key="input.id"
-              class="relative size-12 shrink-0 overflow-hidden rounded border border-default bg-surface-100/30"
+              type="button"
+              class="relative size-24 shrink-0 cursor-pointer overflow-hidden rounded border border-default bg-surface-100/30 p-0"
               :title="input.original_filename ?? ''"
+              @click="
+                openPreview(
+                  input.preview_file_path ?? input.thumb_path,
+                  input.original_filename ?? 'Reference'
+                )
+              "
             >
               <img
                 :src="input.thumb_path"
@@ -173,7 +183,7 @@ async function copyError(): Promise<void> {
                 class="absolute inset-0 size-full object-cover"
                 draggable="false"
               />
-            </div>
+            </button>
             <Tag :value="String(inputs.length)" severity="secondary" />
           </div>
         </div>
@@ -196,7 +206,7 @@ async function copyError(): Promise<void> {
         <div>
           <div class="mb-1.5 text-xs font-medium text-muted">Prompt</div>
           <div
-            class="max-h-32 overflow-y-auto rounded-lg border border-default bg-surface-100/30 p-2 text-sm"
+            class="max-h-32 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-default bg-surface-100/30 p-2 text-sm"
           >
             {{ gen?.prompt ?? '—' }}
           </div>
@@ -233,5 +243,5 @@ async function copyError(): Promise<void> {
     </template>
   </Dialog>
 
-  <ImagePreviewModal v-model:open="previewOpen" :src="previewSrc" alt="Generation output" />
+  <ImagePreviewModal v-model:open="previewOpen" :src="previewSrc" :alt="previewAlt" />
 </template>
