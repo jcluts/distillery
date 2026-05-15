@@ -72,7 +72,8 @@ function getDefaults(): AppSettings {
     wavespeed_api_key: '',
     gptproto_api_key: '',
     kie_api_key: '',
-    venice_api_key: ''
+    venice_api_key: '',
+    ninjachat_api_key: ''
   }
 }
 

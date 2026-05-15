@@ -432,8 +432,19 @@ app.whenReady().then(async () => {
   const remoteProviderConfigs = providerManagerService.getProviders()
   for (const providerConfig of remoteProviderConfigs) {
     providerRegistry.register(
-      new RemoteApiProvider(providerConfig, () =>
-        providerManagerService.getApiKey(providerConfig.providerId)
+      new RemoteApiProvider(
+        providerConfig,
+        () => providerManagerService.getApiKey(providerConfig.providerId),
+        {
+          resolvePublicUpload: (providerId) => {
+            const config = providerManagerService.getProviderConfig(providerId)
+            if (!config) return null
+            return {
+              config,
+              apiKey: providerManagerService.getApiKey(providerId)
+            }
+          }
+        }
       )
     )
   }

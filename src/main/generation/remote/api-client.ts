@@ -52,36 +52,55 @@ export interface RemoteGenerationResult {
   }
 }
 
+interface PublicUploadBridge {
+  config: ProviderConfig
+  apiKey: string
+}
+
+interface ApiClientOptions {
+  resolvePublicUpload?: (providerId: string) => PublicUploadBridge | null
+}
+
+interface UploadTarget {
+  providerConfig: ProviderConfig
+  uploadConfig: NonNullable<ProviderConfig['upload']>
+  apiKey: string
+}
+
 export class ApiClient {
   private config: ProviderConfig
   private apiKey: string
+  private options: ApiClientOptions
 
-  constructor(config: ProviderConfig, apiKey: string) {
+  constructor(config: ProviderConfig, apiKey: string, options: ApiClientOptions = {}) {
     this.config = config
     this.apiKey = apiKey.trim()
+    this.options = options
   }
 
-  private buildAuthHeaders(): Record<string, string> {
-    if (!this.config.auth) {
+  private buildAuthHeaders(
+    config: ProviderConfig = this.config,
+    apiKey: string = this.apiKey
+  ): Record<string, string> {
+    if (!config.auth) {
       return {}
     }
 
-    const headerName = this.config.auth.header || 'Authorization'
-    const authPrefix =
-      this.config.auth.prefix ?? (this.config.auth.type === 'key' ? 'Key' : 'Bearer')
-    const token = authPrefix ? `${authPrefix} ${this.apiKey}` : this.apiKey
+    const headerName = config.auth.header || 'Authorization'
+    const authPrefix = config.auth.prefix ?? (config.auth.type === 'key' ? 'Key' : 'Bearer')
+    const token = authPrefix ? `${authPrefix} ${apiKey.trim()}` : apiKey.trim()
 
     return {
       [headerName]: token
     }
   }
 
-  private buildUrl(endpoint: string): string {
+  private buildUrl(endpoint: string, config: ProviderConfig = this.config): string {
     if (/^https?:\/\//i.test(endpoint)) {
       return endpoint
     }
 
-    const baseUrl = this.config.baseUrl ?? ''
+    const baseUrl = config.baseUrl ?? ''
     const baseTrimmed = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
     const endpointTrimmed = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
     return `${baseTrimmed}${endpointTrimmed}`
@@ -323,15 +342,13 @@ export class ApiClient {
     return details.filter((entry): entry is ProviderModel => !!entry)
   }
 
-  async uploadFile(
-    filePath: string,
-    uploadConfig: NonNullable<ProviderConfig['upload']>
-  ): Promise<string> {
+  private async uploadFile(filePath: string, target: UploadTarget): Promise<string> {
+    const { providerConfig, uploadConfig, apiKey } = target
     if (this.shouldUseSignedUrlUpload(uploadConfig)) {
-      return this.uploadFileWithSignedUrl(filePath, uploadConfig)
+      return this.uploadFileWithSignedUrl(filePath, target)
     }
 
-    const endpointUrl = this.buildUrl(uploadConfig.endpoint)
+    const endpointUrl = this.buildUrl(uploadConfig.endpoint, providerConfig)
 
     if (uploadConfig.method === 'json') {
       const body = {
@@ -344,7 +361,7 @@ export class ApiClient {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          ...this.buildAuthHeaders()
+          ...this.buildAuthHeaders(providerConfig, apiKey)
         },
         body: JSON.stringify(body)
       })
@@ -373,7 +390,7 @@ export class ApiClient {
       method: 'POST',
       headers: {
         Accept: 'application/json',
-        ...this.buildAuthHeaders()
+        ...this.buildAuthHeaders(providerConfig, apiKey)
       },
       body: form
     })
@@ -398,29 +415,66 @@ export class ApiClient {
     )
   }
 
-  private getUsableUploadConfig(): NonNullable<ProviderConfig['upload']> | null {
+  private getUsableUploadTarget(): UploadTarget | null {
     const uploadConfig = this.config.upload
-    if (!uploadConfig?.endpoint || !uploadConfig.method || !uploadConfig.responseField) {
+    if (this.isUsableUploadConfig(uploadConfig)) {
+      return {
+        providerConfig: this.config,
+        uploadConfig,
+        apiKey: this.apiKey
+      }
+    }
+
+    const publicUploadProviderId = this.config.publicUpload?.providerId
+    if (!publicUploadProviderId) {
       return null
     }
-    return uploadConfig
+
+    const bridge = this.options.resolvePublicUpload?.(publicUploadProviderId)
+    if (!bridge) {
+      throw new Error(
+        `Provider ${this.config.displayName ?? this.config.providerId} needs a public upload provider for reference images: ${publicUploadProviderId}`
+      )
+    }
+
+    if (bridge.config.auth && !bridge.apiKey.trim()) {
+      throw new Error(
+        `Missing API key for public upload provider: ${bridge.config.displayName ?? bridge.config.providerId}`
+      )
+    }
+
+    if (!this.isUsableUploadConfig(bridge.config.upload)) {
+      throw new Error(
+        `Public upload provider ${bridge.config.displayName ?? bridge.config.providerId} is missing upload configuration`
+      )
+    }
+
+    return {
+      providerConfig: bridge.config,
+      uploadConfig: bridge.config.upload,
+      apiKey: bridge.apiKey.trim()
+    }
   }
 
-  private async uploadFileWithSignedUrl(
-    filePath: string,
-    uploadConfig: NonNullable<ProviderConfig['upload']>
-  ): Promise<string> {
+  private isUsableUploadConfig(
+    uploadConfig: ProviderConfig['upload']
+  ): uploadConfig is NonNullable<ProviderConfig['upload']> {
+    return !!uploadConfig?.endpoint && !!uploadConfig.method && !!uploadConfig.responseField
+  }
+
+  private async uploadFileWithSignedUrl(filePath: string, target: UploadTarget): Promise<string> {
+    const { providerConfig, uploadConfig, apiKey } = target
     const fileBuffer = await fs.promises.readFile(filePath)
     const fileName = path.basename(filePath)
     const contentType = inferMimeType(filePath)
-    const endpointUrl = this.resolveSignedUploadInitiateUrl(uploadConfig.endpoint)
+    const endpointUrl = this.resolveSignedUploadInitiateUrl(uploadConfig.endpoint, providerConfig)
 
     const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        ...this.buildAuthHeaders()
+        ...this.buildAuthHeaders(providerConfig, apiKey)
       },
       body: JSON.stringify({
         content_type: contentType,
@@ -433,6 +487,7 @@ export class ApiClient {
       const responseBody = await response.text()
       this.logError('upload:initiate-http-error', {
         providerId: this.config.providerId,
+        uploadProviderId: providerConfig.providerId,
         endpoint: endpointUrl,
         status: response.status,
         statusText: response.statusText,
@@ -468,6 +523,7 @@ export class ApiClient {
       const responseBody = await uploadResponse.text()
       this.logError('upload:put-http-error', {
         providerId: this.config.providerId,
+        uploadProviderId: providerConfig.providerId,
         status: uploadResponse.status,
         statusText: uploadResponse.statusText,
         responseBody: this.truncate(responseBody, MAX_LOG_BODY_CHARS)
@@ -480,10 +536,10 @@ export class ApiClient {
     return fileUrl
   }
 
-  private resolveSignedUploadInitiateUrl(endpoint: string): string {
-    const url = new URL(this.buildUrl(endpoint))
+  private resolveSignedUploadInitiateUrl(endpoint: string, providerConfig: ProviderConfig): string {
+    const url = new URL(this.buildUrl(endpoint, providerConfig))
 
-    if (this.config.providerId === 'fal' && url.pathname.endsWith('/storage/upload/initiate')) {
+    if (providerConfig.providerId === 'fal' && url.pathname.endsWith('/storage/upload/initiate')) {
       url.protocol = 'https:'
       url.host = 'rest.fal.ai'
       if (!url.searchParams.has('storage_type')) {
@@ -504,7 +560,7 @@ export class ApiClient {
       providerId: this.config.providerId,
       modelId: model.modelId,
       endpointTemplate: this.config.request?.endpointTemplate,
-      hasUploadConfig: !!this.getUsableUploadConfig(),
+      hasUploadConfig: !!this.config.upload || !!this.config.publicUpload,
       hasAsyncConfig: this.shouldUseAsyncPolling(mode),
       paramSummary: this.summarizeParams(params),
       refImageCount: Array.isArray(filePaths) ? filePaths.length : 0
@@ -517,10 +573,10 @@ export class ApiClient {
 
     if (Array.isArray(filePaths) && filePaths.length > 0) {
       const preparedFilePaths = this.prepareImageInputPaths(filePaths, model, mode)
-      const uploadConfig = this.getUsableUploadConfig()
-      const imageUrls = uploadConfig
+      const uploadTarget = this.getUsableUploadTarget()
+      const imageUrls = uploadTarget
         ? await Promise.all(
-            preparedFilePaths.map((filePath) => this.uploadFile(filePath, uploadConfig))
+            preparedFilePaths.map((filePath) => this.uploadFile(filePath, uploadTarget))
           )
         : await Promise.all(
             preparedFilePaths.map((filePath) => this.fileToProviderImageValue(filePath, mode))
@@ -539,6 +595,7 @@ export class ApiClient {
       }
 
       this.logInfo('generate:uploads-prepared', {
+        uploadProviderId: uploadTarget?.providerConfig.providerId ?? this.config.providerId,
         uploadedUrlCount: imageUrls.length,
         uploadedUrls: imageUrls.map((value) => `${this.truncate(value, 80)} (len=${value.length})`),
         targetFields: imageFields.map((field) => field.name)
@@ -881,7 +938,7 @@ export class ApiClient {
       }
     }
 
-    if (this.config.providerId === 'venice') {
+    if (this.isDirectMediaUrl(value) || this.config.providerId === 'venice') {
       return value
     }
 
@@ -960,6 +1017,15 @@ export class ApiClient {
     try {
       const url = new URL(value)
       return url.hostname === 'queue.fal.run' && /\/requests\/[^/]+$/.test(url.pathname)
+    } catch {
+      return false
+    }
+  }
+
+  private isDirectMediaUrl(value: string): boolean {
+    try {
+      const url = new URL(value)
+      return /\.(avif|gif|jpe?g|m4v|mov|mp4|png|webm|webp)$/i.test(url.pathname)
     } catch {
       return false
     }

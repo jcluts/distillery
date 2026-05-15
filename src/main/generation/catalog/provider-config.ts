@@ -68,6 +68,9 @@ export interface ProviderConfig {
     responseField: string
     uploadUrlField?: string
   }
+  publicUpload?: {
+    providerId: string
+  }
   async?: {
     enabled: boolean
     modes?: GenerationMode[]
@@ -123,6 +126,7 @@ function mergeProviderConfig(base: ProviderConfig, override: ProviderConfig): Pr
     search: mergeOptionalObject(base.search, override.search),
     browse: mergeOptionalObject(base.browse, override.browse),
     upload: mergeOptionalObject(base.upload, override.upload),
+    publicUpload: mergeOptionalObject(base.publicUpload, override.publicUpload),
     async: mergeOptionalObject(base.async, override.async),
     request: mergeOptionalObject(base.request, override.request),
     staticModels: override.staticModels ?? base.staticModels,
@@ -136,6 +140,33 @@ function refreshBuiltInProviderConfig(
   merged: ProviderConfig,
   base: ProviderConfig
 ): ProviderConfig {
+  if (merged.providerId === 'ninjachat') {
+    return {
+      ...merged,
+      baseUrl: base.baseUrl ?? merged.baseUrl,
+      publicUpload: base.publicUpload ?? merged.publicUpload,
+      request: {
+        ...(merged.request ?? {}),
+        ...(base.request ?? {}),
+        endpointTemplatesByMode: {
+          ...(merged.request?.endpointTemplatesByMode ?? {}),
+          ...(base.request?.endpointTemplatesByMode ?? {})
+        }
+      },
+      async: base.async
+        ? {
+            ...(merged.async ?? {}),
+            ...(base.async ?? {}),
+            pollBody: {
+              ...(merged.async?.pollBody ?? {}),
+              ...(base.async.pollBody ?? {})
+            }
+          }
+        : merged.async,
+      staticModels: base.staticModels ?? merged.staticModels
+    }
+  }
+
   if (merged.providerId !== 'venice') return merged
 
   return {

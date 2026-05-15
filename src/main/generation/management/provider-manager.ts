@@ -260,10 +260,22 @@ export class ProviderManager {
       }
       const models = parsed
         .filter((entry): entry is ProviderModel => isProviderModel(entry))
-        .map((model) => this.attachIdentity(model))
+        .map((model) => this.refreshStaticModel(providerId, model))
       this.userModelsByProvider.set(providerId, models)
     } catch {
       this.userModelsByProvider.set(providerId, [])
     }
+  }
+
+  private refreshStaticModel(providerId: string, model: ProviderModel): ProviderModel {
+    const staticModel = this.getStaticModels(providerId).find(
+      (entry) => entry.modelId === model.modelId
+    )
+    if (!staticModel) return this.attachIdentity(model)
+
+    return this.attachIdentity({
+      ...staticModel,
+      modelIdentityId: model.modelIdentityId ?? staticModel.modelIdentityId
+    })
   }
 }

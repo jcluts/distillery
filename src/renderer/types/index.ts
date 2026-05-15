@@ -433,6 +433,9 @@ export interface ProviderConfig {
     responseField: string
     uploadUrlField?: string
   }
+  publicUpload?: {
+    providerId: string
+  }
   async?: {
     enabled: boolean
     modes?: GenerationMode[]
@@ -626,6 +629,7 @@ export interface AppSettings {
   gptproto_api_key: string
   kie_api_key: string
   venice_api_key: string
+  ninjachat_api_key: string
 
   // Window
   window_x?: number

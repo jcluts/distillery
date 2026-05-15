@@ -11,11 +11,23 @@ export class RemoteApiProvider implements GenerationProvider {
 
   private config: ProviderConfig
   private resolveApiKey: () => string
+  private resolvePublicUpload?: (
+    providerId: string
+  ) => { config: ProviderConfig; apiKey: string } | null
 
-  constructor(config: ProviderConfig, resolveApiKey: () => string) {
+  constructor(
+    config: ProviderConfig,
+    resolveApiKey: () => string,
+    options: {
+      resolvePublicUpload?: (
+        providerId: string
+      ) => { config: ProviderConfig; apiKey: string } | null
+    } = {}
+  ) {
     this.providerId = config.providerId
     this.config = config
     this.resolveApiKey = resolveApiKey
+    this.resolvePublicUpload = options.resolvePublicUpload
   }
 
   async execute(request: GenerationRequest): Promise<GenerationResult> {
@@ -28,7 +40,9 @@ export class RemoteApiProvider implements GenerationProvider {
 
     await fs.promises.mkdir(request.outputDir, { recursive: true })
 
-    const apiClient = new ApiClient(this.config, apiKey)
+    const apiClient = new ApiClient(this.config, apiKey, {
+      resolvePublicUpload: this.resolvePublicUpload
+    })
     const model: ProviderModel = {
       modelId: request.endpoint.providerModelId,
       name: request.endpoint.displayName,

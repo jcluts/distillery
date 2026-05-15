@@ -1,0 +1,181 @@
+{
+  "providerId": "ninjachat",
+  "displayName": "NinjaChat",
+  "enabled": true,
+  "executionMode": "remote-async",
+  "baseUrl": "https://www.ninjachat.ai",
+  "auth": {
+    "type": "bearer",
+    "settingsKey": "ninjachat_api_key"
+  },
+  "publicUpload": {
+    "providerId": "fal"
+  },
+  "browse": { "mode": "list" },
+  "request": {
+    "endpointTemplate": "/api/v1/images",
+    "endpointTemplatesByMode": {
+      "image-to-image": "/api/v1/images",
+      "image-to-video": "/api/v1/video",
+      "text-to-video": "/api/v1/video"
+    }
+  },
+  "async": {
+    "enabled": true,
+    "modes": ["text-to-video", "image-to-video"],
+    "requestIdPath": "request_id",
+    "pollEndpoint": "/api/v1/video/status?request_id={requestId}",
+    "pollInterval": 10000,
+    "maxPollTime": 900000,
+    "statusPath": "status",
+    "completedValue": "completed",
+    "failedValue": "failed",
+    "errorPath": "error",
+    "outputsPath": "result.video_url"
+  },
+  "staticModels": [
+    {
+      "modelId": "flux-2-klein",
+      "name": "FLUX.2 Klein",
+      "description": "Black Forest Labs FLUX.2 Klein image generation through NinjaChat. Fast budget model at $0.03/image.",
+      "modes": ["text-to-image"],
+      "outputType": "image",
+      "modelIdentityId": "flux-2-klein-9b",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "flux-2-klein",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "size": {
+            "type": "string",
+            "title": "Size",
+            "default": "1920x1920",
+            "enum": ["1920x1920", "2560x1440", "1440x2560"]
+          },
+          "n": {
+            "type": "integer",
+            "title": "Images",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 4
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": ["model", "prompt", "size", "n"]
+      }
+    },
+    {
+      "modelId": "nano-banana-2",
+      "name": "Nano Banana 2",
+      "description": "Google Nano Banana 2 image generation and editing through NinjaChat. Best-value image model with strong text rendering at $0.05/image.",
+      "modes": ["text-to-image", "image-to-image"],
+      "outputType": "image",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "nano-banana-2",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "image": {
+            "type": "string",
+            "title": "Reference Image",
+            "ui": { "hidden": true }
+          },
+          "size": {
+            "type": "string",
+            "title": "Size",
+            "default": "1920x1920",
+            "enum": ["1920x1920", "2560x1440", "1440x2560"]
+          },
+          "n": {
+            "type": "integer",
+            "title": "Images",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 4
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": ["model", "prompt", "image", "size", "n"]
+      }
+    },
+    {
+      "modelId": "runway-gen4-turbo",
+      "name": "Runway Gen-4 Turbo",
+      "description": "Runway Gen-4 Turbo image-to-video through NinjaChat. Fast image-conditioned video generation at $3.00/video.",
+      "modes": ["image-to-video"],
+      "outputType": "video",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "runway-gen4-turbo",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "image_url": {
+            "type": "string",
+            "title": "Reference Image",
+            "ui": { "hidden": true }
+          },
+          "duration": {
+            "type": "integer",
+            "title": "Duration",
+            "default": 5,
+            "minimum": 4,
+            "maximum": 15
+          }
+        },
+        "required": ["model", "prompt", "image_url"],
+        "order": ["model", "prompt", "image_url", "duration"]
+      }
+    },
+    {
+      "modelId": "seedance-2",
+      "name": "Seedance 2",
+      "description": "ByteDance Seedance 2 text-to-video through NinjaChat. Long clips up to 15 seconds at $3.00/video.",
+      "modes": ["text-to-video"],
+      "outputType": "video",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "seedance-2",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "duration": {
+            "type": "integer",
+            "title": "Duration",
+            "default": 10,
+            "minimum": 5,
+            "maximum": 15
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": ["model", "prompt", "duration"]
+      }
+    }
+  ]
+}

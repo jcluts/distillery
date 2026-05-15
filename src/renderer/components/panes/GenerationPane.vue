@@ -103,9 +103,18 @@ const apiProvider = computed(() => {
   if (!pid) return null
   return providerStore.providers.find((p) => p.providerId === pid) ?? null
 })
+const publicUploadProvider = computed(() => {
+  const pid = apiProvider.value?.publicUpload?.providerId
+  if (!pid) return null
+  return providerStore.providers.find((p) => p.providerId === pid) ?? null
+})
 const apiKeyPresent = computed(() => {
   const pid = endpoint.value?.providerId
   return pid ? (providerStore.hasApiKey[pid] ?? false) : false
+})
+const publicUploadKeyPresent = computed(() => {
+  const pid = apiProvider.value?.publicUpload?.providerId
+  return pid ? (providerStore.hasApiKey[pid] ?? false) : true
 })
 const apiConnStatus = computed(() => {
   const pid = endpoint.value?.providerId
@@ -130,6 +139,9 @@ const generateBlockReason = computed(() => {
   }
   if (isRemoteEndpoint.value && !apiKeyPresent.value) {
     return `Add an API key for ${apiProvider.value?.displayName ?? endpoint.value?.providerId ?? 'this provider'}.`
+  }
+  if (isRemoteEndpoint.value && requiresRefImage.value && !publicUploadKeyPresent.value) {
+    return `Add an API key for ${publicUploadProvider.value?.displayName ?? apiProvider.value?.publicUpload?.providerId ?? 'the upload provider'} to upload reference images.`
   }
   if (requiresRefImage.value && generationStore.refImages.length === 0) {
     return 'Add a reference image for this mode.'

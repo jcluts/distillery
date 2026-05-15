@@ -17,7 +17,8 @@ const KEY_URLS: Record<string, string> = {
   wavespeed: 'https://wavespeed.ai/account/api-keys',
   gptproto: 'https://gptproto.com/dashboard',
   kie: 'https://kie.ai/api-key',
-  venice: 'https://venice.ai/settings/api'
+  venice: 'https://venice.ai/settings/api',
+  ninjachat: 'https://www.ninjachat.ai/developers/keys'
 }
 
 const props = defineProps<{ providerId: string }>()
