@@ -436,6 +436,7 @@ export interface AppSettings {
   wavespeed_api_key: string
   gptproto_api_key: string
   kie_api_key: string
+  venice_api_key: string
   window_x?: number
   window_y?: number
   window_width?: number

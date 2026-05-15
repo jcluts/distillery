@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import type { CanonicalRequestSchema } from '../../types'
+import type { CanonicalRequestSchema, GenerationMode } from '../../types'
 import type { ProviderConfig } from '../catalog/provider-config'
 import type { ProviderModel, SearchResult, SearchResultModel } from '../management/types'
 import {
@@ -270,8 +270,12 @@ export class ApiClient {
       return []
     }
 
-    const endpointUrl = this.buildUrl(search.endpoint)
-    const response = await fetch(endpointUrl, {
+    const endpointUrl = new URL(this.buildUrl(search.endpoint))
+    for (const [key, value] of Object.entries(search.extraParams ?? {})) {
+      endpointUrl.searchParams.set(key, value)
+    }
+
+    const response = await fetch(endpointUrl.toString(), {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -493,14 +497,15 @@ export class ApiClient {
   async generate(
     model: ProviderModel,
     params: Record<string, unknown>,
-    filePaths?: string[]
+    filePaths?: string[],
+    mode?: GenerationMode
   ): Promise<RemoteGenerationResult> {
     this.logInfo('generate:start', {
       providerId: this.config.providerId,
       modelId: model.modelId,
       endpointTemplate: this.config.request?.endpointTemplate,
       hasUploadConfig: !!this.getUsableUploadConfig(),
-      hasAsyncConfig: !!this.config.async?.enabled,
+      hasAsyncConfig: this.shouldUseAsyncPolling(mode),
       paramSummary: this.summarizeParams(params),
       refImageCount: Array.isArray(filePaths) ? filePaths.length : 0
     })
@@ -508,12 +513,18 @@ export class ApiClient {
     const preparedParams = { ...params }
     delete preparedParams.ref_image_ids
     delete preparedParams.ref_image_paths
+    this.applySelectedModelParam(preparedParams, model)
 
     if (Array.isArray(filePaths) && filePaths.length > 0) {
+      const preparedFilePaths = this.prepareImageInputPaths(filePaths, model, mode)
       const uploadConfig = this.getUsableUploadConfig()
       const imageUrls = uploadConfig
-        ? await Promise.all(filePaths.map((filePath) => this.uploadFile(filePath, uploadConfig)))
-        : await Promise.all(filePaths.map((filePath) => this.fileToDataUrl(filePath)))
+        ? await Promise.all(
+            preparedFilePaths.map((filePath) => this.uploadFile(filePath, uploadConfig))
+          )
+        : await Promise.all(
+            preparedFilePaths.map((filePath) => this.fileToProviderImageValue(filePath, mode))
+          )
       const imageFields = this.detectImageFields(model.requestSchema)
 
       if (imageFields.length > 0) {
@@ -534,7 +545,7 @@ export class ApiClient {
       })
     }
 
-    const requestEndpointTemplate = this.config.request?.endpointTemplate
+    const requestEndpointTemplate = this.resolveRequestEndpointTemplate(mode)
     if (!requestEndpointTemplate) {
       throw new Error(`Provider ${this.config.providerId} is missing request.endpointTemplate`)
     }
@@ -575,20 +586,21 @@ export class ApiClient {
       )
     }
 
-    const payload = (await response.json()) as unknown
+    const payload = await this.readGenerationResponsePayload(response)
     this.logInfo('generate:accepted', {
       providerId: this.config.providerId,
       modelId: model.modelId,
       payloadPreview: this.previewUnknown(payload)
     })
 
-    if (this.config.async?.enabled) {
-      const requestId = getByPath(payload, this.config.async.requestIdPath, asRecord)
+    const asyncConfig = this.config.async
+    if (this.shouldUseAsyncPolling(mode) && asyncConfig) {
+      const requestId = getByPath(payload, asyncConfig.requestIdPath, asRecord)
       if (typeof requestId !== 'string' || !requestId.trim()) {
         this.logError('generate:missing-request-id', {
           providerId: this.config.providerId,
           modelId: model.modelId,
-          requestIdPath: this.config.async.requestIdPath,
+          requestIdPath: asyncConfig.requestIdPath,
           payloadPreview: this.previewUnknown(payload)
         })
         throw new Error('Async generation response did not include a request id')
@@ -624,6 +636,36 @@ export class ApiClient {
     }
   }
 
+  private resolveRequestEndpointTemplate(mode: GenerationMode | undefined): string | undefined {
+    if (mode) {
+      const modeEndpoint = this.config.request?.endpointTemplatesByMode?.[mode]
+      if (modeEndpoint) return modeEndpoint
+    }
+
+    return this.config.request?.endpointTemplate
+  }
+
+  private shouldUseAsyncPolling(mode: GenerationMode | undefined): boolean {
+    const asyncConfig = this.config.async
+    if (!asyncConfig?.enabled) return false
+    if (!asyncConfig.modes?.length) return true
+    return !!mode && asyncConfig.modes.includes(mode)
+  }
+
+  private async readGenerationResponsePayload(response: Response): Promise<unknown> {
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+
+    if (contentType.includes('application/json')) {
+      return (await response.json()) as unknown
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const mimeType = contentType.split(';')[0]?.trim() || 'application/octet-stream'
+
+    return `data:${mimeType};base64,${buffer.toString('base64')}`
+  }
+
   private async pollForResults(
     requestId: string,
     submitPayload: unknown,
@@ -636,32 +678,29 @@ export class ApiClient {
 
     const deadline = Date.now() + (asyncConfig.maxPollTime ?? DEFAULT_POLL_TIMEOUT_MS)
     const pollInterval = asyncConfig.pollInterval ?? 1000
-    const pollEndpoint = this.resolvePollEndpoint(requestId, submitPayload, modelId)
+    const pollRequest = this.buildPollRequest(requestId, submitPayload, modelId)
     let previousStatus = ''
 
     this.logInfo('poll:start', {
       providerId: this.config.providerId,
       requestId,
-      pollEndpoint,
+      pollEndpoint: pollRequest.endpoint,
+      pollMethod: pollRequest.method,
       pollInterval,
-      maxPollTime: asyncConfig.maxPollTime ?? DEFAULT_POLL_TIMEOUT_MS
+      maxPollTime: asyncConfig.maxPollTime ?? DEFAULT_POLL_TIMEOUT_MS,
+      pollBodySummary: pollRequest.bodySummary
     })
 
     while (Date.now() <= deadline) {
-      const response = await fetch(pollEndpoint, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          ...this.buildAuthHeaders()
-        }
-      })
+      const response = await fetch(pollRequest.endpoint, pollRequest.init)
 
       if (!response.ok) {
         const responseBody = await response.text()
         this.logError('poll:http-error', {
           providerId: this.config.providerId,
           requestId,
-          pollEndpoint,
+          pollEndpoint: pollRequest.endpoint,
+          pollMethod: pollRequest.method,
           status: response.status,
           statusText: response.statusText,
           responseBody: this.truncate(responseBody, MAX_LOG_BODY_CHARS)
@@ -669,7 +708,16 @@ export class ApiClient {
         throw new Error(`Poll request failed: ${response.status} ${response.statusText}`)
       }
 
-      const payload = (await response.json()) as unknown
+      const payload = await this.readGenerationResponsePayload(response)
+      if (typeof payload === 'string' && payload.startsWith('data:')) {
+        this.logInfo('poll:completed-binary', {
+          providerId: this.config.providerId,
+          requestId,
+          payloadPreview: this.previewUnknown(payload)
+        })
+        return payload
+      }
+
       const statusValue = getByPath(payload, asyncConfig.statusPath, asRecord)
       const status = String(statusValue ?? '')
 
@@ -685,7 +733,10 @@ export class ApiClient {
       }
 
       if (status === asyncConfig.completedValue) {
-        const rawOutputs = getByPath(payload, asyncConfig.outputsPath, asRecord) ?? payload
+        const rawOutputs =
+          getByPath(payload, asyncConfig.outputsPath, asRecord) ??
+          getByPath(submitPayload, asyncConfig.outputsPath, asRecord) ??
+          payload
         const resolvedOutputs = await this.resolveAsyncOutputs(rawOutputs)
         this.logInfo('poll:completed', {
           providerId: this.config.providerId,
@@ -717,6 +768,46 @@ export class ApiClient {
     throw new Error('Polling timed out while waiting for generation results')
   }
 
+  private buildPollRequest(
+    requestId: string,
+    submitPayload: unknown,
+    modelId: string
+  ): {
+    endpoint: string
+    method: 'GET' | 'POST'
+    init: RequestInit
+    bodySummary?: Record<string, unknown>
+  } {
+    const asyncConfig = this.config.async
+    if (!asyncConfig) {
+      throw new Error('Async strategy is not configured')
+    }
+
+    const method = asyncConfig.pollMethod ?? 'GET'
+    const endpoint = this.resolvePollEndpoint(requestId, submitPayload, modelId)
+    const headers: Record<string, string> = {
+      Accept: 'application/json, video/mp4',
+      ...this.buildAuthHeaders()
+    }
+    const init: RequestInit = {
+      method,
+      headers
+    }
+    const pollBody = this.buildPollBody(requestId, modelId)
+
+    if (pollBody && method !== 'GET') {
+      headers['Content-Type'] = 'application/json'
+      init.body = JSON.stringify(pollBody)
+    }
+
+    return {
+      endpoint,
+      method,
+      init,
+      bodySummary: pollBody ? this.summarizeParams(pollBody) : undefined
+    }
+  }
+
   private resolvePollEndpoint(requestId: string, submitPayload: unknown, modelId: string): string {
     const asyncConfig = this.config.async
     if (!asyncConfig) {
@@ -740,6 +831,43 @@ export class ApiClient {
     return this.buildUrl(templateWithModel.replace('{requestId}', requestId))
   }
 
+  private buildPollBody(requestId: string, modelId: string): Record<string, unknown> | undefined {
+    const pollBody = this.config.async?.pollBody
+    if (!pollBody) return undefined
+
+    const context = {
+      requestId,
+      modelId,
+      model_id: modelId
+    }
+
+    return this.interpolateTemplateValue(pollBody, context) as Record<string, unknown>
+  }
+
+  private interpolateTemplateValue(value: unknown, context: Record<string, string>): unknown {
+    if (typeof value === 'string') {
+      return value
+        .replace(/\{requestId\}/g, context.requestId)
+        .replace(/\{modelId\}/g, context.modelId)
+        .replace(/\{model_id\}/g, context.model_id)
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.interpolateTemplateValue(entry, context))
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, entry]) => [
+          key,
+          this.interpolateTemplateValue(entry, context)
+        ])
+      )
+    }
+
+    return value
+  }
+
   private async resolveAsyncOutputs(value: unknown): Promise<unknown> {
     if (typeof value !== 'string') {
       return value
@@ -751,6 +879,10 @@ export class ApiClient {
       } catch {
         return value
       }
+    }
+
+    if (this.config.providerId === 'venice') {
+      return value
     }
 
     try {
@@ -847,6 +979,51 @@ export class ApiClient {
     return result
   }
 
+  private prepareImageInputPaths(
+    filePaths: string[],
+    model: ProviderModel,
+    mode: GenerationMode | undefined
+  ): string[] {
+    if (this.config.providerId !== 'venice' || mode !== 'image-to-image') {
+      return filePaths
+    }
+
+    const maxImages = this.getMaxImageInputCount(model.requestSchema, 'images') ?? 3
+    if (filePaths.length <= maxImages) return filePaths
+
+    this.logInfo('generate:image-inputs-truncated', {
+      providerId: this.config.providerId,
+      modelId: model.modelId,
+      received: filePaths.length,
+      maxImages
+    })
+
+    return filePaths.slice(0, maxImages)
+  }
+
+  private applySelectedModelParam(params: Record<string, unknown>, model: ProviderModel): void {
+    const properties = model.requestSchema.properties ?? {}
+
+    if ('modelId' in properties) {
+      params.modelId = model.modelId
+      delete params.model
+      return
+    }
+
+    if ('model' in properties) {
+      params.model = model.modelId
+      delete params.modelId
+    }
+  }
+
+  private getMaxImageInputCount(
+    schema: CanonicalRequestSchema,
+    fieldName: string
+  ): number | undefined {
+    const maxItems = schema.properties?.[fieldName]?.items?.maxItems
+    return typeof maxItems === 'number' && Number.isFinite(maxItems) ? maxItems : undefined
+  }
+
   private resolvePreparedImageValue(
     fieldName: string,
     isArray: boolean,
@@ -894,6 +1071,18 @@ export class ApiClient {
     }
 
     return payload
+  }
+
+  private async fileToProviderImageValue(
+    filePath: string,
+    mode: GenerationMode | undefined
+  ): Promise<string> {
+    if (this.config.providerId === 'venice' && mode === 'image-to-image') {
+      const fileBuffer = await fs.promises.readFile(filePath)
+      return fileBuffer.toString('base64')
+    }
+
+    return this.fileToDataUrl(filePath)
   }
 
   private async fileToDataUrl(filePath: string): Promise<string> {

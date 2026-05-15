@@ -40,6 +40,8 @@ const TEXTAREA_FIELDS = ['prompt', 'negative_prompt']
 
 // Internal fields never shown in the form — handled by the ref image pipeline
 const INTERNAL_FIELDS = new Set([
+  'model',
+  'modelId',
   'ref_image_ids',
   'ref_image_paths',
   'image',

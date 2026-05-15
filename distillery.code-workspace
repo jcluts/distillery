@@ -4,15 +4,6 @@
 			"path": "."
 		},
 		{
-			"path": "../../AppData/Roaming/distillery"
-		},
-		{
-			"path": "../../simple-ai-client"
-		},
-		{
-			"path": "../primevue"
-		},
-		{
 			"path": "../distillery-react"
 		},
 		{

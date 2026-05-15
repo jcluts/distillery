@@ -35,7 +35,7 @@ export interface ProviderConfig {
   displayName?: string
   enabled?: boolean
   executionMode?: 'queued-local' | 'remote-async'
-  adapter?: 'wavespeed' | 'fal' | 'replicate'
+  adapter?: 'wavespeed' | 'fal' | 'replicate' | 'venice'
   feedFile?: string
   staticModels?: ProviderStaticModelConfig[]
   endpoints?: ProviderEndpointConfig[]
@@ -70,8 +70,11 @@ export interface ProviderConfig {
   }
   async?: {
     enabled: boolean
+    modes?: GenerationMode[]
     requestIdPath: string
     pollEndpoint: string
+    pollMethod?: 'GET' | 'POST'
+    pollBody?: Record<string, unknown>
     pollUrlPath?: string
     pollInterval?: number
     maxPollTime?: number
@@ -83,6 +86,7 @@ export interface ProviderConfig {
   }
   request?: {
     endpointTemplate?: string
+    endpointTemplatesByMode?: Partial<Record<GenerationMode, string>>
     payloadStyle?: 'flat' | 'nested-input' | 'input-only'
     modelField?: string
     inputField?: string
@@ -112,7 +116,7 @@ function mergeOptionalObject<T extends object>(
 }
 
 function mergeProviderConfig(base: ProviderConfig, override: ProviderConfig): ProviderConfig {
-  return {
+  const merged = {
     ...base,
     ...override,
     auth: mergeOptionalObject(base.auth, override.auth),
@@ -123,6 +127,47 @@ function mergeProviderConfig(base: ProviderConfig, override: ProviderConfig): Pr
     request: mergeOptionalObject(base.request, override.request),
     staticModels: override.staticModels ?? base.staticModels,
     endpoints: override.endpoints ?? base.endpoints
+  }
+
+  return refreshBuiltInProviderConfig(merged, base)
+}
+
+function refreshBuiltInProviderConfig(
+  merged: ProviderConfig,
+  base: ProviderConfig
+): ProviderConfig {
+  if (merged.providerId !== 'venice') return merged
+
+  return {
+    ...merged,
+    search: base.search
+      ? {
+          ...base.search,
+          ...merged.search,
+          extraParams: {
+            ...(merged.search?.extraParams ?? {}),
+            ...(base.search.extraParams ?? {})
+          }
+        }
+      : merged.search,
+    request: {
+      ...(merged.request ?? {}),
+      ...(base.request ?? {}),
+      endpointTemplatesByMode: {
+        ...(merged.request?.endpointTemplatesByMode ?? {}),
+        ...(base.request?.endpointTemplatesByMode ?? {})
+      }
+    },
+    async: base.async
+      ? {
+          ...(merged.async ?? {}),
+          ...(base.async ?? {}),
+          pollBody: {
+            ...(merged.async?.pollBody ?? {}),
+            ...(base.async.pollBody ?? {})
+          }
+        }
+      : merged.async
   }
 }
 

@@ -3,7 +3,7 @@ import type { GenerationProvider, GenerationRequest, GenerationResult } from './
 import type { ProviderConfig } from '../catalog/provider-config'
 import type { ProviderModel } from '../management/types'
 import { ApiClient } from '../remote/api-client'
-import { downloadRemoteOutput } from '../remote/output-downloader'
+import { downloadRemoteOutput, saveDataUrlOutput } from '../remote/output-downloader'
 
 export class RemoteApiProvider implements GenerationProvider {
   readonly providerId: string
@@ -42,7 +42,8 @@ export class RemoteApiProvider implements GenerationProvider {
     const generationResult = await apiClient.generate(
       model,
       request.params as Record<string, unknown>,
-      request.refImagePaths
+      request.refImagePaths,
+      request.mode
     )
 
     if (!generationResult.success) {
@@ -72,6 +73,14 @@ export class RemoteApiProvider implements GenerationProvider {
     mimeType: string | undefined,
     outputDir: string
   ): Promise<{ localPath: string; mimeType?: string }> {
+    if (/^data:/i.test(providerPath)) {
+      const saved = await saveDataUrlOutput(providerPath, outputDir)
+      return {
+        localPath: saved.localPath,
+        mimeType: saved.mimeType ?? mimeType
+      }
+    }
+
     if (/^https?:\/\//i.test(providerPath)) {
       const downloaded = await downloadRemoteOutput(providerPath, outputDir)
       return {

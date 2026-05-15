@@ -1,0 +1,45 @@
+{
+  "providerId": "venice",
+  "displayName": "Venice",
+  "enabled": true,
+  "executionMode": "remote-async",
+  "adapter": "venice",
+  "baseUrl": "https://api.venice.ai/api/v1",
+  "auth": {
+    "type": "bearer",
+    "settingsKey": "venice_api_key"
+  },
+  "browse": { "mode": "list" },
+  "search": {
+    "endpoint": "/models",
+    "method": "GET",
+    "extraParams": { "type": "all" },
+    "searchOnly": false
+  },
+  "request": {
+    "endpointTemplate": "/image/generate",
+    "endpointTemplatesByMode": {
+      "image-to-image": "/image/multi-edit",
+      "text-to-video": "/video/queue",
+      "image-to-video": "/video/queue"
+    }
+  },
+  "async": {
+    "enabled": true,
+    "modes": ["text-to-video", "image-to-video"],
+    "requestIdPath": "queue_id",
+    "pollEndpoint": "/video/retrieve",
+    "pollMethod": "POST",
+    "pollBody": {
+      "model": "{model_id}",
+      "queue_id": "{requestId}",
+      "delete_media_on_completion": false
+    },
+    "pollInterval": 3000,
+    "maxPollTime": 900000,
+    "statusPath": "status",
+    "completedValue": "COMPLETED",
+    "failedValue": "FAILED",
+    "outputsPath": "download_url"
+  }
+}

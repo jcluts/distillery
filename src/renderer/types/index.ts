@@ -380,7 +380,7 @@ export interface ProviderConfig {
   displayName?: string
   enabled?: boolean
   executionMode?: 'queued-local' | 'remote-async'
-  adapter?: 'wavespeed' | 'fal' | 'replicate'
+  adapter?: 'wavespeed' | 'fal' | 'replicate' | 'venice'
   feedFile?: string
   staticModels?: Array<{
     modelId: string
@@ -435,8 +435,11 @@ export interface ProviderConfig {
   }
   async?: {
     enabled: boolean
+    modes?: GenerationMode[]
     requestIdPath: string
     pollEndpoint: string
+    pollMethod?: 'GET' | 'POST'
+    pollBody?: Record<string, unknown>
     pollUrlPath?: string
     pollInterval?: number
     maxPollTime?: number
@@ -448,6 +451,7 @@ export interface ProviderConfig {
   }
   request?: {
     endpointTemplate?: string
+    endpointTemplatesByMode?: Partial<Record<GenerationMode, string>>
     payloadStyle?: 'flat' | 'nested-input' | 'input-only'
     modelField?: string
     inputField?: string
@@ -621,6 +625,7 @@ export interface AppSettings {
   wavespeed_api_key: string
   gptproto_api_key: string
   kie_api_key: string
+  venice_api_key: string
 
   // Window
   window_x?: number
@@ -799,6 +804,7 @@ export interface DistilleryAPI {
     update(id: string, data: CollectionUpdate): Promise<void>
     delete(id: string): Promise<void>
     reorder(orderedIds: string[]): Promise<void>
+    getForMedia(mediaId: string): Promise<CollectionRecord[]>
     addMedia(collectionId: string, mediaIds: string[]): Promise<void>
     removeMedia(collectionId: string, mediaIds: string[]): Promise<void>
   }

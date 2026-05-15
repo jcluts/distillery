@@ -63,14 +63,14 @@ export function normalizeOutputs(
   if (!value) return []
 
   if (typeof value === 'string') {
-    return [{ providerPath: value }]
+    return [normalizeStringOutput(value)]
   }
 
   if (Array.isArray(value)) {
     return value
       .map((entry) => {
         if (typeof entry === 'string') {
-          return { providerPath: entry }
+          return normalizeStringOutput(entry)
         }
 
         const record = asRecord(entry)
@@ -81,7 +81,11 @@ export function normalizeOutputs(
           getString(record.uri) ||
           getString(record.download_url) ||
           getString(record.response_url) ||
-          getString(record.path)
+          getString(record.path) ||
+          toDataUrl(
+            getString(record.b64_json) || getString(record.base64),
+            getString(record.mime_type)
+          )
 
         if (!providerPath) return null
 
@@ -111,4 +115,31 @@ export function normalizeOutputs(
     null
 
   return normalizeOutputs(nested, asRecord, getString)
+}
+
+function normalizeStringOutput(value: string): ProviderOutputArtifact {
+  return {
+    providerPath: toDataUrl(value) ?? value
+  }
+}
+
+function toDataUrl(value: string | null, mimeType?: string | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (/^data:/i.test(trimmed)) return trimmed
+  if (/^(https?|file):/i.test(trimmed)) return null
+  if (trimmed.length < 64) return null
+  if (trimmed.startsWith('/') || trimmed.startsWith('./') || trimmed.startsWith('../')) return null
+  if (trimmed.includes('\\') || /\s/.test(trimmed)) return null
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed)) return null
+
+  return `data:${mimeType || inferImageMimeType(trimmed)};base64,${trimmed}`
+}
+
+function inferImageMimeType(base64: string): string {
+  if (base64.startsWith('/9j/')) return 'image/jpeg'
+  if (base64.startsWith('UklGR')) return 'image/webp'
+  if (base64.startsWith('iVBOR')) return 'image/png'
+  return 'image/png'
 }

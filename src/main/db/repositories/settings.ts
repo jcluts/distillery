@@ -71,7 +71,8 @@ function getDefaults(): AppSettings {
     replicate_api_key: '',
     wavespeed_api_key: '',
     gptproto_api_key: '',
-    kie_api_key: ''
+    kie_api_key: '',
+    venice_api_key: ''
   }
 }
 

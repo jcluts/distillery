@@ -48,6 +48,37 @@ export async function downloadRemoteOutput(
   return { localPath: outputPath, mimeType }
 }
 
+export async function saveDataUrlOutput(
+  dataUrl: string,
+  outputDir: string
+): Promise<{ localPath: string; mimeType?: string }> {
+  const match = dataUrl.match(/^data:([^;,]+)?(;base64)?,(.*)$/is)
+  if (!match) {
+    throw new Error('Invalid data URL output')
+  }
+
+  const mimeType = match[1] || undefined
+  const isBase64 = !!match[2]
+  const payload = match[3] ?? ''
+  const content = isBase64
+    ? Buffer.from(payload, 'base64')
+    : Buffer.from(decodeURIComponent(payload), 'utf8')
+
+  await fs.promises.mkdir(outputDir, { recursive: true })
+
+  const extension = extensionFromMimeType(mimeType) || '.bin'
+  const outputPath = path.join(outputDir, `${randomUUID()}-provider-output${extension}`)
+  await fs.promises.writeFile(outputPath, content)
+
+  console.log('[RemoteOutputDownloader] data-url-complete', {
+    outputPath,
+    mimeType,
+    bytes: content.byteLength
+  })
+
+  return { localPath: outputPath, mimeType }
+}
+
 function extensionFromMimeType(mimeType: string | undefined): string {
   if (!mimeType) return ''
   if (mimeType.includes('video/mp4')) return '.mp4'
