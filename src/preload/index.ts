@@ -79,6 +79,7 @@ const api: DistilleryAPI = {
       ipcRenderer.invoke(CH.COLLECTIONS_UPDATE, id, data),
     delete: (id: string) => ipcRenderer.invoke(CH.COLLECTIONS_DELETE, id),
     reorder: (orderedIds: string[]) => ipcRenderer.invoke(CH.COLLECTIONS_REORDER, orderedIds),
+    getForMedia: (mediaId: string) => ipcRenderer.invoke(CH.COLLECTIONS_GET_FOR_MEDIA, mediaId),
     addMedia: (collectionId: string, mediaIds: string[]) =>
       ipcRenderer.invoke(CH.COLLECTIONS_ADD_MEDIA, collectionId, mediaIds),
     removeMedia: (collectionId: string, mediaIds: string[]) =>
@@ -105,7 +106,8 @@ const api: DistilleryAPI = {
       update: (id: string, data: Partial<PromptCollectionCreate>) =>
         ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_UPDATE, id, data),
       delete: (id: string) => ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_DELETE, id),
-      reorder: (orderedIds: string[]) => ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_REORDER, orderedIds)
+      reorder: (orderedIds: string[]) =>
+        ipcRenderer.invoke(CH.PROMPT_COLLECTIONS_REORDER, orderedIds)
     }
   },
 

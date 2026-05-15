@@ -43,6 +43,7 @@ export const IPC_CHANNELS = {
   COLLECTIONS_UPDATE: 'collections:update',
   COLLECTIONS_DELETE: 'collections:delete',
   COLLECTIONS_REORDER: 'collections:reorder',
+  COLLECTIONS_GET_FOR_MEDIA: 'collections:getForMedia',
   COLLECTIONS_ADD_MEDIA: 'collections:addMedia',
   COLLECTIONS_REMOVE_MEDIA: 'collections:removeMedia',
 

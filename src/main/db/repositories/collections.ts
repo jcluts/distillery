@@ -261,3 +261,33 @@ export function getMediaIdsInCollection(db: Database.Database, collectionId: str
 
   return rows.map((row) => row.media_id)
 }
+
+export function getCollectionsForMedia(
+  db: Database.Database,
+  mediaId: string
+): CollectionRecord[] {
+  return db
+    .prepare(
+      `SELECT
+        c.id,
+        c.name,
+        c.color,
+        c.type,
+        c.system_key,
+        c.sort_order,
+        c.filter_json,
+        c.created_at,
+        c.updated_at,
+        (
+          SELECT COUNT(*)
+          FROM collection_media count_cm
+          WHERE count_cm.collection_id = c.id
+        ) AS media_count
+      FROM collections c
+      JOIN collection_media cm ON cm.collection_id = c.id
+      WHERE cm.media_id = ?
+        AND c.type = 'manual'
+      ORDER BY c.sort_order ASC, c.created_at ASC`
+    )
+    .all(mediaId) as CollectionRecord[]
+}

@@ -44,6 +44,10 @@ export function registerCollectionsHandlers(options?: {
     options?.onCollectionsUpdated?.()
   })
 
+  ipcMain.handle(IPC_CHANNELS.COLLECTIONS_GET_FOR_MEDIA, (_event, mediaId: string) => {
+    return collectionsRepo.getCollectionsForMedia(db, mediaId)
+  })
+
   ipcMain.handle(
     IPC_CHANNELS.COLLECTIONS_ADD_MEDIA,
     (_event, collectionId: string, mediaIds: string[]) => {
