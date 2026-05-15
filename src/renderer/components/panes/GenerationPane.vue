@@ -46,6 +46,8 @@ const toast = useToast()
 // ---------------------------------------------------------------------------
 
 const endpoint = ref<CanonicalEndpointDef | null>(null)
+const endpointLoading = ref(false)
+const endpointError = ref<string | null>(null)
 const validationErrors = ref<Record<string, string>>({})
 const fieldsRef = ref<FormFieldConfig[]>([])
 const showSavePromptForm = ref(false)
@@ -109,15 +111,32 @@ const apiConnStatus = computed(() => {
   const pid = endpoint.value?.providerId
   return pid ? providerStore.connectionStatus[pid] : undefined
 })
-const generateDisabled = computed(
-  () =>
-    !prompt.value.trim() ||
-    (requiresLocalEngine.value && !engineCanGenerate.value) ||
-    (isLocalEndpoint.value && !localModelReady.value) ||
-    !sdCppCanGenerate.value ||
-    (isRemoteEndpoint.value && !apiKeyPresent.value) ||
-    (requiresRefImage.value && generationStore.refImages.length === 0)
+const endpointReady = computed(
+  () => !!endpoint.value && endpoint.value.endpointKey === generationStore.endpointKey
 )
+const generateBlockReason = computed(() => {
+  if (!endpointReady.value) {
+    return endpointError.value ?? 'Loading selected model settings.'
+  }
+  if (!prompt.value.trim()) return 'Enter a prompt to generate.'
+  if (requiresLocalEngine.value && !engineCanGenerate.value) {
+    return `Local engine is ${engineStore.status.state}.`
+  }
+  if (isLocalEndpoint.value && !localModelReady.value) {
+    return 'Download the selected local model before generating.'
+  }
+  if (!sdCppCanGenerate.value) {
+    return 'Set a stable-diffusion.cpp server path before generating locally.'
+  }
+  if (isRemoteEndpoint.value && !apiKeyPresent.value) {
+    return `Add an API key for ${apiProvider.value?.displayName ?? endpoint.value?.providerId ?? 'this provider'}.`
+  }
+  if (requiresRefImage.value && generationStore.refImages.length === 0) {
+    return 'Add a reference image for this mode.'
+  }
+  return null
+})
+const generateDisabled = computed(() => !!generateBlockReason.value)
 
 const isGenerating = computed(
   () => !!queueStore.activePhase || queueStore.items.some((q) => q.status === 'processing')
@@ -132,8 +151,28 @@ const showRefImages = computed(() => requiresRefImage.value)
 watch(
   () => generationStore.endpointKey,
   async (key) => {
-    const ep = await window.api.getGenerationEndpointSchema(key)
-    if (ep) endpoint.value = ep
+    endpoint.value = null
+    endpointError.value = null
+    endpointLoading.value = true
+    fieldsRef.value = []
+    validationErrors.value = {}
+
+    try {
+      const ep = await window.api.getGenerationEndpointSchema(key)
+      if (generationStore.endpointKey !== key) return
+
+      endpoint.value = ep
+      if (!ep) {
+        endpointError.value = `No generation endpoint found for ${key}`
+      }
+    } catch (error) {
+      if (generationStore.endpointKey !== key) return
+      endpointError.value = error instanceof Error ? error.message : String(error)
+    } finally {
+      if (generationStore.endpointKey === key) {
+        endpointLoading.value = false
+      }
+    }
   },
   { immediate: true }
 )
@@ -164,9 +203,26 @@ function handleFieldsChange(fields: FormFieldConfig[]): void {
 // ---------------------------------------------------------------------------
 
 async function handleSubmit(): Promise<void> {
+  if (generateBlockReason.value) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Generation unavailable',
+      detail: generateBlockReason.value,
+      life: 3000
+    })
+    return
+  }
+
   const errors = validateFormValues(fieldsRef.value, generationStore.formValues)
   if (Object.keys(errors).length > 0) {
     validationErrors.value = errors
+    const firstError = Object.values(errors)[0]
+    toast.add({
+      severity: 'warn',
+      summary: 'Check generation settings',
+      detail: firstError,
+      life: 3000
+    })
     return
   }
 
@@ -370,7 +426,11 @@ async function handleSavePrompt(): Promise<void> {
             @set-defaults="handleSetDefaults"
             @fields-change="handleFieldsChange"
           />
-          <div v-else class="py-4 text-center text-sm text-muted">Loading schema…</div>
+          <div v-else class="py-4 text-center text-sm text-muted">
+            {{
+              endpointLoading ? 'Loading schema…' : (endpointError ?? 'Select a model to generate.')
+            }}
+          </div>
 
           <!-- Generate button -->
           <Button type="button" class="w-full" :disabled="generateDisabled" @click="handleSubmit">
@@ -380,6 +440,9 @@ async function handleSavePrompt(): Promise<void> {
             </template>
             <template v-else>Generate</template>
           </Button>
+          <p v-if="generateBlockReason" class="text-xs text-muted">
+            {{ generateBlockReason }}
+          </p>
 
           <!-- Status: local engine or API mode -->
           <template v-if="isRemoteEndpoint && endpoint?.providerId">
