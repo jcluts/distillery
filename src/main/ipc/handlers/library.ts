@@ -96,13 +96,12 @@ export function registerLibraryHandlers(
     return record ? mapMediaPaths(record, db, removalService) : null
   })
 
-  ipcMain.handle(
-    IPC_CHANNELS.LIBRARY_UPDATE_MEDIA,
-    (_event, id: string, updates: MediaUpdate) => {
-      mediaRepo.updateMedia(db, id, updates)
+  ipcMain.handle(IPC_CHANNELS.LIBRARY_UPDATE_MEDIA, (_event, id: string, updates: MediaUpdate) => {
+    mediaRepo.updateMedia(db, id, updates)
+    if (updates.file_name !== undefined) {
       onLibraryUpdated?.()
     }
-  )
+  })
 
   ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_MEDIA, async (_event, ids: string[]) => {
     // Collect file paths before deleting DB records

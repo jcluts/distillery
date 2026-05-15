@@ -43,7 +43,9 @@ export function useKeyboardShortcuts(): void {
 
     for (const id of ids) {
       libraryStore.updateLocalItem(id, updates)
-      void window.api.updateMedia(id, updates)
+      void window.api.updateMedia(id, updates).catch(() => {
+        void libraryStore.loadMedia()
+      })
     }
   }
 
@@ -55,7 +57,7 @@ export function useKeyboardShortcuts(): void {
     const isMac = navigator.platform.toLowerCase().includes('mac')
     const modKey = isMac ? event.metaKey : event.ctrlKey
     const focusedItem = libraryStore.focusedId
-      ? libraryStore.items.find((item) => item.id === libraryStore.focusedId) ?? null
+      ? (libraryStore.items.find((item) => item.id === libraryStore.focusedId) ?? null)
       : null
 
     if (uiStore.activeModals.length > 0) {
@@ -156,13 +158,13 @@ export function useKeyboardShortcuts(): void {
     // Arrow keys — navigate
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
-      libraryStore.focusRelative(-1)
+      void libraryStore.focusRelative(-1)
       return
     }
 
     if (event.key === 'ArrowRight') {
       event.preventDefault()
-      libraryStore.focusRelative(1)
+      void libraryStore.focusRelative(1)
       return
     }
 
@@ -173,21 +175,25 @@ export function useKeyboardShortcuts(): void {
 
     const digit = Number(event.key)
     if (Number.isInteger(digit) && digit >= 0 && digit <= 5) {
+      event.preventDefault()
       updateSelectedMedia({ rating: digit })
       return
     }
 
     if (event.key.toLowerCase() === 'p') {
+      event.preventDefault()
       updateSelectedMedia({ status: 'selected' })
       return
     }
 
     if (event.key.toLowerCase() === 'x') {
+      event.preventDefault()
       updateSelectedMedia({ status: 'rejected' })
       return
     }
 
     if (event.key.toLowerCase() === 'u') {
+      event.preventDefault()
       updateSelectedMedia({ status: null })
     }
   }

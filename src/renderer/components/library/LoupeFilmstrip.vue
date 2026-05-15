@@ -50,6 +50,15 @@ watch(
   }
 )
 
+watch([virtualItems, () => props.items.length], ([items, itemCount]) => {
+  const lastItem = items[items.length - 1]
+  if (!lastItem || itemCount === 0) return
+
+  if (lastItem.index >= itemCount - FILMSTRIP_OVERSCAN) {
+    void libraryStore.loadNextPage()
+  }
+})
+
 watch(
   [() => props.currentIndex, () => props.items.length],
   async ([currentIndex, itemCount]) => {
@@ -64,8 +73,14 @@ watch(
   { immediate: true }
 )
 
-function selectRelative(offset: -1 | 1): void {
-  const nextItem = props.items[props.currentIndex + offset]
+async function selectRelative(offset: -1 | 1): Promise<void> {
+  const targetIndex = props.currentIndex + offset
+  if (targetIndex >= props.items.length) {
+    await libraryStore.ensureIndexLoaded(targetIndex)
+    await nextTick()
+  }
+
+  const nextItem = props.items[targetIndex]
   if (nextItem) {
     emit('select', nextItem.id)
   }
@@ -82,7 +97,7 @@ function selectRelative(offset: -1 | 1): void {
       class="h-9 w-9 shrink-0"
       :disabled="currentIndex <= 0"
       aria-label="Previous"
-      @click="selectRelative(-1)"
+      @click="void selectRelative(-1)"
     >
       <Icon icon="lucide:chevron-left" class="size-4" />
     </Button>
@@ -114,7 +129,9 @@ function selectRelative(offset: -1 | 1): void {
             class="size-[86px]"
             draggable="true"
             @click="(event: MouseEvent) => handleClick(event, props.items[virtualItem.index]!.id)"
-            @dragstart="(event: DragEvent) => handleDragStart(event, props.items[virtualItem.index]!.id)"
+            @dragstart="
+              (event: DragEvent) => handleDragStart(event, props.items[virtualItem.index]!.id)
+            "
           />
         </div>
       </div>
@@ -126,9 +143,9 @@ function selectRelative(offset: -1 | 1): void {
       severity="secondary"
       size="small"
       class="h-9 w-9 shrink-0"
-      :disabled="currentIndex < 0 || currentIndex >= items.length - 1"
+      :disabled="currentIndex < 0 || (currentIndex >= items.length - 1 && !libraryStore.hasMore)"
       aria-label="Next"
-      @click="selectRelative(1)"
+      @click="void selectRelative(1)"
     >
       <Icon icon="lucide:chevron-right" class="size-4" />
     </Button>

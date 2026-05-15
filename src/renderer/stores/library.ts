@@ -120,6 +120,16 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
+  async function ensureIndexLoaded(index: number): Promise<void> {
+    if (index < items.value.length || index < 0) return
+
+    while (index >= items.value.length && hasMore.value) {
+      const previousLength = items.value.length
+      await loadNextPage()
+      if (items.value.length === previousLength) break
+    }
+  }
+
   function selectSingle(id: string): void {
     selectedIds.value = new Set([id])
     focusedId.value = id
@@ -156,14 +166,19 @@ export const useLibraryStore = defineStore('library', () => {
     focusedId.value = id
   }
 
-  function focusRelative(offset: number): void {
+  async function focusRelative(offset: number): Promise<void> {
     if (items.value.length === 0) return
 
     const currentIndex = focusedId.value
       ? items.value.findIndex((item) => item.id === focusedId.value)
       : -1
     const baseIndex = currentIndex >= 0 ? currentIndex : 0
-    const nextIndex = Math.min(items.value.length - 1, Math.max(0, baseIndex + offset))
+    const targetIndex = baseIndex + offset
+    if (targetIndex >= items.value.length) {
+      await ensureIndexLoaded(targetIndex)
+    }
+
+    const nextIndex = Math.min(items.value.length - 1, Math.max(0, targetIndex))
     const nextItem = items.value[nextIndex]
     if (nextItem) {
       selectSingle(nextItem.id)
@@ -217,6 +232,7 @@ export const useLibraryStore = defineStore('library', () => {
     prepareForGeneratedMedia,
     loadMedia,
     loadNextPage,
+    ensureIndexLoaded,
     selectSingle,
     toggleSelect,
     rangeSelect,

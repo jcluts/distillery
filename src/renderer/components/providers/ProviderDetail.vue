@@ -16,7 +16,8 @@ const KEY_URLS: Record<string, string> = {
   replicate: 'https://replicate.com/account/api-tokens',
   wavespeed: 'https://wavespeed.ai/account/api-keys',
   gptproto: 'https://gptproto.com/dashboard',
-  kie: 'https://kie.ai/api-key'
+  kie: 'https://kie.ai/api-key',
+  venice: 'https://venice.ai/settings/api'
 }
 
 const props = defineProps<{ providerId: string }>()
