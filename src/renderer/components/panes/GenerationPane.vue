@@ -38,11 +38,15 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'input_image_url',
   'image_input',
   'input_urls',
+  'seedimage',
   'first_frame_url',
   'last_frame_url',
   'reference_image',
   'reference_images',
-  'ref_images'
+  'ref_images',
+  'inputs.referenceimages',
+  'inputs.frameimages',
+  'inputs.video'
 ])
 
 // ---------------------------------------------------------------------------
@@ -242,12 +246,20 @@ function getReferenceImageLimit(schema: CanonicalRequestSchema | undefined): num
   if (!schema?.properties) return null
 
   const limits = Object.entries(schema.properties)
-    .filter(([name]) => IMAGE_INPUT_FIELD_NAMES.has(name.toLowerCase()))
+    .filter(([name]) => isImageInputFieldName(name))
     .map(([, property]) => getImagePropertyLimit(property))
     .filter((limit): limit is number => limit !== null)
 
   if (limits.length === 0) return null
   return Math.min(...limits)
+}
+
+function isImageInputFieldName(fieldName: string): boolean {
+  const normalized = fieldName.toLowerCase()
+  if (IMAGE_INPUT_FIELD_NAMES.has(normalized)) return true
+
+  const lastSegment = normalized.split('.').pop()
+  return !!lastSegment && IMAGE_INPUT_FIELD_NAMES.has(lastSegment)
 }
 
 function getImagePropertyLimit(property: CanonicalSchemaProperty): number | null {

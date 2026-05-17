@@ -6,6 +6,29 @@ type GenerationRow = Omit<GenerationRecord, 'prompt_cache_hit' | 'ref_latent_cac
   ref_latent_cache_hit: number
 }
 
+const GENERATION_WITH_MODEL_IDENTITY_SELECT = `
+  SELECT
+    generations.*,
+    COALESCE(direct_identity.id, mapped.identity_id) AS canonical_model_id,
+    COALESCE(direct_identity.name, mapped_identity.name) AS canonical_model_name
+  FROM generations
+  LEFT JOIN model_identities direct_identity
+    ON direct_identity.id = generations.model_identity_id
+  LEFT JOIN model_identity_mappings mapped
+    ON mapped.provider_id = generations.provider
+   AND mapped.provider_model_id = generations.model_file
+  LEFT JOIN model_identities mapped_identity
+    ON mapped_identity.id = mapped.identity_id
+`
+
+function toGenerationRecord(row: GenerationRow): GenerationRecord {
+  return {
+    ...row,
+    prompt_cache_hit: !!row.prompt_cache_hit,
+    ref_latent_cache_hit: !!row.ref_latent_cache_hit
+  }
+}
+
 /**
  * Insert a new generation record.
  */
@@ -39,14 +62,10 @@ export function getGenerationById(
   id: string
 ): GenerationRecord | null {
   const row = db
-    .prepare('SELECT * FROM generations WHERE id = ?')
+    .prepare(`${GENERATION_WITH_MODEL_IDENTITY_SELECT} WHERE generations.id = ?`)
     .get(id) as GenerationRow | undefined
   if (!row) return null
-  return {
-    ...row,
-    prompt_cache_hit: !!row.prompt_cache_hit,
-    ref_latent_cache_hit: !!row.ref_latent_cache_hit
-  }
+  return toGenerationRecord(row)
 }
 
 /**
@@ -54,14 +73,10 @@ export function getGenerationById(
  */
 export function getAllGenerations(db: Database.Database): GenerationRecord[] {
   const rows = db
-    .prepare('SELECT * FROM generations ORDER BY created_at DESC')
+    .prepare(`${GENERATION_WITH_MODEL_IDENTITY_SELECT} ORDER BY generations.created_at DESC`)
     .all() as GenerationRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    prompt_cache_hit: !!row.prompt_cache_hit,
-    ref_latent_cache_hit: !!row.ref_latent_cache_hit
-  }))
+  return rows.map(toGenerationRecord)
 }
 
 /**

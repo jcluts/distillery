@@ -90,10 +90,16 @@ export interface MediaQuery {
   rating?: number
   status?: MediaStatus | 'unmarked' | 'all'
   media_type?: MediaType
+  modelIdentityId?: string
   sort?: MediaSortField
   sortDirection?: 'asc' | 'desc'
   search?: string
   collectionId?: string
+}
+
+export interface ModelFilterOption {
+  id: string
+  name: string
 }
 
 export interface MediaPage {
@@ -215,6 +221,8 @@ export interface GenerationRecord {
   id: string
   number: number
   model_identity_id: string | null
+  canonical_model_id?: string | null
+  canonical_model_name?: string | null
   provider: string
   model_file: string | null
   prompt: string | null
@@ -438,6 +446,7 @@ export interface AppSettings {
   kie_api_key: string
   venice_api_key: string
   ninjachat_api_key: string
+  runware_api_key: string
   window_x?: number
   window_y?: number
   window_width?: number

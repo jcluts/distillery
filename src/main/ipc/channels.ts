@@ -15,6 +15,7 @@ export const IPC_CHANNELS = {
   LIBRARY_COPY_TO_CLIPBOARD: 'library:copyToClipboard',
   LIBRARY_GET_THUMBNAIL: 'library:getThumbnail',
   LIBRARY_GET_THUMBNAILS_BATCH: 'library:getThumbnailsBatch',
+  LIBRARY_GET_MODEL_FILTER_OPTIONS: 'library:getModelFilterOptions',
 
   // Transforms
   TRANSFORMS_GET: 'transforms:get',

@@ -33,6 +33,7 @@ export const useLibraryStore = defineStore('library', () => {
   const ratingFilter = ref(0)
   const statusFilter = ref<MediaStatus | 'unmarked' | 'all'>('all')
   const mediaTypeFilter = ref<MediaType | 'all'>('all')
+  const modelIdentityFilter = ref<string | null>(null)
   const searchQuery = ref('')
   const sortField = ref<MediaSortField>('created_at')
   const sortDirection = ref<'asc' | 'desc'>('desc')
@@ -50,6 +51,7 @@ export const useLibraryStore = defineStore('library', () => {
       rating: ratingFilter.value > 0 ? ratingFilter.value : undefined,
       status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
       media_type: mediaTypeFilter.value !== 'all' ? mediaTypeFilter.value : undefined,
+      modelIdentityId: modelIdentityFilter.value ?? undefined,
       sort: sortField.value,
       sortDirection: sortDirection.value,
       search: searchQuery.value || undefined,
@@ -225,6 +227,7 @@ export const useLibraryStore = defineStore('library', () => {
     ratingFilter,
     statusFilter,
     mediaTypeFilter,
+    modelIdentityFilter,
     searchQuery,
     sortField,
     sortDirection,

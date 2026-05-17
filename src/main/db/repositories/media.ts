@@ -6,6 +6,7 @@ import type {
   MediaUpdate,
   MediaQuery,
   MediaPage,
+  ModelFilterOption,
   RemovalData,
   VideoEdits
 } from '../../types'
@@ -26,30 +27,16 @@ interface RemovalsRow {
   removals_json: string | null
 }
 
-function isDefaultAdjustments(adjustments: ImageAdjustments): boolean {
-  return (
-    adjustments.exposure === 0 &&
-    adjustments.brightness === 1 &&
-    adjustments.contrast === 1 &&
-    adjustments.highlights === 0 &&
-    adjustments.shadows === 0 &&
-    adjustments.saturation === 1 &&
-    adjustments.vibrance === 0 &&
-    adjustments.temperature === 0 &&
-    adjustments.tint === 0 &&
-    adjustments.hue === 0 &&
-    adjustments.clarity === 0
-  )
+interface MediaWhereClause {
+  fromClause: string
+  where: string
+  values: unknown[]
 }
 
-/**
- * Query media with filtering, sorting, and pagination.
- */
-export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage {
-  const page = params.page ?? 1
-  const pageSize = params.pageSize ?? 200
-  const offset = (page - 1) * pageSize
-
+function buildMediaWhereClause(
+  params: MediaQuery,
+  options?: { includeModelIdentity?: boolean }
+): MediaWhereClause {
   let fromClause = 'media'
   const conditions: string[] = []
   const values: unknown[] = []
@@ -84,6 +71,19 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
   }
   // 'all' and undefined = no filter
 
+  if (options?.includeModelIdentity !== false && params.modelIdentityId) {
+    conditions.push(
+      `media.generation_id IN (
+        SELECT g.id FROM generations g
+        LEFT JOIN model_identity_mappings mim
+          ON mim.provider_id = g.provider
+         AND mim.provider_model_id = g.model_file
+        WHERE COALESCE(g.model_identity_id, mim.identity_id) = ?
+      )`
+    )
+    values.push(params.modelIdentityId)
+  }
+
   const search = params.search?.trim()
   if (search) {
     conditions.push(
@@ -103,7 +103,38 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
     values.push(like, like, like, like, like)
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  return {
+    fromClause,
+    where: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+    values
+  }
+}
+
+function isDefaultAdjustments(adjustments: ImageAdjustments): boolean {
+  return (
+    adjustments.exposure === 0 &&
+    adjustments.brightness === 1 &&
+    adjustments.contrast === 1 &&
+    adjustments.highlights === 0 &&
+    adjustments.shadows === 0 &&
+    adjustments.saturation === 1 &&
+    adjustments.vibrance === 0 &&
+    adjustments.temperature === 0 &&
+    adjustments.tint === 0 &&
+    adjustments.hue === 0 &&
+    adjustments.clarity === 0
+  )
+}
+
+/**
+ * Query media with filtering, sorting, and pagination.
+ */
+export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage {
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? 200
+  const offset = (page - 1) * pageSize
+
+  const { fromClause, where, values } = buildMediaWhereClause(params)
 
   // Count
   const countRow = db
@@ -130,6 +161,44 @@ export function queryMedia(db: Database.Database, params: MediaQuery): MediaPage
     page,
     pageSize
   }
+}
+
+/**
+ * Get canonical model identities represented in the library for the current filters.
+ */
+export function getModelFilterOptions(
+  db: Database.Database,
+  params: MediaQuery
+): ModelFilterOption[] {
+  const { fromClause, where, values } = buildMediaWhereClause(params, {
+    includeModelIdentity: false
+  })
+
+  return db
+    .prepare(
+      `SELECT
+        canonical.id,
+        canonical.name
+      FROM (
+        SELECT DISTINCT
+          COALESCE(direct_identity.id, mapped_identity.id) AS id,
+          COALESCE(direct_identity.name, mapped_identity.name) AS name
+        FROM ${fromClause}
+        JOIN generations g ON g.id = media.generation_id
+        LEFT JOIN model_identities direct_identity
+          ON direct_identity.id = g.model_identity_id
+        LEFT JOIN model_identity_mappings mapped
+          ON mapped.provider_id = g.provider
+         AND mapped.provider_model_id = g.model_file
+        LEFT JOIN model_identities mapped_identity
+          ON mapped_identity.id = mapped.identity_id
+        ${where}
+      ) canonical
+      WHERE canonical.id IS NOT NULL
+        AND canonical.name IS NOT NULL
+      ORDER BY canonical.name`
+    )
+    .all(...values) as ModelFilterOption[]
 }
 
 /**

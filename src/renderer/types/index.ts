@@ -92,10 +92,16 @@ export interface MediaQuery {
   rating?: number // minimum rating
   status?: MediaStatus | 'unmarked' | 'all'
   media_type?: MediaType
+  modelIdentityId?: string
   sort?: MediaSortField
   sortDirection?: 'asc' | 'desc'
   search?: string
   collectionId?: string
+}
+
+export interface ModelFilterOption {
+  id: string
+  name: string
 }
 
 export type MediaSortField = 'created_at' | 'rating' | 'file_name'
@@ -231,6 +237,8 @@ export interface GenerationRecord {
   id: string
   number: number
   model_identity_id: string | null
+  canonical_model_id?: string | null
+  canonical_model_name?: string | null
   provider: string
   model_file: string | null
   prompt: string | null
@@ -380,7 +388,7 @@ export interface ProviderConfig {
   displayName?: string
   enabled?: boolean
   executionMode?: 'queued-local' | 'remote-async'
-  adapter?: 'wavespeed' | 'fal' | 'replicate' | 'venice'
+  adapter?: 'wavespeed' | 'fal' | 'replicate' | 'venice' | 'runware'
   feedFile?: string
   staticModels?: Array<{
     modelId: string
@@ -413,11 +421,13 @@ export interface ProviderConfig {
   }
   search?: {
     endpoint: string
-    method: 'GET' | 'QUERY'
+    method: 'GET' | 'QUERY' | 'POST'
     queryParam?: string
     limitParam?: string
     extraParams?: Record<string, string>
     maxResults?: number
+    taskType?: string
+    responsePath?: string
     detailEndpoint?: string
     detailQueryParam?: string
     searchOnly?: boolean
@@ -442,7 +452,7 @@ export interface ProviderConfig {
     requestIdPath: string
     pollEndpoint: string
     pollMethod?: 'GET' | 'POST'
-    pollBody?: Record<string, unknown>
+    pollBody?: unknown
     pollUrlPath?: string
     pollInterval?: number
     maxPollTime?: number
@@ -455,7 +465,7 @@ export interface ProviderConfig {
   request?: {
     endpointTemplate?: string
     endpointTemplatesByMode?: Partial<Record<GenerationMode, string>>
-    payloadStyle?: 'flat' | 'nested-input' | 'input-only'
+    payloadStyle?: 'flat' | 'nested-input' | 'input-only' | 'task-array'
     modelField?: string
     inputField?: string
   }
@@ -630,6 +640,7 @@ export interface AppSettings {
   kie_api_key: string
   venice_api_key: string
   ninjachat_api_key: string
+  runware_api_key: string
 
   // Window
   window_x?: number
@@ -764,6 +775,7 @@ export interface RemovalResultEvent {
 export interface DistilleryAPI {
   // Library
   getMedia(params: MediaQuery): Promise<MediaPage>
+  getLibraryModelFilterOptions(params: MediaQuery): Promise<ModelFilterOption[]>
   getMediaById(id: string): Promise<MediaRecord | null>
   updateMedia(id: string, updates: MediaUpdate): Promise<void>
   deleteMedia(ids: string[]): Promise<void>

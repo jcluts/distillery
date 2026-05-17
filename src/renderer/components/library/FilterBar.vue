@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
+import { computed, onMounted, ref, watch } from 'vue'
 import StarRating from '@/components/shared/StarRating.vue'
 import { useLibraryStore } from '@/stores/library'
 import type { MediaStatus, MediaType } from '@/types'
@@ -16,6 +18,36 @@ const mediaTypeOptions: { label: string; value: 'all' | MediaType; icon: string 
   { label: 'Image', value: 'image', icon: 'lucide:image' },
   { label: 'Video', value: 'video', icon: 'lucide:video' }
 ]
+
+const modelOptions = ref<{ label: string; value: string }[]>([])
+
+const modelOptionQuery = computed(() => ({
+  ...libraryStore.buildQuery(),
+  modelIdentityId: undefined,
+  page: undefined,
+  pageSize: undefined,
+  sort: undefined,
+  sortDirection: undefined
+}))
+
+watch(
+  modelOptionQuery,
+  () => {
+    void loadModelOptions()
+  },
+  { deep: true }
+)
+
+watch(
+  () => libraryStore.total,
+  () => {
+    void loadModelOptions()
+  }
+)
+
+onMounted(() => {
+  void loadModelOptions()
+})
 
 function setRatingFilter(value: number): void {
   libraryStore.ratingFilter = value
@@ -36,6 +68,24 @@ function handleSearch(event: Event): void {
 function setMediaTypeFilter(value: 'all' | MediaType): void {
   libraryStore.mediaTypeFilter = value
   libraryStore.loadMedia()
+}
+
+async function loadModelOptions(): Promise<void> {
+  const options = await window.api.getLibraryModelFilterOptions(modelOptionQuery.value)
+  modelOptions.value = options.map((option) => ({ label: option.name, value: option.id }))
+
+  if (
+    libraryStore.modelIdentityFilter &&
+    !modelOptions.value.some((option) => option.value === libraryStore.modelIdentityFilter)
+  ) {
+    libraryStore.modelIdentityFilter = null
+    void libraryStore.loadMedia()
+  }
+}
+
+function setModelFilter(value: string | null): void {
+  libraryStore.modelIdentityFilter = value
+  void libraryStore.loadMedia()
 }
 </script>
 
@@ -105,6 +155,19 @@ function setMediaTypeFilter(value: 'all' | MediaType): void {
         </div>
       </template>
     </SelectButton>
+
+    <Select
+      :model-value="libraryStore.modelIdentityFilter"
+      :options="modelOptions"
+      option-label="label"
+      option-value="value"
+      placeholder="All models"
+      show-clear
+      size="small"
+      class="w-48"
+      :disabled="modelOptions.length <= 1 && !libraryStore.modelIdentityFilter"
+      @update:model-value="setModelFilter"
+    />
 
     <div class="flex-1" />
 

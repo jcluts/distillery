@@ -27,6 +27,8 @@ const CH = IPC_CHANNELS
 const api: DistilleryAPI = {
   // Library
   getMedia: (params: MediaQuery) => ipcRenderer.invoke(CH.LIBRARY_GET_MEDIA, params),
+  getLibraryModelFilterOptions: (params: MediaQuery) =>
+    ipcRenderer.invoke(CH.LIBRARY_GET_MODEL_FILTER_OPTIONS, params),
   getMediaById: (id: string) => ipcRenderer.invoke(CH.LIBRARY_GET_MEDIA_BY_ID, id),
   updateMedia: (id: string, updates: MediaUpdate) =>
     ipcRenderer.invoke(CH.LIBRARY_UPDATE_MEDIA, id, updates),

@@ -18,14 +18,24 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'input_image_url',
   'image_input',
   'input_urls',
+  'seedimage',
   'first_frame_url',
   'last_frame_url',
   'reference_image',
   'reference_images',
-  'ref_images'
+  'ref_images',
+  'inputs.referenceimages',
+  'inputs.frameimages',
+  'inputs.video'
 ])
 
-const PROMPT_FIELD_NAMES = new Set(['prompt', 'text', 'caption'])
+const PROMPT_FIELD_NAMES = new Set([
+  'prompt',
+  'positiveprompt',
+  'positive_prompt',
+  'text',
+  'caption'
+])
 
 /**
  * Coerce an unknown value to a string. Returns '' for null/undefined.
@@ -213,22 +223,34 @@ export function normalizeGenerationModes(values: unknown): GenerationMode[] {
 export function schemaHasImageInput(schema: CanonicalRequestSchema | undefined): boolean {
   if (!schema?.properties) return false
 
-  return Object.keys(schema.properties).some((key) =>
-    IMAGE_INPUT_FIELD_NAMES.has(key.toLowerCase())
-  )
+  return Object.keys(schema.properties).some((key) => isImageInputFieldName(key))
 }
 
 export function schemaHasPromptInput(schema: CanonicalRequestSchema | undefined): boolean {
   if (!schema?.properties) return false
 
-  return Object.keys(schema.properties).some((key) => PROMPT_FIELD_NAMES.has(key.toLowerCase()))
+  return Object.keys(schema.properties).some((key) => {
+    const normalized = key.toLowerCase()
+    const lastSegment = normalized.split('.').pop()
+    return (
+      PROMPT_FIELD_NAMES.has(normalized) || (!!lastSegment && PROMPT_FIELD_NAMES.has(lastSegment))
+    )
+  })
 }
 
 export function schemaRequiresOnlyImageInput(schema: CanonicalRequestSchema | undefined): boolean {
   const required = schema?.required ?? []
   if (required.length === 0) return false
 
-  return required.every((key) => IMAGE_INPUT_FIELD_NAMES.has(key.toLowerCase()))
+  return required.every((key) => isImageInputFieldName(key))
+}
+
+function isImageInputFieldName(fieldName: string): boolean {
+  const normalized = fieldName.toLowerCase()
+  if (IMAGE_INPUT_FIELD_NAMES.has(normalized)) return true
+
+  const lastSegment = normalized.split('.').pop()
+  return !!lastSegment && IMAGE_INPUT_FIELD_NAMES.has(lastSegment)
 }
 
 export function inferModeInfo(

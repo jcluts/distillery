@@ -91,6 +91,10 @@ export function registerLibraryHandlers(
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_MODEL_FILTER_OPTIONS, (_event, params: MediaQuery) => {
+    return mediaRepo.getModelFilterOptions(db, params)
+  })
+
   ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_MEDIA_BY_ID, (_event, id: string) => {
     const record = mediaRepo.getMediaById(db, id)
     return record ? mapMediaPaths(record, db, removalService) : null
