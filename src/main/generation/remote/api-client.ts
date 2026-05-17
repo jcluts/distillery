@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { randomUUID } from 'crypto'
 import type { CanonicalRequestSchema, GenerationMode } from '../../types'
 import type { ProviderConfig } from '../catalog/provider-config'
 import type { ProviderModel, SearchResult, SearchResultModel } from '../management/types'
@@ -33,11 +34,15 @@ const IMAGE_INPUT_FIELD_NAMES = new Set([
   'input_image_url',
   'image_input',
   'input_urls',
+  'seedimage',
   'first_frame_url',
   'last_frame_url',
   'reference_image',
   'reference_images',
-  'ref_images'
+  'ref_images',
+  'inputs.referenceimages',
+  'inputs.frameimages',
+  'inputs.video'
 ])
 
 export interface RemoteGenerationResult {
@@ -151,11 +156,7 @@ export class ApiClient {
         body: query
       })
     } else {
-      const body: Record<string, unknown> = {
-        query,
-        q: query,
-        limit: search.maxResults
-      }
+      const body = this.buildSearchPostBody(query)
 
       response = await fetch(endpointUrl, {
         method: 'POST',
@@ -168,11 +169,22 @@ export class ApiClient {
     }
 
     if (!response.ok) {
-      throw new Error(`Model search failed: ${response.status} ${response.statusText}`)
+      const responseBody = await response.text()
+      throw new Error(
+        `Model search failed: ${response.status} ${response.statusText} ${this.truncate(responseBody, MAX_LOG_BODY_CHARS)}`.trim()
+      )
     }
 
     const payload = (await response.json()) as unknown
-    const models = extractModelCandidates(payload, asRecord)
+    const providerError = this.extractProviderError(payload)
+    if (providerError) {
+      throw new Error(`Model search failed: ${providerError}`)
+    }
+
+    const candidatesSource = search.responsePath
+      ? getByPath(payload, search.responsePath, asRecord)
+      : payload
+    const models = extractModelCandidates(candidatesSource, asRecord)
 
     const normalized = models.map((item) => {
       if (adapter) {
@@ -191,6 +203,10 @@ export class ApiClient {
 
   async fetchModelDetail(modelId: string): Promise<ProviderModel | null> {
     const detailEndpointTemplate = this.config.search?.detailEndpoint
+    if (!detailEndpointTemplate && this.config.search?.method === 'POST') {
+      return await this.fetchModelDetailFromSearch(modelId)
+    }
+
     if (!detailEndpointTemplate) {
       return null
     }
@@ -253,6 +269,66 @@ export class ApiClient {
     }
   }
 
+  private buildSearchPostBody(query: string): unknown {
+    const search = this.config.search
+    const task: Record<string, unknown> = {
+      taskType: search?.taskType ?? 'modelSearch',
+      taskUUID: randomUUID()
+    }
+
+    if (search?.queryParam) {
+      task[search.queryParam] = query
+    } else {
+      task.query = query
+      task.q = query
+    }
+
+    if (search?.limitParam && typeof search.maxResults === 'number') {
+      task[search.limitParam] = search.maxResults
+    } else if (typeof search?.maxResults === 'number') {
+      task.limit = search.maxResults
+    }
+
+    for (const [key, value] of Object.entries(search?.extraParams ?? {})) {
+      task[key] = /^\d+$/.test(value) ? Number(value) : value
+    }
+
+    return [task]
+  }
+
+  private extractProviderError(payload: unknown): string | null {
+    const root = asRecord(payload)
+    if (!root) return null
+
+    const errors = Array.isArray(root.errors) ? root.errors : null
+    if (!errors?.length) return null
+
+    return errors
+      .map((entry) => {
+        const record = asRecord(entry)
+        if (!record) return null
+        return (
+          getString(record.message) || getString(record.code) || getString(record.error) || null
+        )
+      })
+      .filter((entry): entry is string => !!entry)
+      .join('; ')
+  }
+
+  private async fetchModelDetailFromSearch(modelId: string): Promise<ProviderModel | null> {
+    const adapter = getProviderAdapter(this.config.adapter)
+    if (!adapter) return null
+
+    const result = await this.searchModels(modelId)
+    const match =
+      result.models.find((model) => model.modelId === modelId) ??
+      result.models.find((model) => model.modelId.toLowerCase() === modelId.toLowerCase()) ??
+      result.models[0]
+
+    if (!match?.raw) return null
+    return adapter.normalizeModelDetail(match.raw, this.config)
+  }
+
   private async enrichSearchResults(models: SearchResultModel[]): Promise<SearchResultModel[]> {
     if (!this.config.search?.detailEndpoint || !this.config.search.searchOnly) {
       return models
@@ -287,6 +363,38 @@ export class ApiClient {
     const search = this.config.search
     if (!search?.endpoint) {
       return []
+    }
+
+    if (search.method === 'POST') {
+      const result = await this.searchModels('')
+      const adapter = getProviderAdapter(this.config.adapter)
+      return result.models
+        .map((model) => {
+          if (adapter && model.raw) {
+            return adapter.normalizeModelDetail(model.raw, this.config)
+          }
+
+          return {
+            modelId: model.modelId,
+            name: model.name,
+            description: model.description,
+            type: model.type,
+            modes: model.modes,
+            outputType: model.outputType,
+            providerId: this.config.providerId,
+            requestSchema: {
+              properties: {
+                prompt: {
+                  type: 'string',
+                  title: 'Prompt'
+                }
+              },
+              required: ['prompt'],
+              order: ['prompt']
+            }
+          } satisfies ProviderModel
+        })
+        .filter((entry): entry is ProviderModel => !!entry)
     }
 
     const endpointUrl = new URL(this.buildUrl(search.endpoint))
@@ -614,7 +722,7 @@ export class ApiClient {
       endpoint,
       providerId: this.config.providerId,
       modelId: model.modelId,
-      payloadSummary: this.summarizeParams(requestPayload)
+      payloadSummary: this.summarizeUnknown(requestPayload)
     })
 
     const response = await fetch(endpoint, {
@@ -636,7 +744,7 @@ export class ApiClient {
         status: response.status,
         statusText: response.statusText,
         responseBody: this.truncate(errorBody, MAX_LOG_BODY_CHARS),
-        payloadSummary: this.summarizeParams(requestPayload)
+        payloadSummary: this.summarizeUnknown(requestPayload)
       })
       throw new Error(
         `Generation request failed: ${response.status} ${response.statusText} ${errorBody}`.trim()
@@ -861,7 +969,7 @@ export class ApiClient {
       endpoint,
       method,
       init,
-      bodySummary: pollBody ? this.summarizeParams(pollBody) : undefined
+      bodySummary: pollBody ? this.summarizeUnknown(pollBody) : undefined
     }
   }
 
@@ -888,7 +996,7 @@ export class ApiClient {
     return this.buildUrl(templateWithModel.replace('{requestId}', requestId))
   }
 
-  private buildPollBody(requestId: string, modelId: string): Record<string, unknown> | undefined {
+  private buildPollBody(requestId: string, modelId: string): unknown {
     const pollBody = this.config.async?.pollBody
     if (!pollBody) return undefined
 
@@ -898,7 +1006,7 @@ export class ApiClient {
       model_id: modelId
     }
 
-    return this.interpolateTemplateValue(pollBody, context) as Record<string, unknown>
+    return this.interpolateTemplateValue(pollBody, context)
   }
 
   private interpolateTemplateValue(value: unknown, context: Record<string, string>): unknown {
@@ -1038,11 +1146,19 @@ export class ApiClient {
     if (!schema?.properties) return result
 
     for (const [key, prop] of Object.entries(schema.properties)) {
-      if (!IMAGE_INPUT_FIELD_NAMES.has(key.toLowerCase())) continue
+      if (!this.isImageInputFieldName(key)) continue
       result.push({ name: key, isArray: prop.type === 'array' })
     }
 
     return result
+  }
+
+  private isImageInputFieldName(fieldName: string): boolean {
+    const normalized = fieldName.toLowerCase()
+    if (IMAGE_INPUT_FIELD_NAMES.has(normalized)) return true
+
+    const lastSegment = normalized.split('.').pop()
+    return !!lastSegment && IMAGE_INPUT_FIELD_NAMES.has(lastSegment)
   }
 
   private prepareImageInputPaths(
@@ -1050,11 +1166,10 @@ export class ApiClient {
     model: ProviderModel,
     mode: GenerationMode | undefined
   ): string[] {
-    if (this.config.providerId !== 'venice' || mode !== 'image-to-image') {
-      return filePaths
-    }
-
-    const maxImages = this.getMaxImageInputCount(model.requestSchema, 'images') ?? 3
+    const schemaLimit = this.getImageInputLimit(model.requestSchema)
+    const maxImages =
+      schemaLimit ?? (this.config.providerId === 'venice' && mode === 'image-to-image' ? 3 : null)
+    if (!maxImages) return filePaths
     if (filePaths.length <= maxImages) return filePaths
 
     this.logInfo('generate:image-inputs-truncated', {
@@ -1082,12 +1197,18 @@ export class ApiClient {
     }
   }
 
-  private getMaxImageInputCount(
-    schema: CanonicalRequestSchema,
-    fieldName: string
-  ): number | undefined {
-    const maxItems = schema.properties?.[fieldName]?.items?.maxItems
-    return typeof maxItems === 'number' && Number.isFinite(maxItems) ? maxItems : undefined
+  private getImageInputLimit(schema: CanonicalRequestSchema): number | null {
+    const limits = Object.entries(schema.properties ?? {})
+      .filter(([fieldName]) => this.isImageInputFieldName(fieldName))
+      .map(([, property]) =>
+        typeof property.items?.maxItems === 'number' && Number.isFinite(property.items.maxItems)
+          ? property.items.maxItems
+          : null
+      )
+      .filter((limit): limit is number => limit !== null)
+
+    if (limits.length === 0) return null
+    return Math.min(...limits)
   }
 
   private resolvePreparedImageValue(
@@ -1102,12 +1223,14 @@ export class ApiClient {
     return imageUrls[0]
   }
 
-  private buildRequestPayload(
-    model: ProviderModel,
-    params: Record<string, unknown>
-  ): Record<string, unknown> {
+  private buildRequestPayload(model: ProviderModel, params: Record<string, unknown>): unknown {
     const requestConfig = this.config.request
     const payloadStyle = requestConfig?.payloadStyle
+
+    if (payloadStyle === 'task-array') {
+      return this.buildTaskArrayPayload(model, params)
+    }
+
     if (!requestConfig || (payloadStyle !== 'nested-input' && payloadStyle !== 'input-only')) {
       return params
     }
@@ -1137,6 +1260,64 @@ export class ApiClient {
     }
 
     return payload
+  }
+
+  private buildTaskArrayPayload(model: ProviderModel, params: Record<string, unknown>): unknown[] {
+    const task = this.expandDottedKeys(params)
+
+    if ('prompt' in task && !('positivePrompt' in task)) {
+      task.positivePrompt = task.prompt
+      delete task.prompt
+    }
+
+    if (!task.taskType) {
+      task.taskType = model.outputType === 'video' ? 'videoInference' : 'imageInference'
+    }
+
+    if (!task.taskUUID) {
+      task.taskUUID = randomUUID()
+    }
+
+    if (!task.outputType) {
+      task.outputType = 'URL'
+    }
+
+    const inputs = asRecord(task.inputs)
+    if (Array.isArray(inputs?.frameImages) && inputs.frameImages.length > 0) {
+      delete task.width
+      delete task.height
+    }
+
+    return [task]
+  }
+
+  private expandDottedKeys(params: Record<string, unknown>): Record<string, unknown> {
+    const result: Record<string, unknown> = {}
+
+    for (const [key, value] of Object.entries(params)) {
+      if (!key.includes('.')) {
+        result[key] = value
+        continue
+      }
+
+      const parts = key.split('.').filter(Boolean)
+      let cursor = result
+
+      for (const [index, part] of parts.entries()) {
+        if (index === parts.length - 1) {
+          cursor[part] = value
+          continue
+        }
+
+        const existing = cursor[part]
+        if (!existing || typeof existing !== 'object' || Array.isArray(existing)) {
+          cursor[part] = {}
+        }
+        cursor = cursor[part] as Record<string, unknown>
+      }
+    }
+
+    return result
   }
 
   private async fileToProviderImageValue(
@@ -1196,6 +1377,18 @@ export class ApiClient {
     }
 
     return summary
+  }
+
+  private summarizeUnknown(value: unknown): Record<string, unknown> {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return this.summarizeParams(value as Record<string, unknown>)
+    }
+
+    if (Array.isArray(value)) {
+      return { value: `array(len=${value.length})` }
+    }
+
+    return { value }
   }
 
   private previewUnknown(value: unknown): string {

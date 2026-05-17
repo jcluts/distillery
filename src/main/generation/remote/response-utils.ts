@@ -13,6 +13,18 @@ export function getByPath(value: unknown, pathExpression: string, asRecord: AsRe
   let cursor: unknown = value
 
   for (const part of parts) {
+    if (Array.isArray(cursor)) {
+      const index = Number(part)
+      if (Number.isInteger(index)) {
+        cursor = cursor[index]
+        continue
+      }
+      if (cursor.length !== 1) {
+        return undefined
+      }
+      cursor = cursor[0]
+    }
+
     const record = asRecord(cursor)
     if (!record || !(part in record)) {
       return undefined
@@ -81,9 +93,14 @@ export function normalizeOutputs(
           getString(record.uri) ||
           getString(record.download_url) ||
           getString(record.response_url) ||
+          getString(record.imageURL) ||
+          getString(record.videoURL) ||
+          getString(record.imageDataURI) ||
           getString(record.path) ||
           toDataUrl(
-            getString(record.b64_json) || getString(record.base64),
+            getString(record.b64_json) ||
+              getString(record.base64) ||
+              getString(record.imageBase64Data),
             getString(record.mime_type)
           )
 

@@ -83,39 +83,31 @@ export class ProviderManager {
 
   async searchModels(providerId: string, query: string): Promise<SearchResult> {
     const staticModels = this.getStaticModels(providerId)
-    if (staticModels.length > 0) {
-      const normalizedQuery = query.trim().toLowerCase()
-      return {
-        models: staticModels
-          .filter((model) => {
-            if (!normalizedQuery) return true
-            return (
-              model.name.toLowerCase().includes(normalizedQuery) ||
-              model.modelId.toLowerCase().includes(normalizedQuery) ||
-              model.description?.toLowerCase().includes(normalizedQuery)
-            )
-          })
-          .map((model) => ({
-            modelId: model.modelId,
-            name: model.name,
-            description: model.description,
-            type: model.type,
-            modes: model.modes,
-            outputType: model.outputType
-          }))
-      }
+    const provider = this.getProviderConfig(providerId)
+    const canSearchLive = !!provider?.search && !this.isAuthMissing(providerId)
+    if (staticModels.length > 0 && !canSearchLive) {
+      return this.searchStaticModels(staticModels, query)
     }
 
     if (this.isAuthMissing(providerId)) {
       return { models: [] }
     }
     const client = this.createApiClient(providerId)
-    return await client.searchModels(query)
+    try {
+      return await client.searchModels(query)
+    } catch (error) {
+      if (staticModels.length > 0 && !this.isAuthError(error)) {
+        return this.searchStaticModels(staticModels, query)
+      }
+      throw error
+    }
   }
 
   async listModels(providerId: string): Promise<ProviderModel[]> {
     const staticModels = this.getStaticModels(providerId)
-    if (staticModels.length > 0) {
+    const provider = this.getProviderConfig(providerId)
+    const canListLive = !!provider?.search && !this.isAuthMissing(providerId)
+    if (staticModels.length > 0 && !canListLive) {
       return staticModels.map((model) => this.attachIdentity(model))
     }
 
@@ -123,7 +115,15 @@ export class ProviderManager {
       return []
     }
     const client = this.createApiClient(providerId)
-    const models = await client.fetchModelList()
+    let models: ProviderModel[]
+    try {
+      models = await client.fetchModelList()
+    } catch (error) {
+      if (staticModels.length > 0 && !this.isAuthError(error)) {
+        return staticModels.map((model) => this.attachIdentity(model))
+      }
+      throw error
+    }
     return models.map((model) => this.attachIdentity(model))
   }
 
@@ -171,12 +171,18 @@ export class ProviderManager {
       if (!provider) return { valid: false, error: `Unknown provider: ${providerId}` }
 
       const client = this.createApiClient(providerId)
-      if (this.getStaticModels(providerId).length > 0) {
+      if (this.getStaticModels(providerId).length > 0 && !provider.search) {
         this.getApiKey(providerId)
       } else if (provider.browse?.mode === 'list') {
         await client.fetchModelList()
       } else {
-        await client.searchModels('flux')
+        try {
+          await client.searchModels('flux')
+        } catch (error) {
+          if (this.getStaticModels(providerId).length === 0 || this.isAuthError(error)) {
+            throw error
+          }
+        }
       }
       return { valid: true }
     } catch (error) {
@@ -211,6 +217,34 @@ export class ProviderManager {
     if (model.modelIdentityId) return model
     const identityId = this.identityService.findIdentityId(model.modelId, model.providerId)
     return identityId ? { ...model, modelIdentityId: identityId } : model
+  }
+
+  private searchStaticModels(staticModels: ProviderModel[], query: string): SearchResult {
+    const normalizedQuery = query.trim().toLowerCase()
+    return {
+      models: staticModels
+        .filter((model) => {
+          if (!normalizedQuery) return true
+          return (
+            model.name.toLowerCase().includes(normalizedQuery) ||
+            model.modelId.toLowerCase().includes(normalizedQuery) ||
+            model.description?.toLowerCase().includes(normalizedQuery)
+          )
+        })
+        .map((model) => ({
+          modelId: model.modelId,
+          name: model.name,
+          description: model.description,
+          type: model.type,
+          modes: model.modes,
+          outputType: model.outputType
+        }))
+    }
+  }
+
+  private isAuthError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error)
+    return /\b(401|403|invalidApiKey|api key|unauthorized|forbidden)\b/i.test(message)
   }
 
   private getStaticModels(providerId: string): ProviderModel[] {

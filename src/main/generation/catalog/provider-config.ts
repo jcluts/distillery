@@ -35,7 +35,7 @@ export interface ProviderConfig {
   displayName?: string
   enabled?: boolean
   executionMode?: 'queued-local' | 'remote-async'
-  adapter?: 'wavespeed' | 'fal' | 'replicate' | 'venice'
+  adapter?: 'wavespeed' | 'fal' | 'replicate' | 'venice' | 'runware'
   feedFile?: string
   staticModels?: ProviderStaticModelConfig[]
   endpoints?: ProviderEndpointConfig[]
@@ -48,11 +48,13 @@ export interface ProviderConfig {
   }
   search?: {
     endpoint: string
-    method: 'GET' | 'QUERY'
+    method: 'GET' | 'QUERY' | 'POST'
     queryParam?: string
     limitParam?: string
     extraParams?: Record<string, string>
     maxResults?: number
+    taskType?: string
+    responsePath?: string
     detailEndpoint?: string
     detailQueryParam?: string
     searchOnly?: boolean
@@ -77,7 +79,7 @@ export interface ProviderConfig {
     requestIdPath: string
     pollEndpoint: string
     pollMethod?: 'GET' | 'POST'
-    pollBody?: Record<string, unknown>
+    pollBody?: unknown
     pollUrlPath?: string
     pollInterval?: number
     maxPollTime?: number
@@ -90,7 +92,7 @@ export interface ProviderConfig {
   request?: {
     endpointTemplate?: string
     endpointTemplatesByMode?: Partial<Record<GenerationMode, string>>
-    payloadStyle?: 'flat' | 'nested-input' | 'input-only'
+    payloadStyle?: 'flat' | 'nested-input' | 'input-only' | 'task-array'
     modelField?: string
     inputField?: string
   }
@@ -161,6 +163,38 @@ function refreshBuiltInProviderConfig(
               ...(merged.async?.pollBody ?? {}),
               ...(base.async.pollBody ?? {})
             }
+          }
+        : merged.async,
+      staticModels: base.staticModels ?? merged.staticModels
+    }
+  }
+
+  if (merged.providerId === 'runware') {
+    return {
+      ...merged,
+      baseUrl: base.baseUrl ?? merged.baseUrl,
+      search: base.search
+        ? {
+            ...base.search,
+            ...merged.search,
+            endpoint: base.search.endpoint,
+            taskType: base.search.taskType,
+            responsePath: base.search.responsePath,
+            extraParams: {
+              ...(merged.search?.extraParams ?? {}),
+              ...(base.search.extraParams ?? {})
+            }
+          }
+        : merged.search,
+      request: {
+        ...(merged.request ?? {}),
+        ...(base.request ?? {})
+      },
+      async: base.async
+        ? {
+            ...(merged.async ?? {}),
+            ...(base.async ?? {}),
+            pollBody: base.async.pollBody ?? merged.async?.pollBody
           }
         : merged.async,
       staticModels: base.staticModels ?? merged.staticModels

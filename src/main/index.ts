@@ -24,6 +24,7 @@ import { GenerateTaskHandler } from './generation/generate-task-handler'
 import { registerProviderAdapter } from './generation/remote/adapters/adapter-registry'
 import { falAdapter } from './generation/remote/adapters/fal-adapter'
 import { replicateAdapter } from './generation/remote/adapters/replicate-adapter'
+import { runwareAdapter } from './generation/remote/adapters/runware-adapter'
 import { veniceAdapter } from './generation/remote/adapters/venice-adapter'
 import { wavespeedAdapter } from './generation/remote/adapters/wavespeed-adapter'
 import { IPC_CHANNELS } from './ipc/channels'
@@ -404,6 +405,7 @@ app.whenReady().then(async () => {
   registerProviderAdapter('replicate', replicateAdapter)
   registerProviderAdapter('wavespeed', wavespeedAdapter)
   registerProviderAdapter('venice', veniceAdapter)
+  registerProviderAdapter('runware', runwareAdapter)
 
   const providerManagerService = new ProviderManager({
     db,

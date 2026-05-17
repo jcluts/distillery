@@ -73,7 +73,8 @@ function getDefaults(): AppSettings {
     gptproto_api_key: '',
     kie_api_key: '',
     venice_api_key: '',
-    ninjachat_api_key: ''
+    ninjachat_api_key: '',
+    runware_api_key: ''
   }
 }
 

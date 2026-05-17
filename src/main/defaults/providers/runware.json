@@ -1,0 +1,197 @@
+{
+  "providerId": "runware",
+  "displayName": "Runware",
+  "enabled": true,
+  "executionMode": "remote-async",
+  "adapter": "runware",
+  "baseUrl": "https://api.runware.ai/v1",
+  "auth": {
+    "type": "bearer",
+    "settingsKey": "runware_api_key"
+  },
+  "browse": { "mode": "search" },
+  "search": {
+    "endpoint": "/",
+    "method": "POST",
+    "taskType": "modelSearch",
+    "queryParam": "search",
+    "limitParam": "limit",
+    "responsePath": "data.results",
+    "extraParams": {
+      "category": "checkpoint",
+      "visibility": "all",
+      "offset": "0"
+    },
+    "maxResults": 20,
+    "searchOnly": true
+  },
+  "request": {
+    "endpointTemplate": "/",
+    "payloadStyle": "task-array"
+  },
+  "async": {
+    "enabled": true,
+    "modes": ["text-to-video", "image-to-video"],
+    "requestIdPath": "data.taskUUID",
+    "pollEndpoint": "/",
+    "pollMethod": "POST",
+    "pollBody": [
+      {
+        "taskType": "getResponse",
+        "taskUUID": "{requestId}"
+      }
+    ],
+    "pollInterval": 3000,
+    "maxPollTime": 900000,
+    "statusPath": "data.status",
+    "completedValue": "success",
+    "failedValue": "error",
+    "errorPath": "errors.message",
+    "outputsPath": "data"
+  },
+  "staticModels": [
+    {
+      "modelId": "xai:grok-imagine@image-quality",
+      "name": "Grok Imagine Image Quality",
+      "description": "xAI quality-focused image generation and editing through Runware, with stronger text rendering and realistic brand-oriented output.",
+      "modes": ["text-to-image", "image-to-image"],
+      "outputType": "image",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "xai:grok-imagine@image-quality",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "inputs.referenceImages": {
+            "type": "array",
+            "title": "Reference Images",
+            "items": { "type": "string", "minItems": 1, "maxItems": 4 },
+            "ui": { "hidden": true }
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution",
+            "default": "1K",
+            "enum": ["1K", "2K"]
+          },
+          "numberResults": {
+            "type": "integer",
+            "title": "Images",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 4
+          },
+          "outputFormat": {
+            "type": "string",
+            "title": "Output Format",
+            "default": "JPG",
+            "enum": ["JPG", "PNG", "WEBP"]
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": [
+          "model",
+          "prompt",
+          "inputs.referenceImages",
+          "resolution",
+          "numberResults",
+          "outputFormat",
+          "seed"
+        ]
+      }
+    },
+    {
+      "modelId": "alibaba:happyhorse@1.0",
+      "name": "HappyHorse-1.0",
+      "description": "Alibaba text-to-video and image-to-video model through Runware with 720p/1080p-style short-form clip control.",
+      "modes": ["text-to-video", "image-to-video"],
+      "outputType": "video",
+      "requestSchema": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "alibaba:happyhorse@1.0",
+            "ui": { "hidden": true }
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "inputs.frameImages": {
+            "type": "array",
+            "title": "Frame Images",
+            "items": { "type": "string", "minItems": 1, "maxItems": 1 },
+            "ui": { "hidden": true }
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width",
+            "default": 1280,
+            "minimum": 64,
+            "maximum": 1920,
+            "step": 64
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height",
+            "default": 720,
+            "minimum": 64,
+            "maximum": 1920,
+            "step": 64
+          },
+          "duration": {
+            "type": "integer",
+            "title": "Duration",
+            "default": 5,
+            "minimum": 3,
+            "maximum": 15,
+            "step": 1
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "title": "Delivery Method",
+            "default": "async",
+            "ui": { "hidden": true }
+          },
+          "outputFormat": {
+            "type": "string",
+            "title": "Output Format",
+            "default": "MP4",
+            "enum": ["MP4", "WEBM", "MOV"]
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        },
+        "required": ["model", "prompt"],
+        "order": [
+          "model",
+          "prompt",
+          "inputs.frameImages",
+          "width",
+          "height",
+          "duration",
+          "deliveryMethod",
+          "outputFormat",
+          "seed"
+        ]
+      }
+    }
+  ]
+}

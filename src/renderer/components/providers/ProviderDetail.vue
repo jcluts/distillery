@@ -18,7 +18,8 @@ const KEY_URLS: Record<string, string> = {
   gptproto: 'https://gptproto.com/dashboard',
   kie: 'https://kie.ai/api-key',
   venice: 'https://venice.ai/settings/api',
-  ninjachat: 'https://www.ninjachat.ai/developers/keys'
+  ninjachat: 'https://www.ninjachat.ai/developers/keys',
+  runware: 'https://my.runware.ai/'
 }
 
 const props = defineProps<{ providerId: string }>()
