@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { Icon } from '@iconify/vue'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
+import { useToast } from 'primevue/usetoast'
 
 import ImagePreviewModal from '@/components/modals/ImagePreviewModal.vue'
 import PaneActions from '@/components/panes/primitives/PaneActions.vue'
@@ -26,6 +28,7 @@ const props = withDefaults(
 const libraryStore = useLibraryStore()
 const generationStore = useGenerationStore()
 const uiStore = useUIStore()
+const toast = useToast()
 
 // ---------------------------------------------------------------------------
 // Derived state
@@ -111,6 +114,29 @@ function reloadSettings(): void {
   void generationStore.reloadFromGeneration(gen.value.id)
 }
 
+async function copyPrompt(): Promise<void> {
+  const prompt = gen.value?.prompt?.trim() ? gen.value.prompt : null
+  if (!prompt) return
+
+  try {
+    await navigator.clipboard.writeText(prompt)
+    toast.add({ severity: 'success', summary: 'Prompt copied', life: 2500 })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Copy failed',
+      detail: error instanceof Error ? error.message : String(error),
+      life: 3500
+    })
+  }
+}
+
+function openPromptEditor(): void {
+  const prompt = gen.value?.prompt ?? ''
+  if (!prompt.trim()) return
+  uiStore.openPromptEditor({ text: prompt, canUsePrompt: false })
+}
+
 function openInputPreview(input: GenerationInput): void {
   previewSrc.value = input.preview_file_path ?? input.thumb_path
   previewAlt.value = input.original_filename ?? 'Reference'
@@ -128,6 +154,32 @@ function openInputPreview(input: GenerationInput): void {
         class="max-h-48 min-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded border border-default bg-elevated p-2 text-sm"
       >
         {{ gen?.prompt ?? '-' }}
+      </div>
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        <Button
+          v-tooltip.top="'Copy prompt'"
+          type="button"
+          aria-label="Copy prompt"
+          severity="secondary"
+          outlined
+          size="small"
+          :disabled="!gen?.prompt?.trim()"
+          @click="copyPrompt"
+        >
+          <Icon icon="lucide:copy" class="size-4" />
+        </Button>
+        <Button
+          v-tooltip.top="'Open prompt editor'"
+          type="button"
+          aria-label="Open prompt editor"
+          severity="secondary"
+          outlined
+          size="small"
+          :disabled="!gen?.prompt?.trim()"
+          @click="openPromptEditor"
+        >
+          <Icon icon="lucide:pen-square" class="size-4" />
+        </Button>
       </div>
     </PaneSection>
 

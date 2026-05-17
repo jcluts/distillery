@@ -7,6 +7,10 @@ import type { AppSettings } from '@/types'
 export type ViewMode = 'grid' | 'loupe'
 export type ZoomLevel = 'fit' | 'actual'
 export type LeftPanelTab = 'generation' | 'timeline' | 'import'
+export interface PromptEditorOptions {
+  text?: string | null
+  canUsePrompt?: boolean
+}
 export type RightPanelTab =
   | 'details'
   | 'collections'
@@ -53,6 +57,8 @@ export const useUIStore = defineStore('ui', () => {
   const settingsLoaded = ref(false)
 
   const activeModals = ref<string[]>([])
+  const promptEditorText = ref<string | null>(null)
+  const promptEditorCanUsePrompt = ref(true)
 
   async function persistSettings(): Promise<void> {
     if (!settingsLoaded.value) return
@@ -162,6 +168,17 @@ export const useUIStore = defineStore('ui', () => {
     activeModals.value = activeModals.value.filter((m) => m !== id)
   }
 
+  function openPromptEditor(options: PromptEditorOptions = {}): void {
+    promptEditorText.value = options.text ?? null
+    promptEditorCanUsePrompt.value = options.canUsePrompt ?? true
+    openModal('prompt-editor')
+  }
+
+  function resetPromptEditorContext(): void {
+    promptEditorText.value = null
+    promptEditorCanUsePrompt.value = true
+  }
+
   return {
     leftPanelOpen,
     leftPanelTab,
@@ -186,6 +203,10 @@ export const useUIStore = defineStore('ui', () => {
     setThumbnailSize,
     activeModals,
     openModal,
-    closeModal
+    closeModal,
+    promptEditorText,
+    promptEditorCanUsePrompt,
+    openPromptEditor,
+    resetPromptEditorContext
   }
 })

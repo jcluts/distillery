@@ -127,6 +127,7 @@ function normalizeJsonSchemaProperty(
     (Array.isArray(property.enum) ? property : null)
   const effective = objectVariant ?? property
   const type = normalizeSchemaType(getString(effective.type))
+  const itemSchema = asRecord(effective.items)
 
   const normalized: CanonicalSchemaProperty = {
     type,
@@ -145,7 +146,15 @@ function normalizeJsonSchemaProperty(
     items:
       type === 'array'
         ? {
-            type: normalizeSchemaType(getString(asRecord(effective.items)?.type))
+            type: normalizeSchemaType(getString(itemSchema?.type)),
+            minItems:
+              asOptionalNumber(effective.minItems) ??
+              asOptionalNumber(itemSchema?.minItems) ??
+              undefined,
+            maxItems:
+              asOptionalNumber(effective.maxItems) ??
+              asOptionalNumber(itemSchema?.maxItems) ??
+              undefined
           }
         : undefined
   }

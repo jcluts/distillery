@@ -91,17 +91,20 @@ const saveTargetLabel = computed(() => {
   if (!selectedFilterCollection.value) return null
   return `Saving into ${selectedFilterCollection.value.name}`
 })
+const canUsePrompt = computed(() => uiStore.promptEditorCanUsePrompt)
 
 watch(
   () => open.value,
   async (isOpen) => {
     if (!isOpen) {
       resetTransientState()
+      uiStore.resetPromptEditorContext()
       return
     }
 
-    editorText.value = generationStore.prompt
-    initialText.value = generationStore.prompt
+    const text = uiStore.promptEditorText ?? generationStore.prompt
+    editorText.value = text
+    initialText.value = text
     searchQuery.value = ''
     collectionFilterId.value = null
     selectedPromptId.value = null
@@ -342,7 +345,7 @@ async function handlePromptRatingChange(rating: number): Promise<void> {
 }
 
 async function handleUsePrompt(): Promise<void> {
-  if (!editorText.value.trim()) return
+  if (!canUsePrompt.value || !editorText.value.trim()) return
 
   generationStore.setFormValue('prompt', editorText.value)
 
@@ -461,6 +464,12 @@ function handleSaveShortcut(): void {
 
   openSavePromptForm()
 }
+
+function handleUsePromptShortcut(): void {
+  if (canUsePrompt.value) {
+    void handleUsePrompt()
+  }
+}
 </script>
 
 <template>
@@ -473,8 +482,8 @@ function handleSaveShortcut(): void {
   >
     <div
       class="grid h-[70vh] min-h-0 gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
-      @keydown.ctrl.enter.prevent="handleUsePrompt"
-      @keydown.meta.enter.prevent="handleUsePrompt"
+      @keydown.ctrl.enter.prevent="handleUsePromptShortcut"
+      @keydown.meta.enter.prevent="handleUsePromptShortcut"
       @keydown.ctrl.s.prevent="handleSaveShortcut"
       @keydown.meta.s.prevent="handleSaveShortcut"
       @keydown.escape.prevent.stop="handleRequestClose"
@@ -742,6 +751,15 @@ function handleSaveShortcut(): void {
         @click="handleRequestClose"
       />
       <Button
+        type="button"
+        label="Copy"
+        severity="secondary"
+        outlined
+        :disabled="!editorText.trim()"
+        @click="copyText(editorText, 'Prompt copied')"
+      />
+      <Button
+        v-if="canUsePrompt"
         type="button"
         label="Use Prompt"
         :disabled="!editorText.trim()"

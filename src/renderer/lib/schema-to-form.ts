@@ -109,6 +109,8 @@ export function getDefaultValues(fields: FormFieldConfig[]): Record<string, unkn
   const defaults: Record<string, unknown> = {}
   for (const field of fields) {
     if (field.default !== undefined) defaults[field.name] = field.default
+    else if (field.type === 'local-size' || field.type === 'size')
+      defaults[field.name] = '1024*1024'
     else if (field.type === 'boolean') defaults[field.name] = false
   }
   return defaults
@@ -176,16 +178,18 @@ function propertyToField(
     hideLabel: !!prop.ui?.hideLabel
   }
 
+  const dimensionConstraints = inferDimensionConstraints(name, prop)
+
   if (prop.ui?.component === 'local-size') {
-    return { ...base, type: 'local-size', min: prop.minimum, max: prop.maximum }
+    return { ...base, type: 'local-size', ...dimensionConstraints }
   }
 
   if (prop.ui?.component === 'size-object') {
     return { ...base, type: 'size-object', min: prop.minimum, max: prop.maximum }
   }
 
-  if (prop.ui?.component === 'size' || (name === 'size' && prop.type === 'string')) {
-    return { ...base, type: 'size', min: prop.minimum, max: prop.maximum }
+  if (prop.ui?.component === 'size' || isPixelSizeField(name, prop)) {
+    return { ...base, type: 'local-size', ...dimensionConstraints }
   }
 
   if (prop.enum?.length) {
@@ -213,6 +217,52 @@ function propertyToField(
     default:
       return { ...base, type: 'text' }
   }
+}
+
+function isPixelSizeField(name: string, prop: CanonicalSchemaProperty): boolean {
+  if (prop.type !== 'string' || prop.enum?.length) return false
+
+  const normalizedName = name.toLowerCase()
+  return (
+    normalizedName === 'size' ||
+    normalizedName === 'image_size' ||
+    normalizedName === 'output_size' ||
+    normalizedName === 'resolution_size'
+  )
+}
+
+function inferDimensionConstraints(
+  name: string,
+  prop: CanonicalSchemaProperty
+): Pick<FormFieldConfig, 'min' | 'max' | 'step'> {
+  const inferred = inferDimensionConstraintsFromDescription(prop.description)
+  const step = prop.step ?? (isDimensionFieldName(name) ? 16 : undefined)
+
+  return {
+    min: prop.minimum ?? inferred.min,
+    max: prop.maximum ?? inferred.max,
+    step
+  }
+}
+
+function inferDimensionConstraintsFromDescription(
+  description: string | undefined
+): Pick<FormFieldConfig, 'min' | 'max'> {
+  if (!description) return {}
+
+  const lower = description.toLowerCase()
+  const range = lower.match(/range:\s*(\d+)\s*[-–]\s*(\d+)\s*per dimension/)
+  if (!range) return {}
+
+  return {
+    min: Number(range[1]),
+    max: Number(range[2])
+  }
+}
+
+function isDimensionFieldName(name: string): boolean {
+  const normalized = name.toLowerCase()
+  return normalized === 'width' || normalized === 'height'
 }
 
 function parseFieldDimensions(value: unknown): { w: number; h: number } | null {

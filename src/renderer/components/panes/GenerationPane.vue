@@ -25,7 +25,25 @@ import { useProviderStore } from '@/stores/provider'
 import { useModelBrowsingStore } from '@/stores/model-browsing'
 import { usePromptStore } from '@/stores/prompt'
 import { useUIStore } from '@/stores/ui'
-import type { CanonicalEndpointDef } from '@/types'
+import type { CanonicalEndpointDef, CanonicalRequestSchema, CanonicalSchemaProperty } from '@/types'
+
+const IMAGE_INPUT_FIELD_NAMES = new Set([
+  'images',
+  'image_urls',
+  'image_url',
+  'image',
+  'init_image',
+  'init_image_url',
+  'input_image',
+  'input_image_url',
+  'image_input',
+  'input_urls',
+  'first_frame_url',
+  'last_frame_url',
+  'reference_image',
+  'reference_images',
+  'ref_images'
+])
 
 // ---------------------------------------------------------------------------
 // Store access
@@ -155,6 +173,16 @@ const isGenerating = computed(
 )
 
 const showRefImages = computed(() => requiresRefImage.value)
+const referenceImageLimit = computed(() => getReferenceImageLimit(endpoint.value?.requestSchema))
+const referenceImageLimitNote = computed(() => {
+  const limit = referenceImageLimit.value
+  if (!limit) return null
+
+  const label = limit === 1 ? 'reference image' : 'reference images'
+  const selected = generationStore.refImages.length
+  const selectedNote = selected > limit ? ` (${selected} selected)` : ''
+  return `This model accepts up to ${limit} ${label}.${selectedNote}`
+})
 
 // ---------------------------------------------------------------------------
 // Fetch endpoint schema on key change
@@ -208,6 +236,43 @@ function handleSetDefaults(defaults: Record<string, unknown>): void {
 
 function handleFieldsChange(fields: FormFieldConfig[]): void {
   fieldsRef.value = fields
+}
+
+function getReferenceImageLimit(schema: CanonicalRequestSchema | undefined): number | null {
+  if (!schema?.properties) return null
+
+  const limits = Object.entries(schema.properties)
+    .filter(([name]) => IMAGE_INPUT_FIELD_NAMES.has(name.toLowerCase()))
+    .map(([, property]) => getImagePropertyLimit(property))
+    .filter((limit): limit is number => limit !== null)
+
+  if (limits.length === 0) return null
+  return Math.min(...limits)
+}
+
+function getImagePropertyLimit(property: CanonicalSchemaProperty): number | null {
+  if (property.type !== 'array') return null
+
+  const explicit = property.items?.maxItems
+  if (typeof explicit === 'number' && Number.isFinite(explicit)) {
+    return explicit
+  }
+
+  return inferMaxImageCountFromDescription(property.description)
+}
+
+function inferMaxImageCountFromDescription(description: string | undefined): number | null {
+  if (!description) return null
+
+  const rangeMatch = description.match(/\b\d+\s*[-–]\s*(\d+)\s+images?\b/i)
+  if (rangeMatch) return Number(rangeMatch[1])
+
+  const upperMatch = description.match(
+    /\b(?:up to|maximum(?: of)?|max(?:imum)?)\s+(\d+)\s+images?\b/i
+  )
+  if (upperMatch) return Number(upperMatch[1])
+
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -266,7 +331,48 @@ async function handleSubmit(): Promise<void> {
 }
 
 function openPromptEditor(): void {
-  uiStore.openModal('prompt-editor')
+  uiStore.openPromptEditor({ text: prompt.value, canUsePrompt: true })
+}
+
+async function copyPrompt(): Promise<void> {
+  if (!prompt.value.trim()) return
+
+  try {
+    await navigator.clipboard.writeText(prompt.value)
+    toast.add({ severity: 'success', summary: 'Prompt copied', life: 2500 })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Copy failed',
+      detail: error instanceof Error ? error.message : String(error),
+      life: 3500
+    })
+  }
+}
+
+async function pastePrompt(): Promise<void> {
+  try {
+    const text = await navigator.clipboard.readText()
+    if (!text.trim()) {
+      toast.add({ severity: 'warn', summary: 'Clipboard is empty', life: 2500 })
+      return
+    }
+
+    generationStore.setFormValue('prompt', text)
+    toast.add({ severity: 'success', summary: 'Prompt pasted', life: 2500 })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Paste failed',
+      detail: error instanceof Error ? error.message : String(error),
+      life: 3500
+    })
+  }
+}
+
+function clearPrompt(): void {
+  if (!prompt.value) return
+  generationStore.setFormValue('prompt', '')
 }
 
 function openSavePromptForm(): void {
@@ -339,48 +445,84 @@ async function handleSavePrompt(): Promise<void> {
           <!-- Reference images -->
           <PaneSection v-if="showRefImages" title="Reference Images">
             <RefImageDropzone />
+            <p v-if="referenceImageLimitNote" class="mt-2 text-xs text-muted">
+              {{ referenceImageLimitNote }}
+            </p>
           </PaneSection>
 
           <!-- Prompt -->
           <PaneSection title="Prompt">
-            <div class="relative">
-              <Textarea
-                data-focus-prompt="true"
-                placeholder="Describe what you want to generate…"
-                :model-value="prompt"
-                rows="3"
-                auto-resize
-                class="w-full resize-none pr-24 text-sm"
-                @update:model-value="(v: string) => generationStore.setFormValue('prompt', v)"
-                @keydown.meta.enter.prevent="handleSubmit"
-                @keydown.ctrl.enter.prevent="handleSubmit"
-              />
+            <Textarea
+              data-focus-prompt="true"
+              placeholder="Describe what you want to generate…"
+              :model-value="prompt"
+              rows="3"
+              auto-resize
+              class="w-full resize-none text-sm"
+              @update:model-value="(v: string) => generationStore.setFormValue('prompt', v)"
+              @keydown.meta.enter.prevent="handleSubmit"
+              @keydown.ctrl.enter.prevent="handleSubmit"
+            />
 
-              <div class="absolute right-1 top-1 flex items-center gap-1">
-                <Button
-                  v-tooltip.top="'Save prompt to library'"
-                  type="button"
-                  text
-                  plain
-                  severity="secondary"
-                  size="small"
-                  :disabled="!prompt.trim()"
-                  @click="openSavePromptForm"
-                >
-                  <Icon icon="lucide:bookmark-plus" class="size-3.5" />
-                </Button>
-                <Button
-                  v-tooltip.top="'Open prompt editor'"
-                  type="button"
-                  text
-                  plain
-                  severity="secondary"
-                  size="small"
-                  @click="openPromptEditor"
-                >
-                  <Icon icon="lucide:pen-square" class="size-3.5" />
-                </Button>
-              </div>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <Button
+                v-tooltip.top="'Copy prompt'"
+                type="button"
+                aria-label="Copy prompt"
+                severity="secondary"
+                outlined
+                size="small"
+                :disabled="!prompt.trim()"
+                @click="copyPrompt"
+              >
+                <Icon icon="lucide:copy" class="size-4" />
+              </Button>
+              <Button
+                v-tooltip.top="'Paste prompt'"
+                type="button"
+                aria-label="Paste prompt"
+                severity="secondary"
+                outlined
+                size="small"
+                @click="pastePrompt"
+              >
+                <Icon icon="lucide:clipboard-paste" class="size-4" />
+              </Button>
+              <Button
+                v-tooltip.top="'Clear prompt'"
+                type="button"
+                aria-label="Clear prompt"
+                severity="secondary"
+                outlined
+                size="small"
+                :disabled="!prompt.trim()"
+                @click="clearPrompt"
+              >
+                <Icon icon="lucide:eraser" class="size-4" />
+              </Button>
+              <Button
+                v-tooltip.top="'Save prompt to library'"
+                type="button"
+                aria-label="Save prompt to library"
+                severity="secondary"
+                outlined
+                size="small"
+                :disabled="!prompt.trim()"
+                @click="openSavePromptForm"
+              >
+                <Icon icon="lucide:bookmark-plus" class="size-4" />
+              </Button>
+              <Button
+                v-tooltip.top="'Open prompt editor'"
+                type="button"
+                aria-label="Open prompt editor"
+                severity="secondary"
+                outlined
+                size="small"
+                @click="openPromptEditor"
+              >
+                <Icon icon="lucide:pen-square" class="size-4" />
+              </Button>
             </div>
 
             <p v-if="validationErrors.prompt" class="mt-1 text-xs text-red-400">

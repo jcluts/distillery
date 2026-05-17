@@ -14,6 +14,9 @@
 		},
 		{
 			"path": "../stable-diffusion.cpp"
+		},
+		{
+			"path": "../../Library/Application Support/distillery"
 		}
 	],
 	"settings": {}

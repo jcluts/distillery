@@ -31,8 +31,18 @@ function normalizeProperty(key: string, input: unknown): CanonicalSchemaProperty
     const items = source.items as Record<string, unknown> | undefined
     normalized.items = {
       type: typeof items?.type === 'string' ? items.type : 'string',
-      minItems: typeof items?.minItems === 'number' ? items.minItems : undefined,
-      maxItems: typeof items?.maxItems === 'number' ? items.maxItems : undefined
+      minItems:
+        typeof source.minItems === 'number'
+          ? source.minItems
+          : typeof items?.minItems === 'number'
+            ? items.minItems
+            : undefined,
+      maxItems:
+        typeof source.maxItems === 'number'
+          ? source.maxItems
+          : typeof items?.maxItems === 'number'
+            ? items.maxItems
+            : undefined
     }
   }
 
